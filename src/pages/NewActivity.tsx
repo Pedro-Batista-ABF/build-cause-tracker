@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/select"
 import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
+import { Slider } from "@/components/ui/slider"
 
 const formSchema = z.object({
   projectId: z.string().min(1, "Selecione um projeto"),
@@ -40,6 +41,11 @@ const formSchema = z.object({
   description: z.string().optional(),
   startDate: z.string().min(1, "Data de início é obrigatória"),
   endDate: z.string().min(1, "Data de término é obrigatória"),
+  planningType: z.string().min(1, "Selecione o tipo de planejamento"),
+  dailyGoal: z.string().optional(),
+  weeklyGoal: z.string().optional(),
+  monthlyGoal: z.string().optional(),
+  distributionType: z.string().min(1, "Selecione o tipo de distribuição"),
 })
 
 const disciplines = [
@@ -66,6 +72,18 @@ const mockProjects = [
   { id: "3", name: "Modernização Unidade Sul" },
 ]
 
+const planningTypes = [
+  "Diário",
+  "Semanal",
+  "Mensal",
+]
+
+const distributionTypes = [
+  "Linear",
+  "Personalizado",
+  "Curva S",
+]
+
 export default function NewActivity() {
   const navigate = useNavigate()
   
@@ -82,6 +100,11 @@ export default function NewActivity() {
       description: "",
       startDate: "",
       endDate: "",
+      planningType: "",
+      dailyGoal: "",
+      weeklyGoal: "",
+      monthlyGoal: "",
+      distributionType: "",
     },
   })
 
@@ -289,6 +312,110 @@ export default function NewActivity() {
                     </FormItem>
                   )}
                 />
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium">Planejamento de Avanço</h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <FormField
+                    control={form.control}
+                    name="planningType"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Tipo de Planejamento</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione o tipo" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {planningTypes.map((type) => (
+                              <SelectItem key={type} value={type}>
+                                {type}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="distributionType"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Distribuição do Avanço</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione a distribuição" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {distributionTypes.map((type) => (
+                              <SelectItem key={type} value={type}>
+                                {type}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                {form.watch("planningType") === "Diário" && (
+                  <FormField
+                    control={form.control}
+                    name="dailyGoal"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Meta Diária ({form.watch("unit")})</FormLabel>
+                        <FormControl>
+                          <Input type="number" placeholder="0" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+
+                {form.watch("planningType") === "Semanal" && (
+                  <FormField
+                    control={form.control}
+                    name="weeklyGoal"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Meta Semanal ({form.watch("unit")})</FormLabel>
+                        <FormControl>
+                          <Input type="number" placeholder="0" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+
+                {form.watch("planningType") === "Mensal" && (
+                  <FormField
+                    control={form.control}
+                    name="monthlyGoal"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Meta Mensal ({form.watch("unit")})</FormLabel>
+                        <FormControl>
+                          <Input type="number" placeholder="0" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
               </div>
 
               <div className="flex justify-end space-x-4">
