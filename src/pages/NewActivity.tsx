@@ -1,4 +1,3 @@
-
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import * as z from "zod"
@@ -31,6 +30,7 @@ import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 
 const formSchema = z.object({
+  projectId: z.string().min(1, "Selecione um projeto"),
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
   discipline: z.string().min(1, "Selecione uma disciplina"),
   manager: z.string().min(2, "Responsável deve ter pelo menos 2 caracteres"),
@@ -59,12 +59,20 @@ const units = [
   "kg",
 ]
 
+// Mock projects data - this would come from your backend in a real app
+const mockProjects = [
+  { id: "1", name: "Projeto ALUMAR" },
+  { id: "2", name: "Expansão Setor 4" },
+  { id: "3", name: "Modernização Unidade Sul" },
+]
+
 export default function NewActivity() {
   const navigate = useNavigate()
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      projectId: "",
       name: "",
       discipline: "",
       manager: "",
@@ -99,6 +107,31 @@ export default function NewActivity() {
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <FormField
+                control={form.control}
+                name="projectId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Projeto</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione um projeto" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {mockProjects.map((project) => (
+                          <SelectItem key={project.id} value={project.id}>
+                            {project.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
               <FormField
                 control={form.control}
                 name="name"
