@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { DashboardCard } from "@/components/dashboard/DashboardCard";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
@@ -29,7 +30,6 @@ const mockCauses = [
 
 export default function Dashboard() {
   const [activePeriod, setActivePeriod] = useState("Semana");
-  const [projects, setProjects] = useState([]);
   const [stats, setStats] = useState({
     avgPPC: 0,
     adherence: 0,
@@ -40,20 +40,9 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (session) {
-      fetchProjects();
       fetchDashboardStats();
     }
   }, [session]);
-
-  const fetchProjects = async () => {
-    const { data, error } = await supabase
-      .from('projects')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(3);
-    
-    if (data) setProjects(data);
-  };
 
   const fetchDashboardStats = async () => {
     const { count: totalActivities } = await supabase
@@ -116,7 +105,7 @@ export default function Dashboard() {
         <CausesAnalysis causes={mockCauses} />
       </div>
       
-      <RecentProjects projects={projects} />
+      <RecentProjects />
     </div>
   );
 }
