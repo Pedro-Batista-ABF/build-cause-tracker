@@ -1,78 +1,29 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 220 14% 96%;
-    --foreground: 222 47% 11%;
-
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
-
-    --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-
-    --primary: 142 40% 30%;
+    --background: 240 18% 5%;
+    --foreground: 0 0% 100%;
+    --card: 240 13% 12%;
+    --card-foreground: 0 0% 100%;
+    --popover: 240 13% 12%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 216 100% 50%;
     --primary-foreground: 0 0% 100%;
-
-    --secondary: 220 13% 91%;
-    --secondary-foreground: 222 47% 11%;
-
-    --muted: 220 13% 91%;
-    --muted-foreground: 217 9% 46%;
-
-    --accent: 220 13% 91%;
-    --accent-foreground: 222 47% 11%;
-
+    --secondary: 240 11% 15%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 240 12% 22%;
+    --muted-foreground: 237 10% 61%;
+    --accent: 216 100% 50%;
+    --accent-foreground: 0 0% 100%;
     --destructive: 0 84% 60%;
-    --destructive-foreground: 210 20% 98%;
-
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
-    --ring: 142 40% 40%;
-
-    --radius: 0.5rem;
-
-    --sidebar-background: 222 20% 18%;
-    --sidebar-foreground: 210 20% 98%;
-    --sidebar-primary: 142 40% 30%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 215 25% 22%;
-    --sidebar-accent-foreground: 210 20% 98%;
-    --sidebar-border: 215 25% 22%;
-    --sidebar-ring: 142 70% 50%;
-  }
-
-  .dark {
-    --background: 222 20% 18%;
-    --foreground: 210 20% 98%;
-
-    --card: 215 25% 22%;
-    --card-foreground: 210 20% 98%;
-
-    --popover: 215 25% 22%;
-    --popover-foreground: 210 20% 98%;
-
-    --primary: 142 40% 40%;
-    --primary-foreground: 0 0% 100%;
-
-    --secondary: 217 19% 27%;
-    --secondary-foreground: 210 20% 98%;
-
-    --muted: 217 19% 27%;
-    --muted-foreground: 215 20% 65%;
-
-    --accent: 217 19% 27%;
-    --accent-foreground: 210 20% 98%;
-
-    --destructive: 0 62% 30%;
-    --destructive-foreground: 210 20% 98%;
-
-    --border: 217 19% 27%;
-    --input: 217 19% 27%;
-    --ring: 142 70% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 13% 19%;
+    --input: 240 13% 19%;
+    --ring: 216 100% 50%;
+    --radius: 0.75rem;
   }
 }
 
@@ -80,9 +31,8 @@
   * {
     @apply border-border;
   }
-
   body {
-    @apply bg-background text-foreground;
+    @apply bg-dark-navy text-text-primary;
   }
 }
 
@@ -124,6 +74,14 @@
   }
 
   .dashboard-card {
-    @apply bg-card rounded-lg shadow-md p-6;
+    @apply bg-card-dark rounded-xl border border-border-dark p-6;
+  }
+
+  .sidebar-nav {
+    @apply bg-sidebar-dark border-r border-border-dark;
+  }
+
+  .chart-container {
+    @apply bg-card-dark rounded-xl border border-border-dark p-4;
   }
 }

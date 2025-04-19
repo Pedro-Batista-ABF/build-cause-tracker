@@ -20,21 +20,22 @@ export function MainLayout() {
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full">
+      <div className="min-h-screen flex w-full bg-dark-navy">
         <AppSidebar />
         
         <div className="flex-1 flex flex-col">
-          <header className="bg-white border-b p-4 flex items-center">
-            <SidebarTrigger />
+          <header className="bg-card-dark border-b border-border-dark p-4 flex items-center">
+            <SidebarTrigger className="text-text-secondary hover:text-text-primary" />
             {pathSegments.length > 0 && (
-              <Breadcrumb className="ml-4">
+              <Breadcrumb className="ml-4 text-text-secondary">
                 <BreadcrumbItem>
-                  <BreadcrumbLink href="/">Dashboard</BreadcrumbLink>
+                  <BreadcrumbLink href="/" className="hover:text-text-primary">Dashboard</BreadcrumbLink>
                 </BreadcrumbItem>
                 {pathSegments.map((segment, index) => (
                   <BreadcrumbItem key={segment}>
                     <BreadcrumbLink 
                       href={`/${pathSegments.slice(0, index + 1).join('/')}`}
+                      className="hover:text-text-primary"
                     >
                       {getBreadcrumbTitle(segment)}
                     </BreadcrumbLink>
