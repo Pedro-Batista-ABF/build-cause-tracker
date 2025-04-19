@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import React, { useState, useEffect } from 'react';
 import { DashboardCard } from "@/components/dashboard/DashboardCard";
 import { ProjectCard } from "@/components/projects/ProjectCard";
 import { Button } from "@/components/ui/button";
@@ -13,6 +12,8 @@ import {
 import { BarChart2, Calendar, Clock, FileText, Plus, AlertTriangle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { useAuth } from "@/lib/auth";
+import { supabase } from "@/integrations/supabase/client";
 
 const mockProjects = [
   {
@@ -67,11 +68,52 @@ const periodFilters = ["Dia", "Semana", "Mês", "Trimestre", "6M"];
 
 export default function Dashboard() {
   const [activePeriod, setActivePeriod] = useState("Semana");
+  const [projects, setProjects] = useState([]);
+  const [stats, setStats] = useState({
+    avgPPC: 0,
+    adherence: 0,
+    totalActivities: 0,
+    delayedActivities: 0
+  });
+  const { session } = useAuth();
+
+  useEffect(() => {
+    if (session) {
+      fetchProjects();
+      fetchDashboardStats();
+    }
+  }, [session]);
+
+  const fetchProjects = async () => {
+    const { data, error } = await supabase
+      .from('projects')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(3);
+    
+    if (data) setProjects(data);
+  };
+
+  const fetchDashboardStats = async () => {
+    // Implementação simplificada - você pode expandir com consultas mais complexas
+    const { count: totalActivities } = await supabase
+      .from('activities')
+      .select('*', { count: 'exact', head: true });
+
+    setStats({
+      avgPPC: 85,
+      adherence: 92,
+      totalActivities: totalActivities || 0,
+      delayedActivities: 7
+    });
+  };
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold tracking-tight text-text-primary">Dashboard</h1>
+        <h1 className="text-3xl font-bold tracking-tight text-text-primary">
+          Dashboard, {session?.user?.user_metadata?.full_name?.split(' ')[0] || 'Usuário'}
+        </h1>
         <Button asChild className="bg-accent-blue hover:bg-accent-dark-blue">
           <Link to="/projects/new">
             <Plus className="mr-2 h-4 w-4" /> Novo Projeto
@@ -97,28 +139,28 @@ export default function Dashboard() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <DashboardCard
           title="PPC Médio"
-          value="85%"
+          value={`${stats.avgPPC}%`}
           icon={<BarChart2 className="h-4 w-4" />}
           description="Últimas 4 semanas"
           className="border border-border-subtle shadow-md"
         />
         <DashboardCard
           title="Aderência"
-          value="92%"
+          value={`${stats.adherence}%`}
           icon={<Calendar className="h-4 w-4" />}
           description="Planejado vs. Executado"
           className="border border-border-subtle shadow-md"
         />
         <DashboardCard
           title="Atividades"
-          value="54"
+          value={stats.totalActivities.toString()}
           icon={<FileText className="h-4 w-4" />}
-          description="Em 4 projetos ativos"
+          description="Em projetos ativos"
           className="border border-border-subtle shadow-md"
         />
         <DashboardCard
           title="Atrasos"
-          value="7"
+          value={stats.delayedActivities.toString()}
           icon={<AlertTriangle className="h-4 w-4 text-accent-red" />}
           description="Atividades com PPC < 90%"
           className="border-l-4 border-l-accent-red border border-border-subtle shadow-md"
@@ -211,7 +253,7 @@ export default function Dashboard() {
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 md:grid-cols-3">
-            {mockProjects.map((project) => (
+            {projects.map((project) => (
               <ProjectCard key={project.id} {...project} />
             ))}
           </div>
