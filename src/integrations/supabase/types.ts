@@ -9,7 +9,217 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      activities: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          discipline: string | null
+          id: string
+          manager: string | null
+          name: string
+          project_id: string | null
+          responsible: string | null
+          total_qty: number | null
+          unit: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          discipline?: string | null
+          id?: string
+          manager?: string | null
+          name: string
+          project_id?: string | null
+          responsible?: string | null
+          total_qty?: number | null
+          unit?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          discipline?: string | null
+          id?: string
+          manager?: string | null
+          name?: string
+          project_id?: string | null
+          responsible?: string | null
+          total_qty?: number | null
+          unit?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activities_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      causes: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      daily_progress: {
+        Row: {
+          activity_id: string | null
+          actual_qty: number | null
+          created_at: string | null
+          created_by: string | null
+          date: string
+          id: string
+          planned_qty: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          activity_id?: string | null
+          actual_qty?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          date: string
+          id?: string
+          planned_qty?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          activity_id?: string | null
+          actual_qty?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          date?: string
+          id?: string
+          planned_qty?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_progress_activity_id_fkey"
+            columns: ["activity_id"]
+            isOneToOne: false
+            referencedRelation: "activities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string | null
+          full_name: string | null
+          id: string
+          updated_at: string | null
+          username: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string | null
+          full_name?: string | null
+          id: string
+          updated_at?: string | null
+          username?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string | null
+          full_name?: string | null
+          id?: string
+          updated_at?: string | null
+          username?: string | null
+        }
+        Relationships: []
+      }
+      progress_causes: {
+        Row: {
+          cause_id: string | null
+          created_at: string | null
+          created_by: string | null
+          id: string
+          notes: string | null
+          progress_id: string | null
+        }
+        Insert: {
+          cause_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          progress_id?: string | null
+        }
+        Update: {
+          cause_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          progress_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "progress_causes_cause_id_fkey"
+            columns: ["cause_id"]
+            isOneToOne: false
+            referencedRelation: "causes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "progress_causes_progress_id_fkey"
+            columns: ["progress_id"]
+            isOneToOne: false
+            referencedRelation: "daily_progress"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      projects: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          id: string
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
