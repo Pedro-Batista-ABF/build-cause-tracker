@@ -50,7 +50,8 @@ export function ProgressCauseDialog({
         .order('category');
       
       if (data) {
-        setCauses(data);
+        // Filter out any causes with empty ids
+        setCauses(data.filter(cause => cause.id));
       }
     }
 
@@ -120,4 +121,3 @@ export function ProgressCauseDialog({
     </AlertDialog>
   );
 }
-

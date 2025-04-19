@@ -34,7 +34,7 @@ export function ProjectActivities({ projectId }: ProjectActivitiesProps) {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("");
-  const [disciplineFilter, setDisciplineFilter] = useState("");
+  const [disciplineFilter, setDisciplineFilter] = useState("all");
 
   useEffect(() => {
     fetchActivities();
@@ -80,13 +80,16 @@ export function ProjectActivities({ projectId }: ProjectActivitiesProps) {
       activity.manager?.toLowerCase().includes(filter.toLowerCase()) ||
       activity.responsible?.toLowerCase().includes(filter.toLowerCase());
 
-    const matchesDiscipline = disciplineFilter === "" ||
+    const matchesDiscipline = disciplineFilter === "all" ||
       activity.discipline === disciplineFilter;
 
     return matchesSearch && matchesDiscipline;
   });
 
-  const uniqueDisciplines = Array.from(new Set(activities.map(a => a.discipline).filter(Boolean)));
+  // Filter out null disciplines and ensure we have unique, non-empty values
+  const uniqueDisciplines = Array.from(
+    new Set(activities.map(a => a.discipline).filter(Boolean))
+  );
 
   if (loading) {
     return <p>Carregando atividades...</p>;
@@ -116,9 +119,9 @@ export function ProjectActivities({ projectId }: ProjectActivitiesProps) {
                   <SelectValue placeholder="Todas as disciplinas" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todas as disciplinas</SelectItem>
+                  <SelectItem value="all">Todas as disciplinas</SelectItem>
                   {uniqueDisciplines.map((discipline) => (
-                    <SelectItem key={discipline} value={discipline || ""}>
+                    <SelectItem key={discipline} value={discipline || "não especificada"}>
                       {discipline}
                     </SelectItem>
                   ))}
@@ -155,4 +158,3 @@ export function ProjectActivities({ projectId }: ProjectActivitiesProps) {
     </Card>
   );
 }
-
