@@ -155,3 +155,4 @@ export function ProjectActivities({ projectId }: ProjectActivitiesProps) {
     </Card>
   );
 }
+

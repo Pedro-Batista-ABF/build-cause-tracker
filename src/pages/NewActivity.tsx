@@ -1,3 +1,4 @@
+
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import * as z from "zod"
@@ -67,7 +68,6 @@ const units = [
   "kg",
 ]
 
-// Mock projects data - this would come from your backend in a real app
 const mockProjects = [
   { id: "1", name: "Projeto ALUMAR" },
   { id: "2", name: "Expansão Setor 4" },
@@ -453,3 +453,4 @@ export default function NewActivity() {
     </div>
   )
 }
+
