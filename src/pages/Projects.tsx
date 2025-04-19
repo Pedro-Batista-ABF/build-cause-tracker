@@ -17,74 +17,53 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Plus, Search } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
 
-const mockProjects = [
-  {
-    id: "1",
-    name: "Projeto ALUMAR",
-    client: "Empresa A",
-    contract: "CT-2023-001",
-    startDate: "2023-01-15",
-    endDate: "2023-12-31",
-    status: "active" as const,
-    ppc: 95,
-  },
-  {
-    id: "2",
-    name: "Expansão Setor 4",
-    client: "Empresa B",
-    contract: "CT-2023-002",
-    startDate: "2023-02-10",
-    endDate: "2023-11-30",
-    status: "delayed" as const,
-    ppc: 68,
-  },
-  {
-    id: "3",
-    name: "Modernização Unidade Sul",
-    client: "Empresa C",
-    contract: "CT-2023-003",
-    startDate: "2023-03-01",
-    endDate: "2023-09-30",
-    status: "inactive" as const,
-    ppc: 0,
-  },
-  {
-    id: "4",
-    name: "Manutenção Preventiva Norte",
-    client: "Empresa D",
-    contract: "CT-2023-004",
-    startDate: "2023-04-01",
-    endDate: "2023-10-31",
-    status: "active" as const,
-    ppc: 87,
-  },
-  {
-    id: "5",
-    name: "Reforma Unidade Central",
-    client: "Empresa E",
-    contract: "CT-2023-005",
-    startDate: "2023-05-15",
-    endDate: "2023-12-15",
-    status: "active" as const,
-    ppc: 92,
-  },
-];
+type Project = {
+  id: string;
+  name: string;
+  client: string | null;
+  contract: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  status: "active" | "delayed" | "inactive";
+  ppc: number | null;
+};
 
 export default function Projects() {
   const [filter, setFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
-  const filteredProjects = mockProjects.filter((project) => {
+  const fetchProjects = async () => {
+    const { data, error } = await supabase
+      .from("projects")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Erro ao buscar projetos:", error);
+      throw new Error("Falha ao carregar projetos");
+    }
+
+    return data || [];
+  };
+
+  const { data: projects = [], isLoading } = useQuery({
+    queryKey: ["projects"],
+    queryFn: fetchProjects,
+  });
+
+  const filteredProjects = projects.filter((project: Project) => {
     const matchesFilter =
       project.name.toLowerCase().includes(filter.toLowerCase()) ||
-      project.client.toLowerCase().includes(filter.toLowerCase()) ||
-      project.contract.toLowerCase().includes(filter.toLowerCase());
+      (project.client && project.client.toLowerCase().includes(filter.toLowerCase())) ||
+      (project.contract && project.contract.toLowerCase().includes(filter.toLowerCase()));
 
     const matchesStatus =
-      statusFilter === "all" || project.status === statusFilter;
+      statusFilter === "all" || (project.status && project.status === statusFilter);
 
     return matchesFilter && matchesStatus;
   });
@@ -134,18 +113,36 @@ export default function Projects() {
             </Select>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredProjects.map((project) => (
-              <ProjectCard key={project.id} {...project} />
-            ))}
-          </div>
-
-          {filteredProjects.length === 0 && (
+          {isLoading ? (
             <div className="text-center py-12">
-              <p className="text-muted-foreground">
-                Nenhum projeto encontrado com os filtros aplicados.
-              </p>
+              <p className="text-muted-foreground">Carregando projetos...</p>
             </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredProjects.map((project: Project) => (
+                  <ProjectCard 
+                    key={project.id} 
+                    id={project.id}
+                    name={project.name}
+                    client={project.client || ""}
+                    contract={project.contract || ""}
+                    startDate={project.start_date || ""}
+                    endDate={project.end_date || ""}
+                    status={project.status || "active"}
+                    ppc={project.ppc || 0}
+                  />
+                ))}
+              </div>
+
+              {filteredProjects.length === 0 && (
+                <div className="text-center py-12">
+                  <p className="text-muted-foreground">
+                    Nenhum projeto encontrado com os filtros aplicados.
+                  </p>
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>

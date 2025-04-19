@@ -12,6 +12,7 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import {
   Card,
   CardContent,
@@ -21,17 +22,21 @@ import {
 } from "@/components/ui/card"
 import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
+import { useState } from "react"
+import { supabase } from "@/integrations/supabase/client"
 
 const formSchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
   client: z.string().min(2, "Cliente deve ter pelo menos 2 caracteres"),
   contract: z.string().min(2, "Contrato deve ter pelo menos 2 caracteres"),
-  startDate: z.string(),
-  endDate: z.string(),
+  description: z.string().optional(),
+  start_date: z.string(),
+  end_date: z.string(),
 })
 
 export default function NewProject() {
   const navigate = useNavigate()
+  const [isSubmitting, setIsSubmitting] = useState(false)
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -39,16 +44,47 @@ export default function NewProject() {
       name: "",
       client: "",
       contract: "",
-      startDate: "",
-      endDate: "",
+      description: "",
+      start_date: "",
+      end_date: "",
     },
   })
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    // Here you would typically make an API call to create the project
-    console.log(values)
-    toast.success("Projeto criado com sucesso!")
-    navigate("/projects")
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    try {
+      setIsSubmitting(true)
+      console.log("Enviando dados para o Supabase:", values)
+      
+      // Inserir o projeto no banco de dados usando Supabase
+      const { data, error } = await supabase
+        .from("projects")
+        .insert({
+          name: values.name,
+          client: values.client,
+          contract: values.contract,
+          description: values.description || null,
+          start_date: values.start_date,
+          end_date: values.end_date,
+          status: "active", // Define o status inicial como ativo
+          ppc: 0 // Inicializa o PPC como zero
+        })
+        .select()
+
+      if (error) {
+        console.error("Erro ao salvar projeto:", error)
+        toast.error(`Erro ao criar projeto: ${error.message}`)
+        return
+      }
+
+      console.log("Projeto criado com sucesso:", data)
+      toast.success("Projeto criado com sucesso!")
+      navigate("/projects")
+    } catch (error) {
+      console.error("Erro ao processar formulário:", error)
+      toast.error("Ocorreu um erro ao criar o projeto. Tente novamente.")
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -109,10 +145,24 @@ export default function NewProject() {
                 )}
               />
 
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Descrição</FormLabel>
+                    <FormControl>
+                      <Textarea placeholder="Descreva o projeto..." {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FormField
                   control={form.control}
-                  name="startDate"
+                  name="start_date"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Data de Início</FormLabel>
@@ -126,7 +176,7 @@ export default function NewProject() {
 
                 <FormField
                   control={form.control}
-                  name="endDate"
+                  name="end_date"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Data de Término</FormLabel>
@@ -143,7 +193,9 @@ export default function NewProject() {
                 <Button variant="outline" type="button" onClick={() => navigate("/projects")}>
                   Cancelar
                 </Button>
-                <Button type="submit">Criar Projeto</Button>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? "Criando..." : "Criar Projeto"}
+                </Button>
               </div>
             </form>
           </Form>
