@@ -17,7 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Plus, Search } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
@@ -29,7 +29,7 @@ type Project = {
   contract: string | null;
   start_date: string | null;
   end_date: string | null;
-  status: "active" | "delayed" | "inactive";
+  status: string | null;
   ppc: number | null;
 };
 
@@ -129,7 +129,7 @@ export default function Projects() {
                     contract={project.contract || ""}
                     startDate={project.start_date || ""}
                     endDate={project.end_date || ""}
-                    status={project.status || "active"}
+                    status={(project.status as 'active' | 'inactive' | 'delayed') || "active"}
                     ppc={project.ppc || 0}
                   />
                 ))}

@@ -13,7 +13,7 @@ interface Project {
   contract: string | null;
   start_date: string | null;
   end_date: string | null;
-  status: "active" | "delayed" | "inactive";
+  status: string | null;
   ppc: number | null;
 }
 
@@ -62,7 +62,7 @@ export function RecentProjects() {
                 contract={project.contract || ""}
                 startDate={project.start_date || ""}
                 endDate={project.end_date || ""}
-                status={project.status || "active"}
+                status={(project.status as 'active' | 'inactive' | 'delayed') || "active"}
                 ppc={project.ppc || 0}
               />
             ))}

@@ -30,8 +30,8 @@ const formSchema = z.object({
   client: z.string().min(2, "Cliente deve ter pelo menos 2 caracteres"),
   contract: z.string().min(2, "Contrato deve ter pelo menos 2 caracteres"),
   description: z.string().optional(),
-  start_date: z.string(),
-  end_date: z.string(),
+  start_date: z.string().min(1, "Data de início é obrigatória"),
+  end_date: z.string().min(1, "Data de término é obrigatória"),
 })
 
 export default function NewProject() {
@@ -54,6 +54,13 @@ export default function NewProject() {
     try {
       setIsSubmitting(true)
       console.log("Enviando dados para o Supabase:", values)
+      
+      // Validate and handle date fields properly - don't send empty strings
+      if (!values.start_date || !values.end_date) {
+        toast.error("As datas de início e término são obrigatórias")
+        setIsSubmitting(false)
+        return
+      }
       
       // Inserir o projeto no banco de dados usando Supabase
       const { data, error } = await supabase
@@ -167,7 +174,11 @@ export default function NewProject() {
                     <FormItem>
                       <FormLabel>Data de Início</FormLabel>
                       <FormControl>
-                        <Input type="date" {...field} />
+                        <Input 
+                          type="date" 
+                          required
+                          {...field} 
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -181,7 +192,11 @@ export default function NewProject() {
                     <FormItem>
                       <FormLabel>Data de Término</FormLabel>
                       <FormControl>
-                        <Input type="date" {...field} />
+                        <Input 
+                          type="date" 
+                          required
+                          {...field} 
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
