@@ -18,17 +18,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
-const causes = [
-  "Falta de material",
-  "Falta de mão de obra",
-  "Condições climáticas",
-  "Interferência com outras atividades",
-  "Problema de equipamento",
-  "Retrabalho",
-  "Outros",
-];
+interface Cause {
+  id: string;
+  name: string;
+  category: string;
+}
 
 interface ProgressCauseDialogProps {
   open: boolean;
@@ -43,6 +40,22 @@ export function ProgressCauseDialog({
 }: ProgressCauseDialogProps) {
   const [selectedCause, setSelectedCause] = useState("");
   const [description, setDescription] = useState("");
+  const [causes, setCauses] = useState<Cause[]>([]);
+
+  useEffect(() => {
+    async function fetchCauses() {
+      const { data } = await supabase
+        .from('causes')
+        .select('*')
+        .order('category');
+      
+      if (data) {
+        setCauses(data);
+      }
+    }
+
+    fetchCauses();
+  }, []);
 
   const handleSubmit = () => {
     onSubmit({
@@ -75,8 +88,8 @@ export function ProgressCauseDialog({
               </SelectTrigger>
               <SelectContent>
                 {causes.map((cause) => (
-                  <SelectItem key={cause} value={cause}>
-                    {cause}
+                  <SelectItem key={cause.id} value={cause.id}>
+                    {cause.name} ({cause.category})
                   </SelectItem>
                 ))}
               </SelectContent>

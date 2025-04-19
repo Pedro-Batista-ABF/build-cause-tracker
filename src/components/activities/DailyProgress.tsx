@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { ProgressCauseDialog } from "./ProgressCauseDialog";
+import { supabase } from "@/integrations/supabase/client";
 
 interface DailyProgressProps {
   activityId: string;
@@ -27,7 +28,7 @@ export function DailyProgress({
   activityName, 
   unit, 
   totalQty,
-  plannedProgress = 10, // This would come from your progress distribution calculation
+  plannedProgress = 10,
 }: DailyProgressProps) {
   const [quantity, setQuantity] = useState("");
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -49,19 +50,41 @@ export function DailyProgress({
     submitProgress();
   };
 
-  const submitProgress = (cause?: { type: string; description: string }) => {
-    // Here you would typically send this to your backend
-    console.log({
-      activityId,
-      date,
-      quantity: Number(quantity),
-      cause,
-    });
+  const submitProgress = async (cause?: { type: string; description: string }) => {
+    try {
+      const { data: progressData, error: progressError } = await supabase
+        .from('daily_progress')
+        .insert([{
+          activity_id: activityId,
+          date,
+          actual_qty: Number(quantity),
+          planned_qty: plannedProgress
+        }])
+        .select('id')
+        .single();
 
-    toast.success("Avanço registrado com sucesso!");
-    setOpen(false);
-    setQuantity("");
-    setShowCauseDialog(false);
+      if (progressError) throw progressError;
+
+      if (cause && progressData) {
+        const { error: causeError } = await supabase
+          .from('progress_causes')
+          .insert([{
+            progress_id: progressData.id,
+            cause_id: cause.type,
+            notes: cause.description
+          }]);
+
+        if (causeError) throw causeError;
+      }
+
+      toast.success("Avanço registrado com sucesso!");
+      setOpen(false);
+      setQuantity("");
+      setShowCauseDialog(false);
+    } catch (error) {
+      console.error('Error submitting progress:', error);
+      toast.error("Erro ao registrar avanço");
+    }
   };
 
   const handleCauseSubmit = (cause: { type: string; description: string }) => {
