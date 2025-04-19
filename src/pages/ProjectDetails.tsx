@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -206,10 +205,7 @@ export default function ProjectDetails() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              onClick={handleDeleteProject}
-            >
+            <AlertDialogAction onClick={handleDeleteProject}>
               Excluir
             </AlertDialogAction>
           </AlertDialogFooter>

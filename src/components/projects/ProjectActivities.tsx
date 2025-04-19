@@ -67,7 +67,19 @@ export function ProjectActivities({ projectId }: ProjectActivitiesProps) {
         <div className="space-y-4">
           {activities.length > 0 ? (
             activities.map((activity) => (
-              <ActivityRow key={activity.id} {...activity} />
+              <ActivityRow 
+                key={activity.id}
+                id={activity.id}
+                name={activity.name}
+                discipline={activity.discipline || ''}
+                manager={activity.manager || ''}
+                responsible={activity.responsible || ''}
+                unit={activity.unit || ''}
+                totalQty={activity.total_qty || 0}
+                progress={activity.progress}
+                ppc={activity.ppc}
+                adherence={activity.adherence}
+              />
             ))
           ) : (
             <p className="text-center text-muted-foreground py-8">
