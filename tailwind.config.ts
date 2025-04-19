@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -61,7 +62,15 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
-				}
+				},
+				// Industrial theme
+				"graphite": "#2D3142",
+				"graphite-light": "#3F4259",
+				"moss": "#4D6A6D",
+				"moss-light": "#5E8B8F",
+				"rust": "#A63446",
+				"rust-light": "#BF4A5C",
+				"light-blue": "#E9F1F7",
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
