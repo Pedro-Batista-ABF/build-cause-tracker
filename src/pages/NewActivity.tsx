@@ -29,6 +29,8 @@ import {
 import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 import { Slider } from "@/components/ui/slider"
+import { ProgressDistributionChart } from "@/components/activities/ProgressDistributionChart";
+import { DistributionType } from "@/utils/progressDistribution";
 
 const formSchema = z.object({
   projectId: z.string().min(1, "Selecione um projeto"),
@@ -113,6 +115,12 @@ export default function NewActivity() {
     toast.success("Atividade criada com sucesso!")
     navigate("/activities")
   }
+
+  const showDistributionChart = form.watch("startDate") && 
+    form.watch("endDate") && 
+    form.watch("totalQty") && 
+    form.watch("distributionType") &&
+    form.watch("unit");
 
   return (
     <div className="space-y-6">
@@ -417,6 +425,16 @@ export default function NewActivity() {
                   />
                 )}
               </div>
+
+              {showDistributionChart && (
+                <ProgressDistributionChart
+                  startDate={form.watch("startDate")}
+                  endDate={form.watch("endDate")}
+                  totalQuantity={Number(form.watch("totalQty"))}
+                  distributionType={form.watch("distributionType") as DistributionType}
+                  unit={form.watch("unit")}
+                />
+              )}
 
               <div className="flex justify-end space-x-4">
                 <Button 
