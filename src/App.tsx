@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { MainLayout } from "./components/layout/MainLayout";
 import Dashboard from "./pages/Dashboard";
 import Projects from "./pages/Projects";
+import NewProject from "./pages/NewProject";
 import Activities from "./pages/Activities";
 import Indicators from "./pages/Indicators";
 import Settings from "./pages/Settings";
@@ -25,6 +26,7 @@ const App = () => {
             <Route element={<MainLayout />}>
               <Route path="/" element={<Dashboard />} />
               <Route path="/projects" element={<Projects />} />
+              <Route path="/projects/new" element={<NewProject />} />
               <Route path="/activities" element={<Activities />} />
               <Route path="/indicators" element={<Indicators />} />
               <Route path="/causes" element={<div>Causas Page</div>} />
