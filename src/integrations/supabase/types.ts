@@ -57,6 +57,13 @@ export type Database = {
             referencedRelation: "projects"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "fk_project_id"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
         ]
       }
       causes: {
@@ -195,27 +202,45 @@ export type Database = {
       }
       projects: {
         Row: {
+          client: string | null
+          contract: string | null
           created_at: string | null
           created_by: string | null
           description: string | null
+          end_date: string | null
           id: string
           name: string
+          ppc: number | null
+          start_date: string | null
+          status: string | null
           updated_at: string | null
         }
         Insert: {
+          client?: string | null
+          contract?: string | null
           created_at?: string | null
           created_by?: string | null
           description?: string | null
+          end_date?: string | null
           id?: string
           name: string
+          ppc?: number | null
+          start_date?: string | null
+          status?: string | null
           updated_at?: string | null
         }
         Update: {
+          client?: string | null
+          contract?: string | null
           created_at?: string | null
           created_by?: string | null
           description?: string | null
+          end_date?: string | null
           id?: string
           name?: string
+          ppc?: number | null
+          start_date?: string | null
+          status?: string | null
           updated_at?: string | null
         }
         Relationships: []
