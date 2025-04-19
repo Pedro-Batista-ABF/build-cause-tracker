@@ -1,29 +1,30 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 240 18% 5%;
+    --background: 222 18% 8%;
     --foreground: 0 0% 100%;
-    --card: 240 13% 12%;
+    --card: 222 16% 14%;
     --card-foreground: 0 0% 100%;
-    --popover: 240 13% 12%;
+    --popover: 222 16% 14%;
     --popover-foreground: 0 0% 100%;
-    --primary: 216 100% 50%;
+    --primary: 216 89% 53%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 240 11% 15%;
+    --secondary: 222 17% 19%;
     --secondary-foreground: 0 0% 100%;
-    --muted: 240 12% 22%;
-    --muted-foreground: 237 10% 61%;
-    --accent: 216 100% 50%;
+    --muted: 222 14% 24%;
+    --muted-foreground: 220 14% 72%;
+    --accent: 216 89% 53%;
     --accent-foreground: 0 0% 100%;
-    --destructive: 0 84% 60%;
+    --destructive: 350 89% 55%;
     --destructive-foreground: 0 0% 100%;
-    --border: 240 13% 19%;
-    --input: 240 13% 19%;
-    --ring: 216 100% 50%;
-    --radius: 0.75rem;
+    --border: 222 16% 20%;
+    --input: 222 16% 20%;
+    --ring: 216 89% 53%;
+    --radius: 0.5rem;
   }
 }
 
@@ -32,13 +33,13 @@
     @apply border-border;
   }
   body {
-    @apply bg-dark-navy text-text-primary;
+    @apply bg-dark-bg text-text-primary font-sans;
   }
 }
 
 @layer components {
   .ppc-high {
-    @apply bg-moss text-white;
+    @apply bg-accent-green text-white;
   }
 
   .ppc-medium {
@@ -46,11 +47,11 @@
   }
 
   .ppc-low {
-    @apply bg-rust text-white;
+    @apply bg-accent-red text-white;
   }
 
   .progress-bar {
-    @apply h-2 rounded-full bg-secondary overflow-hidden;
+    @apply h-2 rounded-full bg-border overflow-hidden;
   }
 
   .progress-value {
@@ -58,30 +59,46 @@
   }
 
   .card-project {
-    @apply bg-card rounded-lg shadow-md p-4 border-l-4 hover:shadow-lg transition-shadow;
+    @apply bg-card-bg rounded-lg shadow-md p-4 border border-border-subtle hover:shadow-lg transition-shadow;
   }
 
   .card-project-active {
-    @apply border-l-moss;
+    @apply border-l-4 border-l-accent-green;
   }
 
   .card-project-inactive {
-    @apply border-l-gray-400;
+    @apply border-l-4 border-l-text-secondary;
   }
 
   .card-project-delayed {
-    @apply border-l-rust;
+    @apply border-l-4 border-l-accent-red;
   }
 
   .dashboard-card {
-    @apply bg-card-dark rounded-xl border border-border-dark p-6;
+    @apply bg-card-bg rounded-lg border border-border-subtle p-5;
   }
 
   .sidebar-nav {
-    @apply bg-sidebar-dark border-r border-border-dark;
+    @apply bg-card-bg border-r border-border-subtle;
   }
 
   .chart-container {
-    @apply bg-card-dark rounded-xl border border-border-dark p-4;
+    @apply bg-card-bg rounded-lg border border-border-subtle p-4;
+  }
+  
+  .table-row-alt {
+    @apply even:bg-card-bg odd:bg-dark-bg;
+  }
+  
+  .filter-button {
+    @apply px-4 py-2 rounded-md text-sm font-medium transition-colors;
+  }
+  
+  .filter-button-inactive {
+    @apply bg-card-bg text-text-secondary hover:bg-hover-bg;
+  }
+  
+  .filter-button-active {
+    @apply bg-accent-blue text-white;
   }
 }

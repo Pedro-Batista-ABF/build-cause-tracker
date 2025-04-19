@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -62,25 +63,20 @@ export default {
           border: 'hsl(var(--sidebar-border))',
           ring: 'hsl(var(--sidebar-ring))'
         },
-        // Industrial theme
-        "graphite": "#2D3142",
-        "graphite-light": "#3F4259",
-        "moss": "#4D6A6D",
-        "moss-light": "#5E8B8F",
-        "rust": "#A63446",
-        "rust-light": "#BF4A5C",
-        "light-blue": "#E9F1F7",
-        
-        // Custom theme colors
-        "dark-navy": "#0C0D15",
-        "card-dark": "#1A1B23",
-        "sidebar-dark": "#141519",
-        "accent-blue": "#0066FF",
-        "success-green": "#00C853",
-        "error-red": "#FF3B3B",
+        // Dashboard theme
+        "dark-bg": "#10121C",
+        "card-bg": "#1A1E2C",
+        "accent-blue": "#1D5EF1",
+        "accent-dark-blue": "#1241B4",
+        "accent-green": "#00AF54",
+        "accent-red": "#E5344C",
+        "accent-purple": "#6356E5",
         "text-primary": "#FFFFFF",
-        "text-secondary": "#8F90A6",
-        "border-dark": "#2A2B36",
+        "text-secondary": "#A9B0C5",
+        "border-subtle": "#242A3D",
+        "chart-grid": "#242A3D",
+        "chart-line": "#1D5EF1",
+        "hover-bg": "#242A3D",
       },
       borderRadius: {
         lg: 'var(--radius)',
@@ -89,25 +85,30 @@ export default {
       },
       keyframes: {
         'accordion-down': {
-          from: {
-            height: '0'
-          },
-          to: {
-            height: 'var(--radix-accordion-content-height)'
-          }
+          from: { height: '0' },
+          to: { height: 'var(--radix-accordion-content-height)' }
         },
         'accordion-up': {
-          from: {
-            height: 'var(--radix-accordion-content-height)'
-          },
-          to: {
-            height: '0'
-          }
+          from: { height: 'var(--radix-accordion-content-height)' },
+          to: { height: '0' }
+        },
+        'fade-in': {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' }
+        },
+        'fade-out': {
+          '0%': { opacity: '1' },
+          '100%': { opacity: '0' }
         }
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
-        'accordion-up': 'accordion-up 0.2s ease-out'
+        'accordion-up': 'accordion-up 0.2s ease-out',
+        'fade-in': 'fade-in 0.3s ease-out',
+        'fade-out': 'fade-out 0.3s ease-out',
+      },
+      fontFamily: {
+        'sans': ['Inter', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif']
       }
     },
   },

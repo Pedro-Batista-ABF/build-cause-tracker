@@ -12,15 +12,15 @@ interface DashboardCardProps {
 
 export function DashboardCard({ title, value, icon, description, className }: DashboardCardProps) {
   return (
-    <div className={cn("dashboard-card", className)}>
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-medium text-muted-foreground">{title}</h3>
-        <div className="text-primary">{icon}</div>
+    <div className={cn("bg-card-bg rounded-lg p-5", className)}>
+      <div className="flex justify-between items-center mb-3">
+        <h3 className="text-sm font-medium text-text-secondary">{title}</h3>
+        <div className="text-accent-blue">{icon}</div>
       </div>
       
       <div className="space-y-1">
-        <p className="text-3xl font-bold">{value}</p>
-        {description && <p className="text-sm text-muted-foreground">{description}</p>}
+        <p className="text-3xl font-bold text-text-primary">{value}</p>
+        {description && <p className="text-xs text-text-secondary">{description}</p>}
       </div>
     </div>
   );
