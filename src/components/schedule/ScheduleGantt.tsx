@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -22,7 +23,7 @@ interface ScheduleGanttProps {
 export function ScheduleGantt({ scheduleData, isLoading, projectId, onDataChange }: ScheduleGanttProps) {
   const [selectedTask, setSelectedTask] = useState<ScheduleTask | null>(null);
   const [isLinkDialogOpen, setIsLinkDialogOpen] = useState(false);
-  const [linkedActivities, setLinkedActivities] = useState<Record<string, string>>({});
+  const [linkedActivities, setLinkedActivities] = useState<Record<string, string[]>>({});
   const ganttContainerRef = useRef<HTMLDivElement>(null);
   const [filter, setFilter] = useState("all");
 
@@ -45,12 +46,16 @@ export function ScheduleGantt({ scheduleData, isLoading, projectId, onDataChange
         
         if (error) throw error;
 
-        const linkMap: Record<string, string> = {};
+        // Modified to support multiple activities per task
+        const linkMap: Record<string, string[]> = {};
         const typedData = data as LinkedActivity[];
         
         typedData.forEach((item) => {
           if (item.atividade_lps_id && item.activities) {
-            linkMap[item.id] = item.activities.name;
+            if (!linkMap[item.id]) {
+              linkMap[item.id] = [];
+            }
+            linkMap[item.id].push(item.activities.name);
           }
         });
         
@@ -69,10 +74,28 @@ export function ScheduleGantt({ scheduleData, isLoading, projectId, onDataChange
   };
 
   const handleLinkSuccess = (taskId: string, activityName: string) => {
-    setLinkedActivities({
-      ...linkedActivities,
-      [taskId]: activityName
-    });
+    if (activityName) {
+      // Update the linked activities state to reflect the new link
+      setLinkedActivities(prev => {
+        const updated = { ...prev };
+        if (!updated[taskId]) {
+          updated[taskId] = [];
+        }
+        if (!updated[taskId].includes(activityName)) {
+          updated[taskId] = [...updated[taskId], activityName];
+        }
+        return updated;
+      });
+    } else {
+      // If activityName is empty, the link was removed
+      setLinkedActivities(prev => {
+        const updated = { ...prev };
+        if (updated[taskId]) {
+          delete updated[taskId];
+        }
+        return updated;
+      });
+    }
     onDataChange();
   };
 
@@ -163,23 +186,25 @@ export function ScheduleGantt({ scheduleData, isLoading, projectId, onDataChange
                       <div className="flex items-center gap-2" style={{ paddingLeft: `${paddingLeft}px` }}>
                         <span className={`h-3 w-3 rounded-full ${getStatusColor(task)}`}></span>
                         <span className="font-medium">{task.nome}</span>
-                        {linkedActivities[task.id] && (
-                          <Badge variant="outline" className="ml-2">
-                            Vinculado: {linkedActivities[task.id]}
-                          </Badge>
-                        )}
+                        <div className="flex flex-wrap gap-1 ml-2">
+                          {linkedActivities[task.id]?.map((activityName, index) => (
+                            <Badge key={index} variant="outline" className="text-xs">
+                              {activityName}
+                            </Badge>
+                          ))}
+                        </div>
                       </div>
-                      <div>{new Date(task.data_inicio).toLocaleDateString('pt-BR')}</div>
-                      <div>{new Date(task.data_termino).toLocaleDateString('pt-BR')}</div>
-                      <div>{task.percentual_previsto}%</div>
-                      <div>{task.percentual_real}%</div>
+                      <div>{task.data_inicio ? new Date(task.data_inicio).toLocaleDateString('pt-BR') : 'N/A'}</div>
+                      <div>{task.data_termino ? new Date(task.data_termino).toLocaleDateString('pt-BR') : 'N/A'}</div>
+                      <div>{task.percentual_previsto || 0}%</div>
+                      <div>{task.percentual_real || 0}%</div>
                       <div>
                         <Button 
                           size="sm" 
                           variant="ghost" 
                           className="h-8 w-8 p-0" 
                           onClick={() => handleLinkTask(task)}
-                          title={linkedActivities[task.id] ? "Alterar vinculação" : "Vincular à atividade LPS"}
+                          title="Vincular à atividade LPS"
                         >
                           <Link className="h-4 w-4" />
                         </Button>

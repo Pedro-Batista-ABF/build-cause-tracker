@@ -47,6 +47,7 @@ export function LinkTaskDialog({
   async function fetchActivities() {
     setIsLoading(true);
     try {
+      // Modified query to include all activities, even those linked to other schedule tasks
       const { data, error } = await supabase
         .from("activities")
         .select("id, name, discipline")

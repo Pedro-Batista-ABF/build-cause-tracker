@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -177,6 +178,9 @@ export function DailyProgress({
     onError: (error) => {
       console.error('Error submitting progress:', error);
       toast.error(error instanceof Error ? error.message : "Erro ao registrar avanço");
+      // Always close dialogs on error to prevent them from getting stuck
+      setOpen(false);
+      setShowCauseDialog(false);
     }
   });
 
@@ -184,10 +188,10 @@ export function DailyProgress({
     e.preventDefault();
     
     const progress = Number(quantity);
-    const threshold = 0.1;
-    const difference = Math.abs(progress - plannedProgress);
     
-    if (difference > threshold * plannedProgress) {
+    // Only show cause dialog when progress is less than planned
+    // This fixes the issue where deviations were required for progress above plan
+    if (progress < plannedProgress) {
       setShowCauseDialog(true);
       return;
     }
@@ -201,6 +205,13 @@ export function DailyProgress({
       date, 
       cause 
     });
+  };
+  
+  // Handle dialog cancel properly
+  const handleDialogCancel = () => {
+    setOpen(false);
+    setShowCauseDialog(false);
+    setQuantity("");
   };
 
   if (!session?.user) {
@@ -265,7 +276,7 @@ export function DailyProgress({
                     <Button 
                       type="button" 
                       variant="outline" 
-                      onClick={() => setOpen(false)}
+                      onClick={handleDialogCancel}
                       disabled={submitProgressMutation.isPending}
                     >
                       Cancelar
@@ -294,7 +305,11 @@ export function DailyProgress({
 
       <ProgressCauseDialog
         open={showCauseDialog}
-        onOpenChange={setShowCauseDialog}
+        onOpenChange={(open) => {
+          // Ensure proper closing of nested dialog
+          setShowCauseDialog(open);
+          if (!open) setOpen(false);
+        }}
         onSubmit={handleCauseSubmit}
       />
     </div>
