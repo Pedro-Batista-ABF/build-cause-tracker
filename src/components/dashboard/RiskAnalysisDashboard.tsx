@@ -6,13 +6,34 @@ import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { RiscoAtraso } from "@/types/database";
+
+interface RiskItem {
+  id: string;
+  atividade_id: string;
+  atividade_nome: string;
+  risco_atraso_pct: number;
+  classificacao: string;
+  discipline?: string;
+  responsible?: string;
+}
 
 export function RiskAnalysisDashboard() {
   const { data: risks = [], isLoading } = useQuery({
     queryKey: ['dashboard-risks'],
     queryFn: async () => {
       try {
+        // Checar se a tabela existe primeiro
+        const { error: checkError } = await supabase
+          .from('risco_atraso')
+          .select('id')
+          .limit(1);
+          
+        if (checkError) {
+          console.log("A tabela risco_atraso não existe ainda:", checkError.message);
+          return [];
+        }
+        
+        // Se a tabela existir, buscar os dados
         const { data, error } = await supabase
           .from('risco_atraso')
           .select(`
@@ -32,7 +53,7 @@ export function RiskAnalysisDashboard() {
         
         if (error) throw error;
         
-        return data.map((risk: RiscoAtraso) => ({
+        return data.map((risk: any) => ({
           id: risk.id,
           atividade_id: risk.atividade_id,
           atividade_nome: risk.activities?.name || 'Atividade sem nome',

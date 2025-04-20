@@ -8,27 +8,34 @@ import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { RiskAnalysisCard } from '@/components/risk/RiskAnalysisCard';
-import { PlanningReport, RiscoAtraso } from '@/types/database';
+import { PlanningReport } from '@/types/database';
 
 export default function PlanningAssistant() {
   // Query for fetching the latest planning report
   const { 
     data: latestReport, 
     isLoading: isLoadingReport,
-    refetch: refetchReport
+    refetch: refetchReport,
+    error: reportError
   } = useQuery({
     queryKey: ['planning-report'],
     queryFn: async () => {
       try {
         const { data, error } = await supabase.functions.invoke('get-current-report');
           
-        if (error) throw error;
-        if (!data.success) throw new Error(data.error || 'Erro ao buscar relatório');
+        if (error) {
+          console.error("Erro na função edge:", error);
+          return null;
+        }
+        
+        if (!data.success) {
+          console.error("Erro na resposta:", data.error);
+          return null;
+        }
         
         return data.report as PlanningReport;
       } catch (error) {
         console.error('Error fetching planning report:', error);
-        toast.error('Erro ao carregar o relatório de planejamento');
         return null;
       }
     }
@@ -43,6 +50,18 @@ export default function PlanningAssistant() {
     queryKey: ['risk-analysis'],
     queryFn: async () => {
       try {
+        // Checar se a tabela existe primeiro
+        const { error: checkError } = await supabase
+          .from('risco_atraso')
+          .select('id')
+          .limit(1);
+          
+        if (checkError) {
+          console.log("A tabela risco_atraso não existe ainda:", checkError.message);
+          return [];
+        }
+        
+        // Se a tabela existir, buscar os dados
         const { data, error } = await supabase
           .from('risco_atraso')
           .select(`
@@ -62,7 +81,7 @@ export default function PlanningAssistant() {
           
         if (error) throw error;
         
-        return data.map((item: RiscoAtraso) => ({
+        return data.map((item: any) => ({
           id: item.id,
           atividade_id: item.atividade_id,
           atividade_nome: item.activities?.name || 'Atividade sem nome',
@@ -74,7 +93,6 @@ export default function PlanningAssistant() {
         }));
       } catch (error) {
         console.error('Error fetching risk analysis data:', error);
-        toast.error('Erro ao carregar os dados de análise de risco');
         return [];
       }
     }
@@ -103,6 +121,13 @@ export default function PlanningAssistant() {
       toast.error('Erro ao gerar novo relatório');
     }
   };
+
+  // Mostrar mensagem de erro se as tabelas não existirem
+  useEffect(() => {
+    if (reportError) {
+      toast.error('Erro ao carregar relatório. Verifique se as tabelas foram criadas no banco de dados.');
+    }
+  }, [reportError]);
 
   return (
     <div className="space-y-6">

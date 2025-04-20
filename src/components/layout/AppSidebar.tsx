@@ -9,7 +9,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarHeader, // Added missing import
+  SidebarHeader,
 } from "@/components/ui/sidebar";
 import {
   Home,
