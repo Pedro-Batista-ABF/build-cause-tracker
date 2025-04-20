@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
@@ -184,7 +185,7 @@ export default function NewActivity() {
       if (activityError) throw activityError;
 
       // If a schedule task was selected, update the link
-      if (values.scheduleTaskId && activity) {
+      if (values.scheduleTaskId && values.scheduleTaskId !== 'none' && activity) {
         const { error: linkError } = await supabase
           .from('cronograma_projeto')
           .update({ atividade_lps_id: activity.id })
