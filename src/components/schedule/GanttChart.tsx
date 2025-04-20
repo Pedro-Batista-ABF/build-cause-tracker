@@ -1,8 +1,9 @@
+
 import { useMemo } from "react";
 import { ScheduleTask } from "@/types/schedule";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { calculateSCurve } from "@/utils/progressDistribution";
+import { calculateDistribution } from "@/utils/progressDistribution";
 
 interface GanttChartProps {
   tasks: ScheduleTask[];
@@ -80,7 +81,12 @@ ${task.data_termino ? `Término: ${new Date(task.data_termino).toLocaleDateStrin
       return acc;
     }, 0);
 
-    return calculateSCurve(projectStart.toISOString(), projectEnd.toISOString(), totalProgress, 'Curva S');
+    return calculateDistribution(
+      projectStart.toISOString().split('T')[0], 
+      projectEnd.toISOString().split('T')[0], 
+      totalProgress, 
+      'Curva S'
+    );
   }, [tasks, showSCurve, projectStart, projectEnd]);
 
   if (tasks.length === 0) {
