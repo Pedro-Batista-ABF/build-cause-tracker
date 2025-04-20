@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { DashboardCard } from "@/components/dashboard/DashboardCard";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { PeriodFilter } from "@/components/dashboard/PeriodFilter";
@@ -11,6 +10,8 @@ import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { RiskAnalysisDashboard } from '@/components/dashboard/RiskAnalysisDashboard';
+import { calculateAveragePPC } from '@/utils/ppcCalculation';
 
 const periodFilters = ["Dia", "Semana", "Mês", "Trimestre", "6M"];
 
@@ -54,7 +55,6 @@ export default function Dashboard() {
     queryKey: ['dashboard-stats', activePeriod],
     queryFn: async () => {
       try {
-        // Get total activities
         const { count: totalActivities, error: activitiesError } = await supabase
           .from('activities')
           .select('*', { count: 'exact', head: true });
@@ -70,23 +70,9 @@ export default function Dashboard() {
           
         if (progressError) throw progressError;
         
-        // Calculate average PPC
-        let totalPlanned = 0;
-        let totalActual = 0;
-        
-        progressData?.forEach(item => {
-          if (item.planned_qty && item.actual_qty) {
-            totalPlanned += Number(item.planned_qty);
-            totalActual += Number(item.actual_qty);
-          }
-        });
-        
-        // Calculate average PPC (avoid division by zero)
-        const avgPPC = totalPlanned > 0 
-          ? Math.round((totalActual / totalPlanned) * 100) 
-          : 0;
+        // Calculate average PPC using our utility function
+        const avgPPC = calculateAveragePPC(progressData || []);
           
-        // Calculate adherence (how many activities were completed as planned)
         let compliantActivities = 0;
         let totalProgressItems = 0;
         
@@ -103,7 +89,6 @@ export default function Dashboard() {
           ? Math.round((compliantActivities / totalProgressItems) * 100)
           : 0;
           
-        // Count delayed activities (PPC < 90%)
         let delayedActivities = 0;
         progressData?.forEach(item => {
           if (item.planned_qty && item.actual_qty) {
@@ -236,15 +221,20 @@ export default function Dashboard() {
         <PPCChart 
           data={chartData} 
           isLoading={isChartLoading} 
+          className="md:col-span-2"
         />
+        <RiskAnalysisDashboard />
+      </div>
+      
+      <div className="grid gap-6 md:grid-cols-3">
         <CausesAnalysis 
           period={activePeriod}
           startDate={dateRange.startDate}
           endDate={dateRange.endDate}
+          className="md:col-span-2"
         />
+        <RecentProjects />
       </div>
-      
-      <RecentProjects />
     </div>
   );
 }
