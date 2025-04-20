@@ -8,9 +8,17 @@ interface DashboardCardProps {
   icon: ReactNode;
   description?: string;
   className?: string;
+  isLoading?: boolean;
 }
 
-export function DashboardCard({ title, value, icon, description, className }: DashboardCardProps) {
+export function DashboardCard({ 
+  title, 
+  value, 
+  icon, 
+  description, 
+  className,
+  isLoading = false
+}: DashboardCardProps) {
   return (
     <div className={cn("bg-card-bg rounded-lg p-5", className)}>
       <div className="flex justify-between items-center mb-3">
@@ -19,7 +27,11 @@ export function DashboardCard({ title, value, icon, description, className }: Da
       </div>
       
       <div className="space-y-1">
-        <p className="text-3xl font-bold text-text-primary">{value}</p>
+        {isLoading ? (
+          <div className="h-8 w-24 bg-border-subtle animate-pulse rounded"></div>
+        ) : (
+          <p className="text-3xl font-bold text-text-primary">{value}</p>
+        )}
         {description && <p className="text-xs text-text-secondary">{description}</p>}
       </div>
     </div>

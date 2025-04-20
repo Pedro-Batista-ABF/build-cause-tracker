@@ -9,55 +9,183 @@ import { RecentProjects } from "@/components/dashboard/RecentProjects";
 import { BarChart2, Calendar, FileText, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 const periodFilters = ["Dia", "Semana", "Mês", "Trimestre", "6M"];
 
-const chartData = [
-  { week: "Semana 1", ppc: 85 },
-  { week: "Semana 2", ppc: 92 },
-  { week: "Semana 3", ppc: 78 },
-  { week: "Semana 4", ppc: 88 },
-  { week: "Semana 5", ppc: 95 },
-  { week: "Semana 6", ppc: 89 },
-];
-
-const mockCauses = [
-  { cause: "Mão de obra", count: 12, category: "Método" },
-  { cause: "Material", count: 8, category: "Material" },
-  { cause: "Equipamento", count: 7, category: "Máquina" },
-  { cause: "Planejamento", count: 5, category: "Método" },
-];
+// Helper function to calculate date range based on selected period
+const getDateRange = (period: string) => {
+  const today = new Date();
+  let startDate = new Date();
+  
+  switch (period) {
+    case "Dia":
+      startDate = new Date(today);
+      break;
+    case "Semana":
+      startDate.setDate(today.getDate() - 7);
+      break;
+    case "Mês":
+      startDate.setMonth(today.getMonth() - 1);
+      break;
+    case "Trimestre":
+      startDate.setMonth(today.getMonth() - 3);
+      break;
+    case "6M":
+      startDate.setMonth(today.getMonth() - 6);
+      break;
+    default:
+      startDate.setDate(today.getDate() - 7); // Default to 1 week
+  }
+  
+  return { startDate, endDate: today };
+};
 
 export default function Dashboard() {
   const [activePeriod, setActivePeriod] = useState("Semana");
-  const [stats, setStats] = useState({
-    avgPPC: 0,
-    adherence: 0,
-    totalActivities: 0,
-    delayedActivities: 0
-  });
   const { session } = useAuth();
-
-  useEffect(() => {
-    if (session) {
-      fetchDashboardStats();
-    }
-  }, [session]);
-
-  const fetchDashboardStats = async () => {
-    const { count: totalActivities } = await supabase
-      .from('activities')
-      .select('*', { count: 'exact', head: true });
-
-    setStats({
-      avgPPC: 85,
-      adherence: 92,
-      totalActivities: totalActivities || 0,
-      delayedActivities: 7
-    });
-  };
-
   const userName = session?.user?.user_metadata?.full_name?.split(' ')[0];
+  
+  const dateRange = getDateRange(activePeriod);
+  
+  // Fetch dashboard stats
+  const { data: stats = { avgPPC: 0, adherence: 0, totalActivities: 0, delayedActivities: 0 }, isLoading: isStatsLoading } = useQuery({
+    queryKey: ['dashboard-stats', activePeriod],
+    queryFn: async () => {
+      try {
+        // Get total activities
+        const { count: totalActivities, error: activitiesError } = await supabase
+          .from('activities')
+          .select('*', { count: 'exact', head: true });
+          
+        if (activitiesError) throw activitiesError;
+        
+        // Get progress data for PPC calculation
+        const { data: progressData, error: progressError } = await supabase
+          .from('daily_progress')
+          .select('actual_qty, planned_qty, date')
+          .gte('date', dateRange.startDate.toISOString())
+          .lte('date', dateRange.endDate.toISOString());
+          
+        if (progressError) throw progressError;
+        
+        // Calculate average PPC
+        let totalPlanned = 0;
+        let totalActual = 0;
+        
+        progressData?.forEach(item => {
+          if (item.planned_qty && item.actual_qty) {
+            totalPlanned += Number(item.planned_qty);
+            totalActual += Number(item.actual_qty);
+          }
+        });
+        
+        // Calculate average PPC (avoid division by zero)
+        const avgPPC = totalPlanned > 0 
+          ? Math.round((totalActual / totalPlanned) * 100) 
+          : 0;
+          
+        // Calculate adherence (how many activities were completed as planned)
+        let compliantActivities = 0;
+        let totalProgressItems = 0;
+        
+        progressData?.forEach(item => {
+          if (item.planned_qty && item.actual_qty) {
+            totalProgressItems++;
+            if (item.actual_qty >= item.planned_qty) {
+              compliantActivities++;
+            }
+          }
+        });
+        
+        const adherence = totalProgressItems > 0
+          ? Math.round((compliantActivities / totalProgressItems) * 100)
+          : 0;
+          
+        // Count delayed activities (PPC < 90%)
+        let delayedActivities = 0;
+        progressData?.forEach(item => {
+          if (item.planned_qty && item.actual_qty) {
+            const itemPPC = (Number(item.actual_qty) / Number(item.planned_qty)) * 100;
+            if (itemPPC < 90) {
+              delayedActivities++;
+            }
+          }
+        });
+        
+        return {
+          avgPPC,
+          adherence,
+          totalActivities: totalActivities || 0,
+          delayedActivities
+        };
+      } catch (error) {
+        console.error('Error fetching dashboard stats:', error);
+        toast.error('Erro ao carregar indicadores do dashboard');
+        return {
+          avgPPC: 0,
+          adherence: 0,
+          totalActivities: 0,
+          delayedActivities: 0
+        };
+      }
+    },
+    enabled: !!session?.user
+  });
+  
+  // Fetch chart data
+  const { data: chartData = [], isLoading: isChartLoading } = useQuery({
+    queryKey: ['ppc-chart', activePeriod],
+    queryFn: async () => {
+      try {
+        const { data, error } = await supabase
+          .from('daily_progress')
+          .select('date, actual_qty, planned_qty')
+          .gte('date', dateRange.startDate.toISOString())
+          .lte('date', dateRange.endDate.toISOString())
+          .order('date');
+          
+        if (error) throw error;
+        
+        // Process data for chart - group by week
+        const weeklyData = new Map();
+        
+        data?.forEach(item => {
+          const date = new Date(item.date);
+          const weekStart = new Date(date);
+          weekStart.setDate(date.getDate() - date.getDay() + 1); // Start of week (Monday)
+          
+          const weekKey = `Semana ${weekStart.getDate()}/${weekStart.getMonth() + 1}`;
+          
+          if (!weeklyData.has(weekKey)) {
+            weeklyData.set(weekKey, {
+              week: weekKey,
+              totalPlanned: 0,
+              totalActual: 0
+            });
+          }
+          
+          const weekData = weeklyData.get(weekKey);
+          weekData.totalPlanned += Number(item.planned_qty || 0);
+          weekData.totalActual += Number(item.actual_qty || 0);
+        });
+        
+        // Convert map to array and calculate PPC
+        return Array.from(weeklyData.values()).map(week => ({
+          week: week.week,
+          ppc: week.totalPlanned > 0 
+            ? Math.round((week.totalActual / week.totalPlanned) * 100)
+            : 0
+        }));
+      } catch (error) {
+        console.error('Error fetching chart data:', error);
+        toast.error('Erro ao carregar dados do gráfico');
+        return [];
+      }
+    },
+    enabled: !!session?.user
+  });
 
   return (
     <div className="space-y-6">
@@ -74,8 +202,9 @@ export default function Dashboard() {
           title="PPC Médio"
           value={`${stats.avgPPC}%`}
           icon={<BarChart2 className="h-4 w-4" />}
-          description="Últimas 4 semanas"
+          description={`${activePeriod === 'Dia' ? 'Hoje' : `Últimos ${activePeriod === 'Semana' ? '7 dias' : activePeriod === 'Mês' ? '30 dias' : activePeriod === 'Trimestre' ? '3 meses' : '6 meses'}`}`}
           className="border border-border-subtle shadow-md"
+          isLoading={isStatsLoading}
         />
         <DashboardCard
           title="Aderência"
@@ -83,6 +212,7 @@ export default function Dashboard() {
           icon={<Calendar className="h-4 w-4" />}
           description="Planejado vs. Executado"
           className="border border-border-subtle shadow-md"
+          isLoading={isStatsLoading}
         />
         <DashboardCard
           title="Atividades"
@@ -90,6 +220,7 @@ export default function Dashboard() {
           icon={<FileText className="h-4 w-4" />}
           description="Em projetos ativos"
           className="border border-border-subtle shadow-md"
+          isLoading={isStatsLoading}
         />
         <DashboardCard
           title="Atrasos"
@@ -97,12 +228,20 @@ export default function Dashboard() {
           icon={<AlertTriangle className="h-4 w-4 text-accent-red" />}
           description="Atividades com PPC < 90%"
           className="border-l-4 border-l-accent-red border border-border-subtle shadow-md"
+          isLoading={isStatsLoading}
         />
       </div>
 
       <div className="grid gap-6 md:grid-cols-3">
-        <PPCChart data={chartData} />
-        <CausesAnalysis causes={mockCauses} />
+        <PPCChart 
+          data={chartData} 
+          isLoading={isChartLoading} 
+        />
+        <CausesAnalysis 
+          period={activePeriod}
+          startDate={dateRange.startDate}
+          endDate={dateRange.endDate}
+        />
       </div>
       
       <RecentProjects />
