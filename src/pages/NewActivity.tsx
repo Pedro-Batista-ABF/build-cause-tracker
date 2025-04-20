@@ -86,6 +86,7 @@ export default function NewActivity() {
   const navigate = useNavigate();
   const { projectId } = useParams();
   const [projects, setProjects] = useState<Tables<'projects'>[]>([]);
+  const [loading, setLoading] = useState(false);
   
   useEffect(() => {
     async function fetchProjects() {
@@ -108,7 +109,7 @@ export default function NewActivity() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      projectId: projectId || "", // Set default project ID from URL
+      projectId: projectId || "",
       name: "",
       discipline: "",
       manager: "",
@@ -128,7 +129,17 @@ export default function NewActivity() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
-      const { data, error } = await supabase
+      setLoading(true);
+      
+      // Get current user session
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        toast.error("Usuário não autenticado");
+        return;
+      }
+
+      const { error } = await supabase
         .from('activities')
         .insert({
           project_id: values.projectId,
@@ -138,16 +149,21 @@ export default function NewActivity() {
           responsible: values.responsible,
           unit: values.unit,
           total_qty: Number(values.totalQty),
-          created_by: null // Will be set by RLS policy
+          created_by: session.user.id // Set the authenticated user's ID
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error details:", error);
+        throw error;
+      }
 
       toast.success("Atividade criada com sucesso!");
       navigate("/activities");
     } catch (error) {
       console.error(error);
       toast.error("Erro ao criar atividade");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -480,10 +496,13 @@ export default function NewActivity() {
                   variant="outline" 
                   type="button" 
                   onClick={() => navigate("/activities")}
+                  disabled={loading}
                 >
                   Cancelar
                 </Button>
-                <Button type="submit">Criar Atividade</Button>
+                <Button type="submit" disabled={loading}>
+                  {loading ? "Criando..." : "Criar Atividade"}
+                </Button>
               </div>
             </form>
           </Form>
