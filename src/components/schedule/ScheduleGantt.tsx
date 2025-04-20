@@ -7,8 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { getScheduleStatus } from "@/utils/ppcCalculation";
 import { LinkTaskDialog } from "./LinkTaskDialog";
+import { GanttChart } from "./GanttChart";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
 import { Link } from "lucide-react";
 import { ScheduleTask, LinkedActivity } from "@/types/schedule";
 
@@ -191,6 +191,9 @@ export function ScheduleGantt({ scheduleData, isLoading, projectId, onDataChange
             )}
           </div>
         </div>
+
+        {/* Adicionando o gráfico de Gantt */}
+        <GanttChart tasks={filteredData} />
       </CardContent>
 
       {selectedTask && (
