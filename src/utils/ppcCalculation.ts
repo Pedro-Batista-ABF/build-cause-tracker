@@ -10,11 +10,15 @@
  * @returns The PPC as a percentage (0-100), rounded to the nearest integer
  */
 export const calculatePPC = (actualQty: number, plannedQty: number): number => {
-  // Avoid division by zero
+  // Avoid division by zero or negative values
   if (plannedQty <= 0) return 0;
   
+  // Ensure we don't have negative actual quantities
+  const normalizedActualQty = Math.max(0, actualQty);
+  
   // Calculate percentage and round to nearest integer
-  return Math.round((actualQty / plannedQty) * 100);
+  // Cap at 100% to avoid PPC values over 100%
+  return Math.min(100, Math.round((normalizedActualQty / plannedQty) * 100));
 };
 
 /**
@@ -28,14 +32,24 @@ export const calculateAveragePPC = (
   // Track total planned and actual quantities
   let totalPlanned = 0;
   let totalActual = 0;
+  let validEntries = 0;
   
   // Sum up all planned and actual quantities
   progressData.forEach(item => {
-    if (item.planned_qty && item.actual_qty) {
-      totalPlanned += Number(item.planned_qty);
-      totalActual += Number(item.actual_qty);
+    if (item.planned_qty != null && item.actual_qty != null) {
+      const plannedQty = Number(item.planned_qty);
+      const actualQty = Number(item.actual_qty);
+      
+      if (!isNaN(plannedQty) && !isNaN(actualQty) && plannedQty > 0) {
+        totalPlanned += plannedQty;
+        totalActual += actualQty;
+        validEntries++;
+      }
     }
   });
+  
+  // Return 0 if no valid entries
+  if (validEntries === 0 || totalPlanned === 0) return 0;
   
   // Calculate overall PPC from totals
   return calculatePPC(totalActual, totalPlanned);
@@ -57,13 +71,23 @@ export const calculateCumulativePPC = (
   let totalActual = 0;
   
   progressData.forEach(item => {
-    const itemDate = new Date(item.date);
-    const isInRange = (!startDate || new Date(startDate) <= itemDate) && 
+    try {
+      const itemDate = new Date(item.date);
+      const isInRange = (!startDate || new Date(startDate) <= itemDate) && 
                       (!endDate || itemDate <= new Date(endDate));
                       
-    if (isInRange && item.planned_qty && item.actual_qty) {
-      totalPlanned += Number(item.planned_qty);
-      totalActual += Number(item.actual_qty);
+      if (isInRange && item.planned_qty != null && item.actual_qty != null) {
+        const plannedQty = Number(item.planned_qty);
+        const actualQty = Number(item.actual_qty);
+        
+        if (!isNaN(plannedQty) && !isNaN(actualQty) && plannedQty > 0) {
+          totalPlanned += plannedQty;
+          totalActual += actualQty;
+        }
+      }
+    } catch (error) {
+      console.error("Error processing date in calculateCumulativePPC:", error);
+      // Skip invalid dates
     }
   });
   

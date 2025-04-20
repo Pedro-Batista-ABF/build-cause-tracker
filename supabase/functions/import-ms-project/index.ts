@@ -24,78 +24,86 @@ serve(async (req) => {
       );
     }
 
-    // Parse the XML using the deno xml parser
-    const xmlDoc = parse(xmlContent);
+    try {
+      // Parse the XML using the deno xml parser
+      const xmlDoc = parse(xmlContent);
+      console.log("XML successfully parsed");
 
-    // Create Supabase client
-    const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? ""
-    );
-
-    // Process tasks from XML
-    const tasks = processTasksFromXml(xmlDoc);
-    console.log(`Processed ${tasks.length} tasks from XML`);
-
-    if (tasks.length === 0) {
-      return new Response(
-        JSON.stringify({ error: "No tasks found in the XML file" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+      // Create Supabase client
+      const supabaseClient = createClient(
+        Deno.env.get("SUPABASE_URL") ?? "",
+        Deno.env.get("SUPABASE_ANON_KEY") ?? ""
       );
-    }
 
-    // Clear existing tasks for this project before importing
-    const { error: deleteError } = await supabaseClient
-      .from("cronograma_projeto")
-      .delete()
-      .eq("projeto_id", projectId);
+      // Process tasks from XML
+      const tasks = processTasksFromXml(xmlDoc);
+      console.log(`Processed ${tasks.length} tasks from XML`);
 
-    if (deleteError) {
-      console.error("Error deleting existing tasks:", deleteError);
-      return new Response(
-        JSON.stringify({ error: "Failed to clear existing tasks" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
-      );
-    }
-
-    // Insert tasks in batches
-    const BATCH_SIZE = 50;
-    const totalTasks = tasks.length;
-    let importedCount = 0;
-
-    for (let i = 0; i < totalTasks; i += BATCH_SIZE) {
-      const batch = tasks.slice(i, i + BATCH_SIZE).map(task => ({
-        ...task,
-        projeto_id: projectId
-      }));
-
-      const { error: insertError } = await supabaseClient
-        .from("cronograma_projeto")
-        .insert(batch);
-
-      if (insertError) {
-        console.error(`Error inserting batch ${i / BATCH_SIZE + 1}:`, insertError);
+      if (tasks.length === 0) {
         return new Response(
-          JSON.stringify({ 
-            error: `Failed to import tasks: ${insertError.message}`,
-            importedCount 
-          }),
+          JSON.stringify({ error: "No tasks found in the XML file" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+        );
+      }
+
+      // Clear existing tasks for this project before importing
+      const { error: deleteError } = await supabaseClient
+        .from("cronograma_projeto")
+        .delete()
+        .eq("projeto_id", projectId);
+
+      if (deleteError) {
+        console.error("Error deleting existing tasks:", deleteError);
+        return new Response(
+          JSON.stringify({ error: `Failed to clear existing tasks: ${deleteError.message}` }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
         );
       }
 
-      importedCount += batch.length;
+      // Insert tasks in batches
+      const BATCH_SIZE = 50;
+      const totalTasks = tasks.length;
+      let importedCount = 0;
+
+      for (let i = 0; i < totalTasks; i += BATCH_SIZE) {
+        const batch = tasks.slice(i, i + BATCH_SIZE).map(task => ({
+          ...task,
+          projeto_id: projectId
+        }));
+
+        const { error: insertError } = await supabaseClient
+          .from("cronograma_projeto")
+          .insert(batch);
+
+        if (insertError) {
+          console.error(`Error inserting batch ${i / BATCH_SIZE + 1}:`, insertError);
+          return new Response(
+            JSON.stringify({ 
+              error: `Failed to import tasks: ${insertError.message}`,
+              importedCount 
+            }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+          );
+        }
+
+        importedCount += batch.length;
+      }
+
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          taskCount: importedCount,
+          message: `Successfully imported ${importedCount} tasks`
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    } catch (parseError) {
+      console.error("Error parsing XML:", parseError);
+      return new Response(
+        JSON.stringify({ error: `Failed to parse XML file: ${parseError.message}` }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+      );
     }
-
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        taskCount: importedCount,
-        message: `Successfully imported ${importedCount} tasks`
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
-
   } catch (error) {
     console.error("Error processing import:", error);
     return new Response(
@@ -106,59 +114,80 @@ serve(async (req) => {
 });
 
 function processTasksFromXml(xmlDoc: any) {
-  const tasks = [];
-  const taskElements = xmlDoc.Project?.Task || [];
-
-  for (const taskElement of taskElements) {
-    const uid = taskElement.UID?.[0];
-    const name = taskElement.Name?.[0];
+  try {
+    const tasks = [];
+    // Safely access the Task array with additional error handling
+    const taskElements = xmlDoc.Project?.Task || [];
     
-    if (!uid || !name || name.trim() === "") continue;
-
-    const start = taskElement.Start?.[0];
-    const finish = taskElement.Finish?.[0];
-    const wbs = taskElement.WBS?.[0];
-    const outlineLevel = parseInt(taskElement.OutlineLevel?.[0] || "1", 10);
-    
-    // Get percentage complete
-    let percentComplete = 0;
-    if (taskElement.PercentComplete?.[0]) {
-      percentComplete = parseInt(taskElement.PercentComplete[0], 10);
+    if (!Array.isArray(taskElements)) {
+      console.warn("Task elements not found or not an array");
+      return [];
     }
 
-    // Calculate duration in days
-    let durationDays = 0;
-    if (start && finish) {
-      const startDate = new Date(start);
-      const finishDate = new Date(finish);
-      const diffTime = Math.abs(finishDate.getTime() - startDate.getTime());
-      durationDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    }
+    for (const taskElement of taskElements) {
+      try {
+        const uid = taskElement.UID?.[0];
+        const name = taskElement.Name?.[0];
+        
+        if (!uid || !name || name.trim() === "") {
+          console.log("Skipping task without UID or name");
+          continue;
+        }
 
-    // Get predecessors
-    const predecessors = [];
-    const predecessorLinks = taskElement.PredecessorLink || [];
-    for (const link of predecessorLinks) {
-      const predUid = link.PredecessorUID?.[0];
-      if (predUid) {
-        predecessors.push(predUid);
+        const start = taskElement.Start?.[0];
+        const finish = taskElement.Finish?.[0];
+        const wbs = taskElement.WBS?.[0];
+        const outlineLevel = parseInt(taskElement.OutlineLevel?.[0] || "1", 10);
+        
+        // Get percentage complete
+        let percentComplete = 0;
+        if (taskElement.PercentComplete?.[0]) {
+          percentComplete = parseInt(taskElement.PercentComplete[0], 10);
+        }
+
+        // Calculate duration in days
+        let durationDays = 0;
+        if (start && finish) {
+          const startDate = new Date(start);
+          const finishDate = new Date(finish);
+          const diffTime = Math.abs(finishDate.getTime() - startDate.getTime());
+          durationDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        }
+
+        // Get predecessors
+        const predecessors = [];
+        const predecessorLinks = taskElement.PredecessorLink || [];
+        if (Array.isArray(predecessorLinks)) {
+          for (const link of predecessorLinks) {
+            const predUid = link.PredecessorUID?.[0];
+            if (predUid) {
+              predecessors.push(predUid);
+            }
+          }
+        }
+
+        tasks.push({
+          tarefa_id: uid,
+          nome: name,
+          data_inicio: start || null,
+          data_termino: finish || null,
+          duracao_dias: durationDays,
+          predecessores: predecessors.join(","),
+          wbs,
+          percentual_previsto: percentComplete,
+          percentual_real: percentComplete, // Initially set real to match planned
+          nivel_hierarquia: outlineLevel,
+          atividade_lps_id: null
+        });
+      } catch (taskError) {
+        console.error("Error processing task:", taskError);
+        // Continue with the next task
       }
     }
 
-    tasks.push({
-      tarefa_id: uid,
-      nome: name,
-      data_inicio: start || null,
-      data_termino: finish || null,
-      duracao_dias: durationDays,
-      predecessores: predecessors.join(","),
-      wbs,
-      percentual_previsto: percentComplete,
-      percentual_real: percentComplete, // Initially set real to match planned
-      nivel_hierarquia: outlineLevel,
-      atividade_lps_id: null
-    });
+    return tasks;
+  } catch (error) {
+    console.error("Error in processTasksFromXml:", error);
+    return [];
   }
-
-  return tasks;
 }
