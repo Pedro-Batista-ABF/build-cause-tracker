@@ -5,6 +5,7 @@ import { AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { RiscoAtraso } from "@/types/database";
 
 export function RiskAnalysisDashboard() {
@@ -97,4 +98,5 @@ export function RiskAnalysisDashboard() {
         </div>
       </CardContent>
     </Card>
-  
+  );
+}

@@ -20,14 +20,12 @@ export default function PlanningAssistant() {
     queryKey: ['planning-report'],
     queryFn: async () => {
       try {
-        const { data, error } = await supabase
-          .from('planning_reports')
-          .select('*')
-          .eq('is_current', true)
-          .single();
+        const { data, error } = await supabase.functions.invoke('get-current-report');
           
         if (error) throw error;
-        return data as PlanningReport;
+        if (!data.success) throw new Error(data.error || 'Erro ao buscar relatório');
+        
+        return data.report as PlanningReport;
       } catch (error) {
         console.error('Error fetching planning report:', error);
         toast.error('Erro ao carregar o relatório de planejamento');
@@ -87,13 +85,19 @@ export default function PlanningAssistant() {
     toast.info('Gerando novo relatório de planejamento...');
     
     try {
-      // In a real implementation, this would call your backend
-      // For now, let's simulate the API call with a timeout
-      setTimeout(() => {
-        refetchReport();
-        refetchRisks();
-        toast.success('Novo relatório gerado com sucesso!');
-      }, 2000);
+      const { data, error } = await supabase.functions.invoke('generate-planning-report');
+      
+      if (error) {
+        throw error;
+      }
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Erro ao gerar relatório');
+      }
+      
+      refetchReport();
+      refetchRisks();
+      toast.success('Novo relatório gerado com sucesso!');
     } catch (error) {
       console.error('Error generating report:', error);
       toast.error('Erro ao gerar novo relatório');
