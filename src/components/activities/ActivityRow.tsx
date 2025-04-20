@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { DailyProgress } from "./DailyProgress";
 import { Progress } from "@/components/ui/progress";
 import { ActivityDetails } from "./ActivityDetails";
+import { Trash2 } from "lucide-react";
+import { DeleteActivityDialog } from "./DeleteActivityDialog";
 
 interface ActivityRowProps {
   id: string;
@@ -31,6 +33,7 @@ export function ActivityRow({
   adherence,
 }: ActivityRowProps) {
   const [showDetails, setShowDetails] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   return (
     <div className="bg-card hover:bg-accent/50 rounded-lg p-4 transition-colors">
@@ -61,6 +64,13 @@ export function ActivityRow({
           >
             {showDetails ? "Ocultar Detalhes" : "Ver Detalhes"}
           </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowDeleteDialog(true)}
+          >
+            <Trash2 className="h-4 w-4 text-destructive" />
+          </Button>
         </div>
       </div>
       
@@ -90,6 +100,16 @@ export function ActivityRow({
           />
         </div>
       )}
+
+      <DeleteActivityDialog
+        activityId={id}
+        activityName={name}
+        isOpen={showDeleteDialog}
+        onClose={() => setShowDeleteDialog(false)}
+        onDelete={() => {
+          window.location.reload();
+        }}
+      />
     </div>
   );
 }
