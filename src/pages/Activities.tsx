@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { ActivityRow } from "@/components/activities/ActivityRow";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,32 +21,28 @@ import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Tables } from "@/integrations/supabase/types";
 import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
 
 export default function Activities() {
-  const [activities, setActivities] = useState<Tables<'activities'>[]>([]);
   const [filter, setFilter] = useState("");
   const [disciplineFilter, setDisciplineFilter] = useState("all");
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    async function fetchActivities() {
-      try {
-        const { data, error } = await supabase
-          .from('activities')
-          .select('*');
+  const { data: activities = [], isLoading } = useQuery({
+    queryKey: ['activities'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('activities')
+        .select('*, daily_progress(actual_qty, planned_qty)');
 
-        if (error) throw error;
-        setActivities(data || []);
-      } catch (error) {
-        console.error('Erro ao buscar atividades:', error);
+      if (error) {
+        console.error('Error fetching activities:', error);
         toast.error('Não foi possível carregar as atividades');
-      } finally {
-        setLoading(false);
+        throw error;
       }
-    }
 
-    fetchActivities();
-  }, []);
+      return data || [];
+    }
+  });
 
   const filteredActivities = activities.filter((activity) => {
     const matchesFilter =
@@ -63,10 +59,6 @@ export default function Activities() {
   const disciplines = Array.from(
     new Set(activities.map((activity) => activity.discipline).filter(Boolean))
   );
-
-  if (loading) {
-    return <div>Carregando atividades...</div>;
-  }
 
   return (
     <div className="space-y-6">
@@ -115,29 +107,45 @@ export default function Activities() {
             </Select>
           </div>
 
-          <div className="space-y-4">
-            {filteredActivities.map((activity) => (
-              <ActivityRow 
-                key={activity.id} 
-                id={activity.id}
-                name={activity.name}
-                discipline={activity.discipline || ''}
-                manager={activity.manager || ''}
-                responsible={activity.responsible || ''}
-                unit={activity.unit || ''}
-                totalQty={activity.total_qty || 0}
-                progress={0} // TODO: Implement progress calculation
-                ppc={0} // TODO: Implement PPC calculation
-                adherence={0} // TODO: Implement adherence calculation
-              />
-            ))}
-          </div>
-
-          {filteredActivities.length === 0 && (
+          {isLoading ? (
             <div className="text-center py-12">
-              <p className="text-muted-foreground">
-                Nenhuma atividade encontrada com os filtros aplicados.
-              </p>
+              <p className="text-muted-foreground">Carregando atividades...</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {filteredActivities.map((activity) => {
+                const progressData = activity.daily_progress || [];
+                const totalActual = progressData.reduce((sum: number, p: any) => sum + (p.actual_qty || 0), 0);
+                const totalPlanned = progressData.reduce((sum: number, p: any) => sum + (p.planned_qty || 0), 0);
+                
+                const progress = activity.total_qty ? (totalActual / activity.total_qty) * 100 : 0;
+                const ppc = totalPlanned ? (totalActual / totalPlanned) * 100 : 0;
+                const adherence = totalPlanned ? Math.min(100, (totalActual / totalPlanned) * 100) : 0;
+
+                return (
+                  <ActivityRow 
+                    key={activity.id} 
+                    id={activity.id}
+                    name={activity.name}
+                    discipline={activity.discipline || ''}
+                    manager={activity.manager || ''}
+                    responsible={activity.responsible || ''}
+                    unit={activity.unit || ''}
+                    totalQty={activity.total_qty || 0}
+                    progress={Math.round(progress)}
+                    ppc={Math.round(ppc)}
+                    adherence={Math.round(adherence)}
+                  />
+                );
+              })}
+
+              {filteredActivities.length === 0 && !isLoading && (
+                <div className="text-center py-12">
+                  <p className="text-muted-foreground">
+                    Nenhuma atividade encontrada com os filtros aplicados.
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </CardContent>
