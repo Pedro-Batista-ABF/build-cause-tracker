@@ -142,7 +142,7 @@ export default function Causes() {
       if (error) {
         console.error("Error fetching weekly causes:", error);
         toast.error("Erro ao carregar dados semanais de causas");
-        return weeklyData.map(({ startDate, endDate, ...rest }) => rest);
+        return weeklyData.map(({ _startDate, _endDate, ...rest }) => rest);
       }
 
       // Count causes for each week
@@ -160,6 +160,7 @@ export default function Causes() {
         }
       });
 
+      // Retornar os dados sem os campos internos _startDate e _endDate
       return weeklyData.map(({ _startDate, _endDate, ...rest }) => rest);
     }
   });

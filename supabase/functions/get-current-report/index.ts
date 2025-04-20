@@ -26,9 +26,14 @@ Deno.serve(async (req) => {
       .from('planning_reports')
       .select('*')
       .eq('is_current', true)
+      .order('created_at', { ascending: false })  // Ordenar por data de criação para casos onde existam múltiplos "current"
+      .limit(1)
       .maybeSingle();
     
-    if (reportError) throw reportError;
+    if (reportError) {
+      console.error("Erro ao buscar relatório:", reportError);
+      throw reportError;
+    }
 
     return new Response(
       JSON.stringify({ 

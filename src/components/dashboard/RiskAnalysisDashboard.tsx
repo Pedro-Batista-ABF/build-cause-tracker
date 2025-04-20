@@ -1,18 +1,19 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 interface RiskItem {
   id: string;
   atividade_id: string;
   atividade_nome: string;
   risco_atraso_pct: number;
-  classificacao: string;
+  classificacao: 'BAIXO' | 'MÉDIO' | 'ALTO';
   discipline?: string;
   responsible?: string;
 }
@@ -41,7 +42,7 @@ export function RiskAnalysisDashboard() {
           .limit(1);
           
         if (checkError) {
-          console.log("A tabela risco_atraso não existe ainda:", checkError.message);
+          console.log("A tabela risco_atraso pode não existir ainda:", checkError.message);
           return [];
         }
         
@@ -63,14 +64,18 @@ export function RiskAnalysisDashboard() {
           .order('risco_atraso_pct', { ascending: false })
           .limit(5);
         
-        if (error) throw error;
+        if (error) {
+          console.error("Erro ao buscar análise de risco:", error);
+          toast.error("Erro ao carregar dados de risco");
+          throw error;
+        }
         
         return (data as RiscoAtrasoRow[]).map(risk => ({
           id: risk.id,
           atividade_id: risk.atividade_id,
           atividade_nome: risk.activities?.name || 'Atividade sem nome',
           risco_atraso_pct: risk.risco_atraso_pct,
-          classificacao: risk.classificacao,
+          classificacao: risk.classificacao as 'BAIXO' | 'MÉDIO' | 'ALTO',
           discipline: risk.activities?.discipline,
           responsible: risk.activities?.responsible
         }));
@@ -80,6 +85,12 @@ export function RiskAnalysisDashboard() {
       }
     },
   });
+
+  const getRiskColor = (riskPct: number): string => {
+    if (riskPct >= 80) return "bg-accent-red text-white";
+    if (riskPct >= 50) return "bg-orange-500 text-white";
+    return "bg-amber-500 text-white";
+  }; 
 
   return (
     <Card className="md:col-span-1">
@@ -105,10 +116,10 @@ export function RiskAnalysisDashboard() {
             {risks.map(risk => (
               <div 
                 key={risk.id} 
-                className="flex justify-between items-center p-2 bg-card hover:bg-muted/20 rounded"
+                className="flex justify-between items-center p-2 bg-card hover:bg-muted/20 rounded transition-colors"
               >
                 <div className="truncate flex-1 mr-2">
-                  <p className="text-sm">{risk.atividade_nome}</p>
+                  <p className="text-sm font-medium">{risk.atividade_nome}</p>
                   {(risk.responsible || risk.discipline) && (
                     <p className="text-xs text-muted-foreground">
                       {risk.discipline && `${risk.discipline} · `}
@@ -116,7 +127,7 @@ export function RiskAnalysisDashboard() {
                     </p>
                   )}
                 </div>
-                <Badge className="bg-accent-red text-white shrink-0">
+                <Badge className={`${getRiskColor(risk.risco_atraso_pct)} shrink-0`}>
                   {Math.round(risk.risco_atraso_pct)}%
                 </Badge>
               </div>
@@ -125,8 +136,11 @@ export function RiskAnalysisDashboard() {
         )}
         
         <div className="mt-4 flex justify-end">
-          <Button variant="ghost" size="sm" asChild>
-            <Link to="/planning">Ver todos os riscos</Link>
+          <Button variant="ghost" size="sm" asChild className="flex items-center gap-1">
+            <Link to="/planning">
+              Ver todos os riscos
+              <ChevronRight className="h-4 w-4" />
+            </Link>
           </Button>
         </div>
       </CardContent>

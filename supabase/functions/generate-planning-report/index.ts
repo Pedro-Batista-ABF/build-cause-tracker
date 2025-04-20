@@ -50,7 +50,10 @@ Deno.serve(async (req) => {
       .order('date', { ascending: false })
       .limit(10);
 
-    if (lowPpcError) throw lowPpcError;
+    if (lowPpcError) {
+      console.log("Erro ao obter atividades com PPC baixo:", lowPpcError);
+      // Continuar mesmo com erro, usando array vazio
+    }
 
     // Riscos de atraso
     const { data: risks, error: risksError } = await supabase
@@ -70,23 +73,42 @@ Deno.serve(async (req) => {
       .order('risco_atraso_pct', { ascending: false })
       .limit(10);
     
-    if (risksError) throw risksError;
+    if (risksError) {
+      console.log("Erro ao obter riscos de atraso:", risksError);
+      // Continuar mesmo com erro, usando array vazio
+    }
     
     // Causas mais frequentes
-    const { data: causes, error: causesError } = await supabase.rpc('get_common_causes', { limit_count: 5 });
-    if (causesError) throw causesError;
+    let causes = [];
+    try {
+      const { data: causesData, error: causesError } = await supabase.rpc('get_common_causes', { limit_count: 5 });
+      if (!causesError && causesData) {
+        causes = causesData;
+      }
+    } catch (error) {
+      console.log("Erro ao obter causas comuns:", error);
+      // Continuar mesmo com erro, usando array vazio
+    }
 
     // Disciplinas críticas
-    const { data: disciplines, error: disciplinesError } = await supabase.rpc('get_critical_disciplines', { limit_count: 5 });
-    if (disciplinesError) throw disciplinesError;
+    let disciplines = [];
+    try {
+      const { data: disciplinesData, error: disciplinesError } = await supabase.rpc('get_critical_disciplines', { limit_count: 5 });
+      if (!disciplinesError && disciplinesData) {
+        disciplines = disciplinesData;
+      }
+    } catch (error) {
+      console.log("Erro ao obter disciplinas críticas:", error);
+      // Continuar mesmo com erro, usando array vazio
+    }
 
     // 2. Construir o prompt para GPT
-    const riskActivitiesText = risks.map(risk => (
+    const riskActivitiesText = (risks || []).map(risk => (
       `- Atividade "${risk.activities?.name || 'Sem nome'}" com ${Math.round(risk.risco_atraso_pct)}% de risco de atraso (${risk.classificacao}), ` +
       `responsável: ${risk.activities?.responsible || 'Não definido'}, disciplina: ${risk.activities?.discipline || 'Não definida'}`
     )).join('\n');
 
-    const lowPpcText = lowPpcActivities.map(act => {
+    const lowPpcText = (lowPpcActivities || []).map(act => {
       const ppc = act.planned_qty > 0 ? Math.round((act.actual_qty / act.planned_qty) * 100) : 0;
       return `- Atividade "${act.activities?.name || 'Sem nome'}" com PPC de ${ppc}%, ` +
         `responsável: ${act.activities?.responsible || 'Não definido'}, disciplina: ${act.activities?.discipline || 'Não definida'}`
@@ -128,13 +150,15 @@ Deno.serve(async (req) => {
     - Linguagem deve ser em Português do Brasil
     - Limite de 500-700 palavras
     - Foco principal nas ações para a próxima semana
+    - Sugira reuniões se necessário com as pessoas responsáveis
+    - Faça referências aos dados específicos fornecidos
     `;
 
     console.log("Enviando prompt para OpenAI");
     
     // 3. Gerar o relatório com OpenAI
     const completion = await openai.chat.completions.create({
-      model: "gpt-4",
+      model: "gpt-4o", // Usando o modelo mais recente e poderoso
       messages: [{
         role: "system", 
         content: "Você é um assistente especializado em gerenciamento de projetos de construção civil usando Last Planner System."
@@ -142,7 +166,7 @@ Deno.serve(async (req) => {
         role: "user", 
         content: prompt
       }],
-      max_tokens: 1200,
+      max_tokens: 1500, // Aumentado para permitir relatórios mais detalhados
       temperature: 0.7,
     });
 
@@ -151,6 +175,13 @@ Deno.serve(async (req) => {
     console.log("Relatório gerado com sucesso");
     
     // 4. Salvar o relatório no banco
+    // Primeiro, atualizar todos os relatórios existentes para não serem "current"
+    await supabase
+      .from('planning_reports')
+      .update({ is_current: false })
+      .eq('is_current', true);
+      
+    // Depois, inserir o novo relatório como "current"
     const { data: reportData, error: reportError } = await supabase
       .from('planning_reports')
       .insert([
