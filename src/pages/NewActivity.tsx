@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import * as z from "zod"
@@ -31,6 +32,8 @@ import { toast } from "sonner"
 import { Slider } from "@/components/ui/slider"
 import { ProgressDistributionChart } from "@/components/activities/ProgressDistributionChart";
 import { DistributionType } from "@/utils/progressDistribution";
+import { supabase } from "@/integrations/supabase/client";
+import { Tables } from "@/integrations/supabase/types";
 
 const formSchema = z.object({
   projectId: z.string().min(1, "Selecione um projeto"),
@@ -67,12 +70,6 @@ const units = [
   "kg",
 ]
 
-const mockProjects = [
-  { id: "1", name: "Projeto ALUMAR" },
-  { id: "2", name: "Expansão Setor 4" },
-  { id: "3", name: "Modernização Unidade Sul" },
-]
-
 const planningTypes = [
   "Diário",
   "Semanal",
@@ -87,8 +84,27 @@ const distributionTypes = [
 
 export default function NewActivity() {
   const navigate = useNavigate();
-  const { projectId } = useParams(); // Add this line to get project ID from URL
+  const { projectId } = useParams();
+  const [projects, setProjects] = useState<Tables<'projects'>[]>([]);
   
+  useEffect(() => {
+    async function fetchProjects() {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('*')
+        .eq('status', 'active');
+
+      if (error) {
+        toast.error("Erro ao carregar projetos");
+        console.error(error);
+      } else {
+        setProjects(data || []);
+      }
+    }
+
+    fetchProjects();
+  }, []);
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -110,10 +126,29 @@ export default function NewActivity() {
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log(values)
-    toast.success("Atividade criada com sucesso!")
-    navigate("/activities")
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    try {
+      const { data, error } = await supabase
+        .from('activities')
+        .insert({
+          project_id: values.projectId,
+          name: values.name,
+          discipline: values.discipline,
+          manager: values.manager,
+          responsible: values.responsible,
+          unit: values.unit,
+          total_qty: Number(values.totalQty),
+          created_by: null // Will be set by RLS policy
+        });
+
+      if (error) throw error;
+
+      toast.success("Atividade criada com sucesso!");
+      navigate("/activities");
+    } catch (error) {
+      console.error(error);
+      toast.error("Erro ao criar atividade");
+    }
   }
 
   const showDistributionChart = form.watch("startDate") && 
@@ -155,7 +190,7 @@ export default function NewActivity() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {mockProjects.map((project) => (
+                        {projects.map((project) => (
                           <SelectItem key={project.id} value={project.id}>
                             {project.name}
                           </SelectItem>

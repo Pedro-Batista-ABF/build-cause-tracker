@@ -1,4 +1,4 @@
-
+import { useState, useEffect } from "react";
 import { ActivityRow } from "@/components/activities/ActivityRow";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,69 +17,42 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Plus, Search } from "lucide-react";
-import { useState } from "react";
 import { Link } from "react-router-dom";
-
-const mockActivities = [
-  {
-    id: "1",
-    name: "Montagem de Estrutura Metálica",
-    discipline: "Montagem Civil",
-    manager: "João Silva",
-    responsible: "Equipe A",
-    unit: "ton",
-    totalQty: 120,
-    progress: 65,
-    ppc: 95,
-    adherence: 98,
-  },
-  {
-    id: "2",
-    name: "Lançamento de Cabos",
-    discipline: "Elétrica",
-    manager: "Maria Oliveira",
-    responsible: "Equipe B",
-    unit: "m",
-    totalQty: 5000,
-    progress: 43,
-    ppc: 85,
-    adherence: 92,
-  },
-  {
-    id: "3",
-    name: "Instalação de Equipamentos",
-    discipline: "Mecânica",
-    manager: "Carlos Santos",
-    responsible: "Equipe C",
-    unit: "un",
-    totalQty: 45,
-    progress: 72,
-    ppc: 65,
-    adherence: 78,
-  },
-  {
-    id: "4",
-    name: "Pintura Industrial",
-    discipline: "Civil",
-    manager: "Ana Costa",
-    responsible: "Equipe D",
-    unit: "m²",
-    totalQty: 3500,
-    progress: 90,
-    ppc: 98,
-    adherence: 97,
-  },
-];
+import { supabase } from "@/integrations/supabase/client";
+import { Tables } from "@/integrations/supabase/types";
+import { toast } from "sonner";
 
 export default function Activities() {
+  const [activities, setActivities] = useState<Tables<'activities'>[]>([]);
   const [filter, setFilter] = useState("");
   const [disciplineFilter, setDisciplineFilter] = useState("all");
+  const [loading, setLoading] = useState(true);
 
-  const filteredActivities = mockActivities.filter((activity) => {
+  useEffect(() => {
+    async function fetchActivities() {
+      try {
+        const { data, error } = await supabase
+          .from('activities')
+          .select('*');
+
+        if (error) throw error;
+        setActivities(data || []);
+      } catch (error) {
+        console.error('Erro ao buscar atividades:', error);
+        toast.error('Não foi possível carregar as atividades');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchActivities();
+  }, []);
+
+  const filteredActivities = activities.filter((activity) => {
     const matchesFilter =
       activity.name.toLowerCase().includes(filter.toLowerCase()) ||
-      activity.manager.toLowerCase().includes(filter.toLowerCase()) ||
-      activity.responsible.toLowerCase().includes(filter.toLowerCase());
+      (activity.manager || '').toLowerCase().includes(filter.toLowerCase()) ||
+      (activity.responsible || '').toLowerCase().includes(filter.toLowerCase());
 
     const matchesDiscipline =
       disciplineFilter === "all" || activity.discipline === disciplineFilter;
@@ -88,8 +61,12 @@ export default function Activities() {
   });
 
   const disciplines = Array.from(
-    new Set(mockActivities.map((activity) => activity.discipline))
+    new Set(activities.map((activity) => activity.discipline).filter(Boolean))
   );
+
+  if (loading) {
+    return <div>Carregando atividades...</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -140,7 +117,19 @@ export default function Activities() {
 
           <div className="space-y-4">
             {filteredActivities.map((activity) => (
-              <ActivityRow key={activity.id} {...activity} />
+              <ActivityRow 
+                key={activity.id} 
+                id={activity.id}
+                name={activity.name}
+                discipline={activity.discipline || ''}
+                manager={activity.manager || ''}
+                responsible={activity.responsible || ''}
+                unit={activity.unit || ''}
+                totalQty={activity.total_qty || 0}
+                progress={0} // TODO: Implement progress calculation
+                ppc={0} // TODO: Implement PPC calculation
+                adherence={0} // TODO: Implement adherence calculation
+              />
             ))}
           </div>
 
