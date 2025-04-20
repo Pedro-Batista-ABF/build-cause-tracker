@@ -29,10 +29,11 @@ import {
 } from "@/components/ui/select"
 import { useNavigate, useParams } from "react-router-dom"
 import { toast } from "sonner"
+import { ScheduleTask } from "@/types/schedule"
+import { supabase } from "@/integrations/supabase/client"
 import { Slider } from "@/components/ui/slider"
 import { ProgressDistributionChart } from "@/components/activities/ProgressDistributionChart";
 import { DistributionType } from "@/utils/progressDistribution";
-import { supabase } from "@/integrations/supabase/client";
 import { Tables } from "@/integrations/supabase/types";
 
 const formSchema = z.object({
@@ -51,6 +52,7 @@ const formSchema = z.object({
   weeklyGoal: z.string().optional(),
   monthlyGoal: z.string().optional(),
   distributionType: z.string().min(1, "Selecione o tipo de distribuição"),
+  scheduleTaskId: z.string().optional(),
 })
 
 const disciplines = [
@@ -87,25 +89,9 @@ export default function NewActivity() {
   const { projectId } = useParams();
   const [projects, setProjects] = useState<Tables<'projects'>[]>([]);
   const [loading, setLoading] = useState(false);
+  const [scheduleTasks, setScheduleTasks] = useState<ScheduleTask[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>(projectId || "");
   
-  useEffect(() => {
-    async function fetchProjects() {
-      const { data, error } = await supabase
-        .from('projects')
-        .select('*')
-        .eq('status', 'active');
-
-      if (error) {
-        toast.error("Erro ao carregar projetos");
-        console.error(error);
-      } else {
-        setProjects(data || []);
-      }
-    }
-
-    fetchProjects();
-  }, []);
-
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -124,14 +110,53 @@ export default function NewActivity() {
       weeklyGoal: "",
       monthlyGoal: "",
       distributionType: "",
+      scheduleTaskId: "",
     },
   });
+
+  useEffect(() => {
+    fetchProjects();
+  }, []);
+
+  useEffect(() => {
+    if (selectedProjectId) {
+      fetchScheduleTasks(selectedProjectId);
+    }
+  }, [selectedProjectId]);
+
+  async function fetchProjects() {
+    const { data, error } = await supabase
+      .from('projects')
+      .select('*')
+      .eq('status', 'active');
+
+    if (error) {
+      toast.error("Erro ao carregar projetos");
+      console.error(error);
+    } else {
+      setProjects(data || []);
+    }
+  }
+
+  async function fetchScheduleTasks(projectId: string) {
+    const { data, error } = await supabase
+      .from('cronograma_projeto')
+      .select('*')
+      .eq('projeto_id', projectId)
+      .is('atividade_lps_id', null); // Only fetch unlinked tasks
+
+    if (error) {
+      toast.error("Erro ao carregar tarefas do cronograma");
+      console.error(error);
+    } else {
+      setScheduleTasks(data || []);
+    }
+  }
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
       setLoading(true);
       
-      // Get current user session
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session) {
@@ -139,7 +164,8 @@ export default function NewActivity() {
         return;
       }
 
-      const { error } = await supabase
+      // First create the activity
+      const { data: activity, error: activityError } = await supabase
         .from('activities')
         .insert({
           project_id: values.projectId,
@@ -149,12 +175,22 @@ export default function NewActivity() {
           responsible: values.responsible,
           unit: values.unit,
           total_qty: Number(values.totalQty),
-          created_by: session.user.id // Set the authenticated user's ID
-        });
+          description: values.description,
+          created_by: session.user.id
+        })
+        .select()
+        .single();
 
-      if (error) {
-        console.error("Error details:", error);
-        throw error;
+      if (activityError) throw activityError;
+
+      // If a schedule task was selected, update the link
+      if (values.scheduleTaskId && activity) {
+        const { error: linkError } = await supabase
+          .from('cronograma_projeto')
+          .update({ atividade_lps_id: activity.id })
+          .eq('id', values.scheduleTaskId);
+
+        if (linkError) throw linkError;
       }
 
       toast.success("Atividade criada com sucesso!");
@@ -196,7 +232,10 @@ export default function NewActivity() {
                   <FormItem>
                     <FormLabel>Projeto</FormLabel>
                     <Select 
-                      onValueChange={field.onChange} 
+                      onValueChange={(value) => {
+                        field.onChange(value);
+                        setSelectedProjectId(value);
+                      }} 
                       defaultValue={field.value}
                       disabled={!!projectId} // Disable if project ID is provided in URL
                     >
@@ -491,6 +530,34 @@ export default function NewActivity() {
                 />
               )}
 
+              {selectedProjectId && (
+                <FormField
+                  control={form.control}
+                  name="scheduleTaskId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Vincular à Tarefa do Cronograma</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione uma tarefa do cronograma" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="">Nenhuma tarefa</SelectItem>
+                          {scheduleTasks.map((task) => (
+                            <SelectItem key={task.id} value={task.id}>
+                              {task.nome}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+
               <div className="flex justify-end space-x-4">
                 <Button 
                   variant="outline" 
@@ -509,5 +576,5 @@ export default function NewActivity() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }
