@@ -14,6 +14,8 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { ProgressCauseDialog } from "./ProgressCauseDialog";
 import { supabase } from "@/integrations/supabase/client";
+import { ActivityProgressChart } from "./ActivityProgressChart";
+import { Card, CardContent } from "@/components/ui/card";
 
 interface DailyProgressProps {
   activityId: string;
@@ -34,12 +36,29 @@ export function DailyProgress({
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [open, setOpen] = useState(false);
   const [showCauseDialog, setShowCauseDialog] = useState(false);
+  const [progressData, setProgressData] = useState<any[]>([]);
+
+  const fetchProgressData = async () => {
+    const { data } = await supabase
+      .from('daily_progress')
+      .select('*')
+      .eq('activity_id', activityId)
+      .order('date');
+
+    if (data) {
+      setProgressData(data.map(item => ({
+        date: item.date,
+        actual: Number(item.actual_qty),
+        planned: Number(item.planned_qty)
+      })));
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
     const progress = Number(quantity);
-    const threshold = 0.1; // 10% difference threshold
+    const threshold = 0.1;
     const difference = Math.abs(progress - plannedProgress);
     
     if (difference > threshold * plannedProgress) {
@@ -81,6 +100,7 @@ export function DailyProgress({
       setOpen(false);
       setQuantity("");
       setShowCauseDialog(false);
+      fetchProgressData();
     } catch (error) {
       console.error('Error submitting progress:', error);
       toast.error("Erro ao registrar avanço");
@@ -92,19 +112,32 @@ export function DailyProgress({
   };
 
   return (
-    <>
+    <div className="space-y-4">
+      <Card>
+        <CardContent className="p-6">
+          <div className="flex justify-between items-center">
+            <div>
+              <h3 className="font-semibold">{activityName}</h3>
+              <p className="text-sm text-muted-foreground">
+                Meta: {plannedProgress} {unit}/dia
+              </p>
+            </div>
+            <DialogTrigger asChild>
+              <Button onClick={() => setOpen(true)} variant="outline">
+                Registrar Avanço
+              </Button>
+            </DialogTrigger>
+          </div>
+        </CardContent>
+      </Card>
+
+      <ActivityProgressChart data={progressData} unit={unit} />
+
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogTrigger asChild>
-          <Button variant="outline" size="sm">
-            Registrar Avanço
-          </Button>
-        </DialogTrigger>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Registrar Avanço Diário</DialogTitle>
-            <DialogDescription>
-              {activityName}
-            </DialogDescription>
+            <DialogDescription>{activityName}</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
@@ -134,9 +167,7 @@ export function DailyProgress({
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>
                 Cancelar
               </Button>
-              <Button type="submit">
-                Salvar
-              </Button>
+              <Button type="submit">Salvar</Button>
             </div>
           </form>
         </DialogContent>
@@ -147,7 +178,6 @@ export function DailyProgress({
         onOpenChange={setShowCauseDialog}
         onSubmit={handleCauseSubmit}
       />
-    </>
+    </div>
   );
 }
-

@@ -1,4 +1,3 @@
-
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import * as z from "zod"
@@ -27,7 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useParams } from "react-router-dom"
 import { toast } from "sonner"
 import { Slider } from "@/components/ui/slider"
 import { ProgressDistributionChart } from "@/components/activities/ProgressDistributionChart";
@@ -87,12 +86,13 @@ const distributionTypes = [
 ]
 
 export default function NewActivity() {
-  const navigate = useNavigate()
+  const navigate = useNavigate();
+  const { projectId } = useParams(); // Add this line to get project ID from URL
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      projectId: "",
+      projectId: projectId || "", // Set default project ID from URL
       name: "",
       discipline: "",
       manager: "",
@@ -108,7 +108,7 @@ export default function NewActivity() {
       monthlyGoal: "",
       distributionType: "",
     },
-  })
+  });
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     console.log(values)
@@ -144,7 +144,11 @@ export default function NewActivity() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Projeto</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select 
+                      onValueChange={field.onChange} 
+                      defaultValue={field.value}
+                      disabled={!!projectId} // Disable if project ID is provided in URL
+                    >
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Selecione um projeto" />
@@ -453,4 +457,3 @@ export default function NewActivity() {
     </div>
   )
 }
-
