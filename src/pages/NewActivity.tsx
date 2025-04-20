@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
@@ -165,7 +164,7 @@ export default function NewActivity() {
         return;
       }
 
-      // First create the activity
+      // First create the activity - Removing the description field since it doesn't exist
       const { data: activity, error: activityError } = await supabase
         .from('activities')
         .insert({
@@ -176,13 +175,15 @@ export default function NewActivity() {
           responsible: values.responsible,
           unit: values.unit,
           total_qty: Number(values.totalQty),
-          description: values.description,
           created_by: session.user.id
         })
         .select()
         .single();
 
-      if (activityError) throw activityError;
+      if (activityError) {
+        console.error("Activity creation error:", activityError);
+        throw activityError;
+      }
 
       // If a schedule task was selected, update the link
       if (values.scheduleTaskId && values.scheduleTaskId !== 'none' && activity) {
@@ -191,7 +192,10 @@ export default function NewActivity() {
           .update({ atividade_lps_id: activity.id })
           .eq('id', values.scheduleTaskId);
 
-        if (linkError) throw linkError;
+        if (linkError) {
+          console.error("Link error:", linkError);
+          throw linkError;
+        }
       }
 
       toast.success("Atividade criada com sucesso!");
