@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { PlanningAssistantMessage } from '@/components/planning/PlanningAssistantMessage';
@@ -6,14 +7,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { RiskAnalysisCard } from '@/components/risk/RiskAnalysisCard';
+import { RiskAnalysisCard, RiskItem } from '@/components/risk/RiskAnalysisCard';
 import { PlanningReport } from '@/types/database';
 
 interface RiscoAtrasoRow {
   id: string;
   atividade_id: string;
   risco_atraso_pct: number;
-  classificacao: string;
+  classificacao: 'BAIXO' | 'MÉDIO' | 'ALTO';
   semana: string;
   activities?: {
     name: string;
@@ -102,7 +103,7 @@ export default function PlanningAssistant() {
           semana: item.semana,
           responsible: item.activities?.responsible,
           discipline: item.activities?.discipline,
-        }));
+        } as RiskItem));
       } catch (error) {
         console.error('Error fetching risk analysis data:', error);
         return [];
