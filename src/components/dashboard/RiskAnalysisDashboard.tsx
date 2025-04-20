@@ -32,7 +32,7 @@ export function RiskAnalysisDashboard() {
         
         if (error) throw error;
         
-        return data.map(risk => ({
+        return data.map((risk: RiscoAtraso) => ({
           id: risk.id,
           atividade_id: risk.atividade_id,
           atividade_nome: risk.activities?.name || 'Atividade sem nome',

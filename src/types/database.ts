@@ -1,4 +1,3 @@
-
 export interface RiscoAtraso {
   id: string;
   atividade_id: string;
@@ -6,6 +5,11 @@ export interface RiscoAtraso {
   risco_atraso_pct: number;
   classificacao: 'BAIXO' | 'MÉDIO' | 'ALTO';
   created_at: string;
+  activities?: {
+    name: string;
+    discipline?: string;
+    responsible?: string;
+  };
 }
 
 export interface PlanningReport {

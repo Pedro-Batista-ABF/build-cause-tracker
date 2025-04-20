@@ -1,3 +1,4 @@
+
 import React from "react";
 import {
   Sidebar,
@@ -8,6 +9,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarHeader, // Added missing import
 } from "@/components/ui/sidebar";
 import {
   Home,

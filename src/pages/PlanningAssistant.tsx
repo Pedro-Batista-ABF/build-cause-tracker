@@ -62,7 +62,7 @@ export default function PlanningAssistant() {
           
         if (error) throw error;
         
-        return data.map(item => ({
+        return data.map((item: RiscoAtraso) => ({
           id: item.id,
           atividade_id: item.atividade_id,
           atividade_nome: item.activities?.name || 'Atividade sem nome',
