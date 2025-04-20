@@ -1,28 +1,11 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { getRiskClassification } from "./ppcCalculation";
-
-export const calculateDelayRisk = (ppc: number, varianceHistory?: number[]): number => {
-  let baseRisk = Math.max(0, 100 - ppc);
-  
-  // Melhorar análise de tendência
-  if (varianceHistory && varianceHistory.length > 2) {
-    const recentTrend = varianceHistory.slice(-3); // Últimos 3 pontos
-    const isContinuouslyDecreasing = recentTrend.every((value, index) => 
-      index === 0 || value < recentTrend[index - 1]
-    );
-    
-    if (isContinuouslyDecreasing) {
-      baseRisk = Math.min(100, baseRisk + 20);
-    }
-  }
-  
-  return Math.round(baseRisk);
-};
+import { calculateDelayRisk } from "./riskCalculation";
+import { getWeekLabel } from "./dateUtils";
 
 export const updateRiskAnalysis = async (): Promise<{ success: boolean; error?: any }> => {
   try {
-    // Log para rastrear chamadas de atualização
     console.log('Iniciando atualização da análise de risco');
     
     const { data: activities, error: activitiesError } = await supabase
@@ -61,14 +44,11 @@ export const updateRiskAnalysis = async (): Promise<{ success: boolean; error?: 
       });
       
       const ppc = totalPlanned > 0 ? Math.round((totalActual / totalPlanned) * 100) : 0;
-      
       const riskPct = calculateDelayRisk(ppc, varianceHistory);
       const classification = getRiskClassification(ppc);
       
-      // Log para depuração
       console.log(`Atividade: ${activity.name}, PPC: ${ppc}%, Risco: ${riskPct}%`);
       
-      // Similar ao código original, mas com log adicional
       const { data: existingRisk } = await supabase
         .from('risco_atraso')
         .select('id')
@@ -108,12 +88,4 @@ export const updateRiskAnalysis = async (): Promise<{ success: boolean; error?: 
     console.error("Erro detalhado na análise de risco:", error);
     return { success: false, error };
   }
-};
-
-export const getWeekLabel = (date: Date): string => {
-  const startOfYear = new Date(date.getFullYear(), 0, 1);
-  const days = Math.floor((date.getTime() - startOfYear.getTime()) / (24 * 60 * 60 * 1000));
-  const weekNumber = Math.ceil((days + startOfYear.getDay() + 1) / 7);
-  
-  return `${date.getFullYear()}-${weekNumber.toString().padStart(2, '0')}`;
 };
