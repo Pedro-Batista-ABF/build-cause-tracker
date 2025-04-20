@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { PlanningAssistantMessage } from '@/components/planning/PlanningAssistantMessage';
@@ -9,6 +8,19 @@ import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { RiskAnalysisCard } from '@/components/risk/RiskAnalysisCard';
 import { PlanningReport } from '@/types/database';
+
+interface RiscoAtrasoRow {
+  id: string;
+  atividade_id: string;
+  risco_atraso_pct: number;
+  classificacao: string;
+  semana: string;
+  activities?: {
+    name: string;
+    discipline?: string;
+    responsible?: string;
+  };
+}
 
 export default function PlanningAssistant() {
   // Query for fetching the latest planning report
@@ -81,7 +93,7 @@ export default function PlanningAssistant() {
           
         if (error) throw error;
         
-        return data.map((item: any) => ({
+        return (data as RiscoAtrasoRow[]).map(item => ({
           id: item.id,
           atividade_id: item.atividade_id,
           atividade_nome: item.activities?.name || 'Atividade sem nome',

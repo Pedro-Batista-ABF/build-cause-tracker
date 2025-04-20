@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { DashboardCard } from "@/components/dashboard/DashboardCard";
 import { Button } from "@/components/ui/button";
@@ -25,6 +24,8 @@ interface CauseData {
 interface WeeklyCauseData {
   semana: string;
   quantidade: number;
+  _startDate?: string; // Internal use only
+  _endDate?: string; // Internal use only
 }
 
 export default function Causes() {
@@ -126,8 +127,8 @@ export default function Causes() {
         weeklyData.push({
           semana: `Sem ${i + 1}`,
           quantidade: 0,
-          startDate: weekStart.toISOString(),
-          endDate: weekEnd.toISOString()
+          _startDate: weekStart.toISOString(),
+          _endDate: weekEnd.toISOString()
         });
       }
 
@@ -149,8 +150,8 @@ export default function Causes() {
         const createdDate = new Date(item.created_at);
         
         for (let i = 0; i < weeklyData.length; i++) {
-          const weekStart = new Date(weeklyData[i].startDate);
-          const weekEnd = new Date(weeklyData[i].endDate);
+          const weekStart = new Date(weeklyData[i]._startDate!);
+          const weekEnd = new Date(weeklyData[i]._endDate!);
           
           if (createdDate >= weekStart && createdDate <= weekEnd) {
             weeklyData[i].quantidade++;
@@ -159,7 +160,7 @@ export default function Causes() {
         }
       });
 
-      return weeklyData.map(({ startDate, endDate, ...rest }) => rest);
+      return weeklyData.map(({ _startDate, _endDate, ...rest }) => rest);
     }
   });
 

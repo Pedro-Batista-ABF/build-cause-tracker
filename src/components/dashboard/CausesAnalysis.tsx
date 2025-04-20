@@ -1,4 +1,3 @@
-
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,14 +11,15 @@ interface Cause {
   category: string;
 }
 
-interface CausesAnalysisProps {
+export interface CausesAnalysisProps {
   causes?: Cause[];
   period?: string;
   startDate?: Date;
   endDate?: Date;
+  className?: string;
 }
 
-export function CausesAnalysis({ causes = [], period, startDate, endDate }: CausesAnalysisProps) {
+export function CausesAnalysis({ causes = [], period, startDate, endDate, className }: CausesAnalysisProps) {
   const { data: dbCauses = [], isLoading } = useQuery({
     queryKey: ['causes-dashboard', period, startDate, endDate],
     queryFn: async () => {
@@ -89,7 +89,7 @@ export function CausesAnalysis({ causes = [], period, startDate, endDate }: Caus
   const maxCount = Math.max(...displayCauses.map(cause => cause.count), 1);
 
   return (
-    <Card className="bg-card-bg border-border-subtle">
+    <Card className={`bg-card-bg border-border-subtle ${className}`}>
       <CardHeader>
         <CardTitle className="text-text-primary">Principais Causas</CardTitle>
         <CardDescription className="text-text-secondary">

@@ -17,6 +17,18 @@ interface RiskItem {
   responsible?: string;
 }
 
+interface RiscoAtrasoRow {
+  id: string;
+  atividade_id: string;
+  risco_atraso_pct: number;
+  classificacao: string;
+  activities?: {
+    name: string;
+    discipline?: string;
+    responsible?: string;
+  };
+}
+
 export function RiskAnalysisDashboard() {
   const { data: risks = [], isLoading } = useQuery({
     queryKey: ['dashboard-risks'],
@@ -53,7 +65,7 @@ export function RiskAnalysisDashboard() {
         
         if (error) throw error;
         
-        return data.map((risk: any) => ({
+        return (data as RiscoAtrasoRow[]).map(risk => ({
           id: risk.id,
           atividade_id: risk.atividade_id,
           atividade_nome: risk.activities?.name || 'Atividade sem nome',

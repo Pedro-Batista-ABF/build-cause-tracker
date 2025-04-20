@@ -131,6 +131,30 @@ export type Database = {
           },
         ]
       }
+      planning_reports: {
+        Row: {
+          content: string
+          created_at: string | null
+          created_by: string | null
+          id: string
+          is_current: boolean | null
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_current?: boolean | null
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_current?: boolean | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -245,12 +269,61 @@ export type Database = {
         }
         Relationships: []
       }
+      risco_atraso: {
+        Row: {
+          atividade_id: string | null
+          classificacao: string
+          created_at: string | null
+          id: string
+          risco_atraso_pct: number
+          semana: string
+        }
+        Insert: {
+          atividade_id?: string | null
+          classificacao: string
+          created_at?: string | null
+          id?: string
+          risco_atraso_pct: number
+          semana: string
+        }
+        Update: {
+          atividade_id?: string | null
+          classificacao?: string
+          created_at?: string | null
+          id?: string
+          risco_atraso_pct?: number
+          semana?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "risco_atraso_atividade_id_fkey"
+            columns: ["atividade_id"]
+            isOneToOne: false
+            referencedRelation: "activities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_common_causes: {
+        Args: { limit_count?: number }
+        Returns: {
+          name: string
+          count: number
+          percentage: number
+        }[]
+      }
+      get_critical_disciplines: {
+        Args: { limit_count?: number }
+        Returns: {
+          discipline: string
+          count: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
