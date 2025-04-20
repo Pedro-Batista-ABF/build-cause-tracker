@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,6 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ActivityProgressChart } from "./ActivityProgressChart";
 import { Card, CardContent } from "@/components/ui/card";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/lib/auth";
 
 interface DailyProgressProps {
   activityId: string;
@@ -33,6 +33,7 @@ export function DailyProgress({
   totalQty,
   plannedProgress = 10,
 }: DailyProgressProps) {
+  const { session } = useAuth();
   const [quantity, setQuantity] = useState("");
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [open, setOpen] = useState(false);
@@ -44,6 +45,8 @@ export function DailyProgress({
   const { data: progressData = [], isLoading } = useQuery({
     queryKey: ['progress', activityId],
     queryFn: async () => {
+      if (!session?.user) throw new Error("Não autenticado");
+
       const { data, error } = await supabase
         .from('daily_progress')
         .select('*')
@@ -61,7 +64,8 @@ export function DailyProgress({
         actual: Number(item.actual_qty),
         planned: Number(item.planned_qty)
       })) || [];
-    }
+    },
+    enabled: !!session?.user
   });
 
   // Check for existing progress on the selected date
@@ -88,18 +92,9 @@ export function DailyProgress({
       date: string, 
       cause?: { type: string; description: string } 
     }) => {
+      if (!session?.user) throw new Error("Usuário não autenticado");
+      
       console.log("Starting progress submission");
-      
-      // Get user session to ensure authentication
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        console.error("No authenticated user session found");
-        throw new Error("Usuário não autenticado");
-      }
-      
-      const userId = session.user.id;
-      console.log("User authenticated, ID:", userId);
       
       // Check if progress for this activity and date already exists
       const existingProgressId = await checkExistingProgress(activityId, date);
@@ -134,7 +129,7 @@ export function DailyProgress({
             date,
             actual_qty: Number(quantity),
             planned_qty: plannedProgress,
-            created_by: userId
+            created_by: session.user.id
           }])
           .select('id')
           .single();
@@ -156,7 +151,7 @@ export function DailyProgress({
             progress_id: progressData.id,
             cause_id: cause.type,
             notes: cause.description,
-            created_by: userId
+            created_by: session.user.id
           }]);
 
         if (causeError) {
@@ -181,7 +176,7 @@ export function DailyProgress({
     },
     onError: (error) => {
       console.error('Error submitting progress:', error);
-      toast.error("Erro ao registrar avanço");
+      toast.error(error instanceof Error ? error.message : "Erro ao registrar avanço");
     }
   });
 
@@ -207,6 +202,18 @@ export function DailyProgress({
       cause 
     });
   };
+
+  if (!session?.user) {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <p className="text-muted-foreground text-center">
+            Faça login para registrar o avanço da atividade.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-4">
