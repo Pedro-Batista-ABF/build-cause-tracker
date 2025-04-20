@@ -64,6 +64,23 @@ export function DailyProgress({
     }
   });
 
+  // Check for existing progress on the selected date
+  const checkExistingProgress = async (activityId: string, date: string) => {
+    const { data, error } = await supabase
+      .from('daily_progress')
+      .select('id')
+      .eq('activity_id', activityId)
+      .eq('date', date)
+      .maybeSingle();
+      
+    if (error) {
+      console.error('Error checking for existing progress:', error);
+      return null;
+    }
+    
+    return data?.id;
+  };
+
   // Submit progress mutation
   const submitProgressMutation = useMutation({
     mutationFn: async ({ quantity, date, cause }: { 
@@ -84,25 +101,51 @@ export function DailyProgress({
       const userId = session.user.id;
       console.log("User authenticated, ID:", userId);
       
-      // Insert progress data with user ID
-      const { data: progressData, error: progressError } = await supabase
-        .from('daily_progress')
-        .insert([{
-          activity_id: activityId,
-          date,
-          actual_qty: Number(quantity),
-          planned_qty: plannedProgress,
-          created_by: userId // Set authenticated user ID
-        }])
-        .select('id')
-        .single();
+      // Check if progress for this activity and date already exists
+      const existingProgressId = await checkExistingProgress(activityId, date);
+      
+      let progressData;
+      
+      if (existingProgressId) {
+        // Update existing record
+        const { data, error: updateError } = await supabase
+          .from('daily_progress')
+          .update({
+            actual_qty: Number(quantity),
+            planned_qty: plannedProgress,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingProgressId)
+          .select('id')
+          .single();
+          
+        if (updateError) {
+          console.error("Error updating daily progress:", updateError);
+          throw updateError;
+        }
+        progressData = data;
+        console.log("Progress entry updated successfully, ID:", progressData.id);
+      } else {
+        // Insert new record
+        const { data, error: progressError } = await supabase
+          .from('daily_progress')
+          .insert([{
+            activity_id: activityId,
+            date,
+            actual_qty: Number(quantity),
+            planned_qty: plannedProgress,
+            created_by: userId
+          }])
+          .select('id')
+          .single();
 
-      if (progressError) {
-        console.error("Error inserting daily progress:", progressError);
-        throw progressError;
+        if (progressError) {
+          console.error("Error inserting daily progress:", progressError);
+          throw progressError;
+        }
+        progressData = data;
+        console.log("Progress entry created successfully, ID:", progressData.id);
       }
-
-      console.log("Progress entry created successfully, ID:", progressData.id);
 
       if (cause && progressData) {
         console.log("Inserting cause data:", cause);
@@ -113,7 +156,7 @@ export function DailyProgress({
             progress_id: progressData.id,
             cause_id: cause.type,
             notes: cause.description,
-            created_by: userId // Set authenticated user ID
+            created_by: userId
           }]);
 
         if (causeError) {
