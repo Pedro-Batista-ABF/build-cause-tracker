@@ -1,7 +1,10 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { Link } from "react-router-dom";
+import { CalendarClock } from "lucide-react";
 
 interface ProjectMetricsProps {
   project: {
@@ -24,8 +27,14 @@ export function ProjectMetrics({ project, progressData }: ProjectMetricsProps) {
   return (
     <div className="grid gap-6 md:grid-cols-2">
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Métricas do Projeto</CardTitle>
+          <Link to={`/projects/${project.id}/schedule`}>
+            <Button variant="outline" size="sm" className="gap-2">
+              <CalendarClock className="h-4 w-4" />
+              Cronograma
+            </Button>
+          </Link>
         </CardHeader>
         <CardContent className="space-y-6">
           <div>

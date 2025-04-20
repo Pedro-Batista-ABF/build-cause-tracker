@@ -6,3 +6,5 @@ project_id = "zinuhecqgqsmlljllsja"
 verify_jwt = true
 [functions.get-current-report]
 verify_jwt = true
+[functions.import-ms-project]
+verify_jwt = true

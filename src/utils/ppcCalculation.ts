@@ -39,6 +39,35 @@ export const calculateAveragePPC = (
 };
 
 /**
+ * Calculates the cumulative PPC for a date range
+ * @param progressData - Array of progress data containing actual_qty, planned_qty and date
+ * @param startDate - Start date for the range (inclusive)
+ * @param endDate - End date for the range (inclusive)
+ * @returns The cumulative PPC as a percentage (0-100)
+ */
+export const calculateCumulativePPC = (
+  progressData: Array<{ actual_qty: number | null; planned_qty: number | null; date: string }>,
+  startDate?: string,
+  endDate?: string
+): number => {
+  let totalPlanned = 0;
+  let totalActual = 0;
+  
+  progressData.forEach(item => {
+    const itemDate = new Date(item.date);
+    const isInRange = (!startDate || new Date(startDate) <= itemDate) && 
+                      (!endDate || itemDate <= new Date(endDate));
+                      
+    if (isInRange && item.planned_qty && item.actual_qty) {
+      totalPlanned += Number(item.planned_qty);
+      totalActual += Number(item.actual_qty);
+    }
+  });
+  
+  return calculatePPC(totalActual, totalPlanned);
+};
+
+/**
  * Determines the risk classification based on PPC value
  * @param ppc - The PPC value
  * @returns Risk classification string: 'ALTO', 'MÉDIO', or 'BAIXO'
@@ -47,4 +76,25 @@ export const getRiskClassification = (ppc: number): string => {
   if (ppc < 70) return 'ALTO';
   if (ppc < 85) return 'MÉDIO';
   return 'BAIXO';
+};
+
+/**
+ * Calculates the schedule variance (SV) as a percentage
+ * @param actualProgress - The actual progress percentage
+ * @param plannedProgress - The planned progress percentage
+ * @returns Schedule variance as a percentage (positive = ahead, negative = behind)
+ */
+export const calculateScheduleVariance = (actualProgress: number, plannedProgress: number): number => {
+  return actualProgress - plannedProgress;
+};
+
+/**
+ * Determines the status based on schedule variance
+ * @param variance - The schedule variance
+ * @returns Status string: 'atrasado', 'atenção', or 'no prazo'
+ */
+export const getScheduleStatus = (variance: number): 'atrasado' | 'atenção' | 'no prazo' => {
+  if (variance < -10) return 'atrasado';
+  if (variance < 0) return 'atenção';
+  return 'no prazo';
 };

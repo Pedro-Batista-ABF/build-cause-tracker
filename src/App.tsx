@@ -18,6 +18,7 @@ import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import ProjectDetails from "./pages/ProjectDetails";
 import PlanningAssistant from "./pages/PlanningAssistant";
+import Schedule from "./pages/Schedule";
 
 const queryClient = new QueryClient();
 
@@ -41,6 +42,7 @@ const App = () => {
                 <Route path="/indicators" element={<Indicators />} />
                 <Route path="/causes" element={<Causes />} />
                 <Route path="/planning" element={<PlanningAssistant />} />
+                <Route path="/projects/:id/schedule" element={<Schedule />} />
                 <Route path="/settings" element={<Settings />} />
               </Route>
             </Route>
