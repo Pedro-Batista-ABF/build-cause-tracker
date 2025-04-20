@@ -62,26 +62,32 @@ Deno.serve(async (req) => {
     console.log(`Encontradas ${filteredLowPpcActivities.length} atividades com PPC < 90%`);
 
     // Riscos de atraso
-    const { data: risks, error: risksError } = await supabase
-      .from('risco_atraso')
-      .select(`
-        id,
-        atividade_id,
-        risco_atraso_pct,
-        classificacao,
-        activities (
-          name,
-          discipline,
-          responsible
-        )
-      `)
-      .eq('classificacao', 'ALTO')
-      .order('risco_atraso_pct', { ascending: false })
-      .limit(10);
-    
-    if (risksError) {
-      console.log("Erro ao obter riscos de atraso:", risksError);
-      // Continuar mesmo com erro, usando array vazio
+    let risks = [];
+    try {
+      const { data: risksData, error: risksError } = await supabase
+        .from('risco_atraso')
+        .select(`
+          id,
+          atividade_id,
+          risco_atraso_pct,
+          classificacao,
+          activities (
+            name,
+            discipline,
+            responsible
+          )
+        `)
+        .eq('classificacao', 'ALTO')
+        .order('risco_atraso_pct', { ascending: false })
+        .limit(10);
+      
+      if (!risksError) {
+        risks = risksData || [];
+      } else {
+        console.log("Erro ao obter riscos de atraso:", risksError);
+      }
+    } catch (error) {
+      console.log("Exceção ao consultar riscos de atraso:", error);
     }
     
     // Causas mais frequentes
@@ -190,35 +196,43 @@ Deno.serve(async (req) => {
       console.log("Relatório gerado com sucesso");
       
       // 4. Salvar o relatório no banco
-      // Primeiro, atualizar todos os relatórios existentes para não serem "current"
-      await supabase
-        .from('planning_reports')
-        .update({ is_current: false })
-        .eq('is_current', true);
+      try {
+        // Primeiro, atualizar todos os relatórios existentes para não serem "current"
+        await supabase
+          .from('planning_reports')
+          .update({ is_current: false })
+          .eq('is_current', true);
+          
+        // Depois, inserir o novo relatório como "current"
+        const { data: reportData, error: reportError } = await supabase
+          .from('planning_reports')
+          .insert([
+            { content: generatedText, is_current: true }
+          ])
+          .select();
         
-      // Depois, inserir o novo relatório como "current"
-      const { data: reportData, error: reportError } = await supabase
-        .from('planning_reports')
-        .insert([
-          { content: generatedText, is_current: true }
-        ])
-        .select();
-      
-      if (reportError) throw reportError;
-
-      // 5. Retornar o novo relatório
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          report: reportData?.[0] || null
-        }),
-        { 
-          headers: { 
-            ...corsHeaders, 
-            'Content-Type': 'application/json'
-          }
+        if (reportError) {
+          console.error("Erro ao salvar relatório:", reportError);
+          throw reportError;
         }
-      );
+
+        // 5. Retornar o novo relatório
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            report: reportData?.[0] || null
+          }),
+          { 
+            headers: { 
+              ...corsHeaders, 
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+      } catch (dbError) {
+        console.error("Erro ao salvar no banco de dados:", dbError);
+        throw dbError;
+      }
     } catch (openAiError) {
       console.error("Erro ao chamar OpenAI:", openAiError.message);
       
@@ -243,34 +257,42 @@ Deno.serve(async (req) => {
       Por favor, tente novamente mais tarde ou contate o suporte se o problema persistir.
       `;
       
-      // Salvar o relatório de fallback no banco
-      await supabase
-        .from('planning_reports')
-        .update({ is_current: false })
-        .eq('is_current', true);
+      try {
+        // Salvar o relatório de fallback no banco
+        await supabase
+          .from('planning_reports')
+          .update({ is_current: false })
+          .eq('is_current', true);
+          
+        const { data: reportData, error: reportError } = await supabase
+          .from('planning_reports')
+          .insert([
+            { content: fallbackReport, is_current: true }
+          ])
+          .select();
         
-      const { data: reportData, error: reportError } = await supabase
-        .from('planning_reports')
-        .insert([
-          { content: fallbackReport, is_current: true }
-        ])
-        .select();
-      
-      if (reportError) throw reportError;
-      
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          report: reportData?.[0] || null,
-          warning: "Relatório gerado em modo de contingência devido a erro na API OpenAI."
-        }),
-        { 
-          headers: { 
-            ...corsHeaders, 
-            'Content-Type': 'application/json'
-          }
+        if (reportError) {
+          console.error("Erro ao salvar relatório de fallback:", reportError);
+          throw reportError;
         }
-      );
+        
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            report: reportData?.[0] || null,
+            warning: "Relatório gerado em modo de contingência devido a erro na API OpenAI."
+          }),
+          { 
+            headers: { 
+              ...corsHeaders, 
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+      } catch (error) {
+        console.error("Erro ao salvar relatório de fallback:", error);
+        throw error;
+      }
     }
 
   } catch (error) {

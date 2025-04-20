@@ -26,6 +26,7 @@ interface RiscoAtrasoRow {
 
 export default function PlanningAssistant() {
   const queryClient = useQueryClient();
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
   // Analisar riscos ao carregar a página
   useEffect(() => {
@@ -123,29 +124,42 @@ export default function PlanningAssistant() {
 
   // Handle generating a new report
   const handleGenerateReport = async () => {
+    if (isGeneratingReport) return;
+    
     // Primeiro atualizar a análise de risco
     try {
+      setIsGeneratingReport(true);
       toast.info('Analisando riscos e gerando relatório...');
-      await updateRiskAnalysis();
-      queryClient.invalidateQueries({ queryKey: ['risk-analysis'] });
       
       // Agora gerar o relatório
       const { data, error } = await supabase.functions.invoke('generate-planning-report');
       
       if (error) {
+        console.error('Error generating report:', error);
+        toast.error(`Erro ao gerar relatório: ${error.message || 'Erro desconhecido'}`);
         throw error;
       }
       
       if (!data.success) {
-        throw new Error(data.error || 'Erro ao gerar relatório');
+        const errorMsg = data.error || 'Erro ao gerar relatório';
+        console.error('Error in report generation response:', errorMsg);
+        toast.error(errorMsg);
+        throw new Error(errorMsg);
       }
       
-      refetchReport();
-      refetchRisks();
-      toast.success('Novo relatório gerado com sucesso!');
+      await refetchReport();
+      await refetchRisks();
+      
+      if (data.warning) {
+        toast.warning(data.warning);
+      } else {
+        toast.success('Novo relatório gerado com sucesso!');
+      }
     } catch (error) {
       console.error('Error generating report:', error);
-      toast.error('Erro ao gerar novo relatório');
+      toast.error('Erro ao gerar novo relatório. Verifique o console para mais detalhes.');
+    } finally {
+      setIsGeneratingReport(false);
     }
   };
 
@@ -162,9 +176,12 @@ export default function PlanningAssistant() {
         <h1 className="text-3xl font-bold tracking-tight text-text-primary">
           Assistente de Planejamento Semanal
         </h1>
-        <Button onClick={handleGenerateReport} disabled={isLoadingReport}>
-          <RefreshCw className="mr-2 h-4 w-4" />
-          Gerar Novo Resumo
+        <Button 
+          onClick={handleGenerateReport} 
+          disabled={isGeneratingReport || isLoadingReport}
+        >
+          <RefreshCw className={`mr-2 h-4 w-4 ${isGeneratingReport ? 'animate-spin' : ''}`} />
+          {isGeneratingReport ? 'Gerando...' : 'Gerar Novo Resumo'}
         </Button>
       </div>
 
@@ -181,7 +198,7 @@ export default function PlanningAssistant() {
                   timestamp={latestReport.created_at}
                   isLoading={isLoadingReport}
                 />
-              ) : isLoadingReport ? (
+              ) : isLoadingReport || isGeneratingReport ? (
                 <PlanningAssistantMessage 
                   content="" 
                   timestamp={new Date().toISOString()}
