@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
@@ -142,8 +143,8 @@ export default function NewActivity() {
     const { data, error } = await supabase
       .from('cronograma_projeto')
       .select('*')
-      .eq('projeto_id', projectId)
-      .is('atividade_lps_id', null); // Only fetch unlinked tasks
+      .eq('projeto_id', projectId);
+      // Removed the filter for unlinked tasks to allow multiple activities per schedule task
 
     if (error) {
       toast.error("Erro ao carregar tarefas do cronograma");
@@ -164,7 +165,7 @@ export default function NewActivity() {
         return;
       }
 
-      // First create the activity - Removing the description field since it doesn't exist
+      // Create the activity - Removing the description field since it doesn't exist in the DB
       const { data: activity, error: activityError } = await supabase
         .from('activities')
         .insert({
