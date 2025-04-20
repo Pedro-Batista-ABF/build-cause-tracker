@@ -545,7 +545,7 @@ export default function NewActivity() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="">Nenhuma tarefa</SelectItem>
+                          <SelectItem value="none">Nenhuma tarefa</SelectItem>
                           {scheduleTasks.map((task) => (
                             <SelectItem key={task.id} value={task.id}>
                               {task.nome}
