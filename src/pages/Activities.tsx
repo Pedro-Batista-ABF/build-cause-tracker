@@ -1,5 +1,5 @@
+
 import { useState } from "react";
-import { ActivityRow } from "@/components/activities/ActivityRow";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -19,9 +19,9 @@ import {
 import { Plus, Search } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Tables } from "@/integrations/supabase/types";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
+import { ActivityRow } from "@/components/activities/ActivityRow";
 
 export default function Activities() {
   const [filter, setFilter] = useState("");
@@ -93,7 +93,7 @@ export default function Activities() {
               value={disciplineFilter}
               onValueChange={setDisciplineFilter}
             >
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-full md:w-[180px]">
                 <SelectValue placeholder="Disciplina" />
               </SelectTrigger>
               <SelectContent>
