@@ -46,7 +46,7 @@ Deno.serve(async (req) => {
           responsible
         )
       `)
-      .lt('actual_qty', supabase.raw('planned_qty * 0.9'))
+      .lt('actual_qty', 'planned_qty * 0.9') // Correção aqui - removi supabase.raw
       .order('date', { ascending: false })
       .limit(10);
 
