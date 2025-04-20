@@ -32,7 +32,8 @@ Deno.serve(async (req) => {
     });
 
     // 1. Obter dados para análise
-    // Atividades com PPC baixo
+    // Atividades com PPC baixo - usando uma abordagem diferente para filtrar
+    console.log("Buscando atividades com PPC baixo...");
     const { data: lowPpcActivities, error: lowPpcError } = await supabase
       .from('daily_progress')
       .select(`
@@ -46,14 +47,23 @@ Deno.serve(async (req) => {
           responsible
         )
       `)
-      .lt('actual_qty', 'planned_qty * 0.9') // Correção aqui - removi supabase.raw
+      .gt('planned_qty', 0) // Garantir que planned_qty seja maior que zero
+      .lte('actual_qty', 0.9) // Pré-filtro para performance
       .order('date', { ascending: false })
-      .limit(10);
+      .limit(50); // Buscar mais dados para filtrar depois
 
     if (lowPpcError) {
       console.log("Erro ao obter atividades com PPC baixo:", lowPpcError);
       // Continuar mesmo com erro, usando array vazio
     }
+
+    // Filtrar programaticamente para PPC < 90%
+    const filteredLowPpcActivities = (lowPpcActivities || []).filter(item => {
+      const ppcRatio = item.planned_qty > 0 ? (item.actual_qty / item.planned_qty) : 0;
+      return ppcRatio < 0.9;
+    }).slice(0, 10); // Limitar aos 10 primeiros resultados
+
+    console.log(`Encontradas ${filteredLowPpcActivities.length} atividades com PPC < 90%`);
 
     // Riscos de atraso
     const { data: risks, error: risksError } = await supabase
@@ -84,6 +94,8 @@ Deno.serve(async (req) => {
       const { data: causesData, error: causesError } = await supabase.rpc('get_common_causes', { limit_count: 5 });
       if (!causesError && causesData) {
         causes = causesData;
+      } else if (causesError) {
+        console.log("Erro na função get_common_causes:", causesError);
       }
     } catch (error) {
       console.log("Erro ao obter causas comuns:", error);
@@ -96,6 +108,8 @@ Deno.serve(async (req) => {
       const { data: disciplinesData, error: disciplinesError } = await supabase.rpc('get_critical_disciplines', { limit_count: 5 });
       if (!disciplinesError && disciplinesData) {
         disciplines = disciplinesData;
+      } else if (disciplinesError) {
+        console.log("Erro na função get_critical_disciplines:", disciplinesError);
       }
     } catch (error) {
       console.log("Erro ao obter disciplinas críticas:", error);
@@ -108,7 +122,7 @@ Deno.serve(async (req) => {
       `responsável: ${risk.activities?.responsible || 'Não definido'}, disciplina: ${risk.activities?.discipline || 'Não definida'}`
     )).join('\n');
 
-    const lowPpcText = (lowPpcActivities || []).map(act => {
+    const lowPpcText = filteredLowPpcActivities.map(act => {
       const ppc = act.planned_qty > 0 ? Math.round((act.actual_qty / act.planned_qty) * 100) : 0;
       return `- Atividade "${act.activities?.name || 'Sem nome'}" com PPC de ${ppc}%, ` +
         `responsável: ${act.activities?.responsible || 'Não definido'}, disciplina: ${act.activities?.discipline || 'Não definida'}`
