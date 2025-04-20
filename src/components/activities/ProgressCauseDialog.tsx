@@ -21,6 +21,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 interface Cause {
   id: string;
@@ -41,9 +42,10 @@ export function ProgressCauseDialog({
 }: ProgressCauseDialogProps) {
   const [selectedCause, setSelectedCause] = useState("");
   const [description, setDescription] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Use React Query to fetch causes
-  const { data: causes = [] } = useQuery({
+  const { data: causes = [], isLoading } = useQuery({
     queryKey: ['causes'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -53,6 +55,7 @@ export function ProgressCauseDialog({
       
       if (error) {
         console.error('Error fetching causes:', error);
+        toast.error("Erro ao carregar causas");
         return [];
       }
       
@@ -68,10 +71,15 @@ export function ProgressCauseDialog({
     if (!open) {
       setSelectedCause("");
       setDescription("");
+      setIsSubmitting(false);
     }
   }, [open]);
 
   const handleSubmit = () => {
+    if (isSubmitting) return;
+    
+    setIsSubmitting(true);
+    
     onSubmit({
       type: selectedCause,
       description,
@@ -91,21 +99,26 @@ export function ProgressCauseDialog({
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <Label htmlFor="cause">Causa</Label>
-            <Select
-              value={selectedCause}
-              onValueChange={setSelectedCause}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione a causa" />
-              </SelectTrigger>
-              <SelectContent>
-                {causes.map((cause) => (
-                  <SelectItem key={cause.id} value={cause.id}>
-                    {cause.name} ({cause.category})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {isLoading ? (
+              <div className="h-10 bg-muted animate-pulse rounded-md"></div>
+            ) : (
+              <Select
+                value={selectedCause}
+                onValueChange={setSelectedCause}
+                disabled={isSubmitting}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione a causa" />
+                </SelectTrigger>
+                <SelectContent>
+                  {causes.map((cause) => (
+                    <SelectItem key={cause.id} value={cause.id}>
+                      {cause.name} ({cause.category})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -115,17 +128,18 @@ export function ProgressCauseDialog({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Descreva os detalhes da causa..."
+              disabled={isSubmitting}
             />
           </div>
         </div>
 
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          <AlertDialogCancel disabled={isSubmitting}>Cancelar</AlertDialogCancel>
           <Button 
             onClick={handleSubmit}
-            disabled={!selectedCause}
+            disabled={!selectedCause || isSubmitting}
           >
-            Confirmar
+            {isSubmitting ? "Confirmando..." : "Confirmar"}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>

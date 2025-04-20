@@ -71,12 +71,18 @@ export function DailyProgress({
       date: string, 
       cause?: { type: string; description: string } 
     }) => {
-      // Get user session
+      console.log("Starting progress submission");
+      
+      // Get user session to ensure authentication
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session) {
+        console.error("No authenticated user session found");
         throw new Error("Usuário não autenticado");
       }
+      
+      const userId = session.user.id;
+      console.log("User authenticated, ID:", userId);
       
       // Insert progress data with user ID
       const { data: progressData, error: progressError } = await supabase
@@ -86,24 +92,36 @@ export function DailyProgress({
           date,
           actual_qty: Number(quantity),
           planned_qty: plannedProgress,
-          created_by: session.user.id // Set authenticated user ID
+          created_by: userId // Set authenticated user ID
         }])
         .select('id')
         .single();
 
-      if (progressError) throw progressError;
+      if (progressError) {
+        console.error("Error inserting daily progress:", progressError);
+        throw progressError;
+      }
+
+      console.log("Progress entry created successfully, ID:", progressData.id);
 
       if (cause && progressData) {
+        console.log("Inserting cause data:", cause);
+        
         const { error: causeError } = await supabase
           .from('progress_causes')
           .insert([{
             progress_id: progressData.id,
             cause_id: cause.type,
             notes: cause.description,
-            created_by: session.user.id // Set authenticated user ID
+            created_by: userId // Set authenticated user ID
           }]);
 
-        if (causeError) throw causeError;
+        if (causeError) {
+          console.error("Error inserting cause:", causeError);
+          throw causeError;
+        }
+        
+        console.log("Cause entry created successfully");
       }
 
       return progressData;
