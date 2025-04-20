@@ -2,43 +2,29 @@
 import { supabase } from "@/integrations/supabase/client";
 import { getRiskClassification } from "./ppcCalculation";
 
-/**
- * Calcula o risco de atraso com base no PPC atual e histórico de progresso
- * @param ppc - Percentual de plano concluído atual
- * @param varianceHistory - Histórico de variações (opcional)
- * @returns Percentual de risco de atraso (0-100)
- */
 export const calculateDelayRisk = (ppc: number, varianceHistory?: number[]): number => {
-  // Base risk from PPC - lower PPC means higher risk
   let baseRisk = Math.max(0, 100 - ppc);
   
-  // Adjust based on variance trend if available
-  if (varianceHistory && varianceHistory.length >= 2) {
-    // Check if trend is negative (getting worse over time)
-    let isWorseningTrend = true;
-    for (let i = 1; i < varianceHistory.length; i++) {
-      if (varianceHistory[i] >= varianceHistory[i-1]) {
-        isWorseningTrend = false;
-        break;
-      }
-    }
+  // Melhorar análise de tendência
+  if (varianceHistory && varianceHistory.length > 2) {
+    const recentTrend = varianceHistory.slice(-3); // Últimos 3 pontos
+    const isContinuouslyDecreasing = recentTrend.every((value, index) => 
+      index === 0 || value < recentTrend[index - 1]
+    );
     
-    // Increase risk for worsening trend
-    if (isWorseningTrend) {
-      baseRisk = Math.min(100, baseRisk + 15);
+    if (isContinuouslyDecreasing) {
+      baseRisk = Math.min(100, baseRisk + 20);
     }
   }
   
   return Math.round(baseRisk);
 };
 
-/**
- * Atualiza a tabela de riscos de atraso com base nos dados de progresso atual
- * @returns Promise que resolve quando a atualização for concluída
- */
 export const updateRiskAnalysis = async (): Promise<{ success: boolean; error?: any }> => {
   try {
-    // Buscar atividades com seus dados de progresso
+    // Log para rastrear chamadas de atualização
+    console.log('Iniciando atualização da análise de risco');
+    
     const { data: activities, error: activitiesError } = await supabase
       .from('activities')
       .select(`
@@ -55,14 +41,12 @@ export const updateRiskAnalysis = async (): Promise<{ success: boolean; error?: 
 
     if (activitiesError) throw activitiesError;
 
-    // Para cada atividade, calcular o PPC e o risco
     const currentWeek = getWeekLabel(new Date());
     const riskUpdates = [];
 
     for (const activity of activities || []) {
       if (!activity.daily_progress || activity.daily_progress.length === 0) continue;
       
-      // Calcular PPC
       let totalPlanned = 0;
       let totalActual = 0;
       const varianceHistory = [];
@@ -71,7 +55,6 @@ export const updateRiskAnalysis = async (): Promise<{ success: boolean; error?: 
         if (progress.planned_qty && progress.actual_qty) {
           totalPlanned += Number(progress.planned_qty);
           totalActual += Number(progress.actual_qty);
-          // Calcular variância diária para análise de tendência
           const dailyVariance = (Number(progress.actual_qty) / Number(progress.planned_qty)) * 100 - 100;
           varianceHistory.push(dailyVariance);
         }
@@ -79,11 +62,13 @@ export const updateRiskAnalysis = async (): Promise<{ success: boolean; error?: 
       
       const ppc = totalPlanned > 0 ? Math.round((totalActual / totalPlanned) * 100) : 0;
       
-      // Sempre calcular risco de atraso, independentemente do PPC
       const riskPct = calculateDelayRisk(ppc, varianceHistory);
       const classification = getRiskClassification(ppc);
       
-      // Verificar se já existe um registro para esta atividade/semana
+      // Log para depuração
+      console.log(`Atividade: ${activity.name}, PPC: ${ppc}%, Risco: ${riskPct}%`);
+      
+      // Similar ao código original, mas com log adicional
       const { data: existingRisk } = await supabase
         .from('risco_atraso')
         .select('id')
@@ -92,7 +77,6 @@ export const updateRiskAnalysis = async (): Promise<{ success: boolean; error?: 
         .maybeSingle();
         
       if (existingRisk) {
-        // Atualizar risco existente
         riskUpdates.push(supabase
           .from('risco_atraso')
           .update({
@@ -102,7 +86,6 @@ export const updateRiskAnalysis = async (): Promise<{ success: boolean; error?: 
           .eq('id', existingRisk.id)
         );
       } else {
-        // Inserir novo risco
         riskUpdates.push(supabase
           .from('risco_atraso')
           .insert({
@@ -115,23 +98,18 @@ export const updateRiskAnalysis = async (): Promise<{ success: boolean; error?: 
       }
     }
     
-    // Executar todas as atualizações
     if (riskUpdates.length > 0) {
       await Promise.all(riskUpdates);
+      console.log(`Atualizados riscos para ${riskUpdates.length} atividades`);
     }
     
     return { success: true };
   } catch (error) {
-    console.error("Erro ao atualizar análise de risco:", error);
+    console.error("Erro detalhado na análise de risco:", error);
     return { success: false, error };
   }
 };
 
-/**
- * Gera um rótulo para a semana atual no formato "YYYY-WW"
- * @param date - Data para extrair a semana
- * @returns String identificando a semana do ano
- */
 export const getWeekLabel = (date: Date): string => {
   const startOfYear = new Date(date.getFullYear(), 0, 1);
   const days = Math.floor((date.getTime() - startOfYear.getTime()) / (24 * 60 * 60 * 1000));
