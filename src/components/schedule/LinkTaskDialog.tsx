@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -7,12 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Loader2, Unlink } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-
-interface Activity {
-  id: string;
-  name: string;
-  discipline: string | null;
-}
+import { Activity } from "@/types/schedule";
 
 interface LinkTaskDialogProps {
   open: boolean;
@@ -81,9 +75,9 @@ export function LinkTaskDialog({
       }
       
       const { error } = await supabase
-        .from("cronograma_projeto")
+        .from('cronograma_projeto')
         .update({ atividade_lps_id: selectedActivity || null })
-        .eq("id", task.id);
+        .eq('id', task.id);
 
       if (error) throw error;
       

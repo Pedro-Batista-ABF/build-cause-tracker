@@ -90,6 +90,72 @@ export type Database = {
         }
         Relationships: []
       }
+      cronograma_projeto: {
+        Row: {
+          atividade_lps_id: string | null
+          created_at: string | null
+          data_inicio: string | null
+          data_termino: string | null
+          duracao_dias: number | null
+          id: string
+          nivel_hierarquia: number | null
+          nome: string
+          percentual_previsto: number | null
+          percentual_real: number | null
+          predecessores: string | null
+          projeto_id: string
+          tarefa_id: string
+          wbs: string | null
+        }
+        Insert: {
+          atividade_lps_id?: string | null
+          created_at?: string | null
+          data_inicio?: string | null
+          data_termino?: string | null
+          duracao_dias?: number | null
+          id?: string
+          nivel_hierarquia?: number | null
+          nome: string
+          percentual_previsto?: number | null
+          percentual_real?: number | null
+          predecessores?: string | null
+          projeto_id: string
+          tarefa_id: string
+          wbs?: string | null
+        }
+        Update: {
+          atividade_lps_id?: string | null
+          created_at?: string | null
+          data_inicio?: string | null
+          data_termino?: string | null
+          duracao_dias?: number | null
+          id?: string
+          nivel_hierarquia?: number | null
+          nome?: string
+          percentual_previsto?: number | null
+          percentual_real?: number | null
+          predecessores?: string | null
+          projeto_id?: string
+          tarefa_id?: string
+          wbs?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cronograma_projeto_atividade_lps_id_fkey"
+            columns: ["atividade_lps_id"]
+            isOneToOne: false
+            referencedRelation: "activities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cronograma_projeto_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       daily_progress: {
         Row: {
           activity_id: string | null

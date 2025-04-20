@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -11,21 +10,7 @@ import { LinkTaskDialog } from "./LinkTaskDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Link } from "lucide-react";
-
-interface ScheduleTask {
-  id: string;
-  tarefa_id: string;
-  nome: string;
-  data_inicio: string;
-  data_termino: string;
-  duracao_dias: number;
-  predecessores: string;
-  wbs: string;
-  percentual_previsto: number;
-  percentual_real: number;
-  nivel_hierarquia: number;
-  atividade_lps_id: string | null;
-}
+import { ScheduleTask, LinkedActivity } from "@/types/schedule";
 
 interface ScheduleGanttProps {
   scheduleData: ScheduleTask[];
@@ -46,7 +31,7 @@ export function ScheduleGantt({ scheduleData, isLoading, projectId, onDataChange
     async function fetchLinkedActivities() {
       try {
         const { data, error } = await supabase
-          .from("cronograma_projeto")
+          .from('cronograma_projeto')
           .select(`
             id,
             atividade_lps_id,
@@ -55,19 +40,19 @@ export function ScheduleGantt({ scheduleData, isLoading, projectId, onDataChange
               name
             )
           `)
-          .eq("projeto_id", projectId)
-          .not("atividade_lps_id", "is", null);
+          .eq('projeto_id', projectId)
+          .not('atividade_lps_id', 'is', null);
         
         if (error) throw error;
 
         const linkMap: Record<string, string> = {};
-        if (data) {
-          data.forEach((item) => {
-            if (item.atividade_lps_id && item.activities) {
-              linkMap[item.id] = item.activities.name;
-            }
-          });
-        }
+        const typedData = data as LinkedActivity[];
+        
+        typedData.forEach((item) => {
+          if (item.atividade_lps_id && item.activities) {
+            linkMap[item.id] = item.activities.name;
+          }
+        });
         
         setLinkedActivities(linkMap);
       } catch (error) {

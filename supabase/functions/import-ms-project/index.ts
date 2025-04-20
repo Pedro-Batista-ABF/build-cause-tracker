@@ -1,7 +1,7 @@
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.24.0";
-import { DOMParser } from "https://deno.land/x/deno_dom@v0.1.38/deno-dom-wasm.ts";
+import { parse } from "https://deno.land/x/xml@2.1.1/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -24,16 +24,8 @@ serve(async (req) => {
       );
     }
 
-    // Parse the XML
-    const parser = new DOMParser();
-    const xmlDoc = parser.parseFromString(xmlContent, "text/xml");
-
-    if (!xmlDoc) {
-      return new Response(
-        JSON.stringify({ error: "Failed to parse XML content" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
-      );
-    }
+    // Parse the XML using the deno xml parser
+    const xmlDoc = parse(xmlContent);
 
     // Create Supabase client
     const supabaseClient = createClient(
@@ -66,7 +58,7 @@ serve(async (req) => {
       );
     }
 
-    // Insert tasks in batches (to avoid payload size limitations)
+    // Insert tasks in batches
     const BATCH_SIZE = 50;
     const totalTasks = tasks.length;
     let importedCount = 0;
@@ -113,31 +105,25 @@ serve(async (req) => {
   }
 });
 
-function processTasksFromXml(xmlDoc: Document) {
+function processTasksFromXml(xmlDoc: any) {
   const tasks = [];
-  const taskElements = xmlDoc.querySelectorAll("Task");
+  const taskElements = xmlDoc.Project?.Task || [];
 
-  taskElements.forEach((taskElement) => {
-    // Check if this is a real task or summary element
-    const uid = taskElement.querySelector("UID")?.textContent;
-    const name = taskElement.querySelector("Name")?.textContent;
+  for (const taskElement of taskElements) {
+    const uid = taskElement.UID?.[0];
+    const name = taskElement.Name?.[0];
     
-    if (!uid || !name) return;
+    if (!uid || !name || name.trim() === "") continue;
 
-    // Skip summary tasks without names
-    if (name.trim() === "") return;
-
-    // Extract task data
-    const wbs = taskElement.querySelector("WBS")?.textContent || "";
-    const outlineLevel = parseInt(taskElement.querySelector("OutlineLevel")?.textContent || "1", 10);
-    const start = taskElement.querySelector("Start")?.textContent;
-    const finish = taskElement.querySelector("Finish")?.textContent;
+    const start = taskElement.Start?.[0];
+    const finish = taskElement.Finish?.[0];
+    const wbs = taskElement.WBS?.[0];
+    const outlineLevel = parseInt(taskElement.OutlineLevel?.[0] || "1", 10);
     
     // Get percentage complete
     let percentComplete = 0;
-    const percentCompleteNode = taskElement.querySelector("PercentComplete");
-    if (percentCompleteNode && percentCompleteNode.textContent) {
-      percentComplete = parseInt(percentCompleteNode.textContent, 10);
+    if (taskElement.PercentComplete?.[0]) {
+      percentComplete = parseInt(taskElement.PercentComplete[0], 10);
     }
 
     // Calculate duration in days
@@ -151,13 +137,13 @@ function processTasksFromXml(xmlDoc: Document) {
 
     // Get predecessors
     const predecessors = [];
-    const predecessorLinks = taskElement.querySelectorAll("PredecessorLink");
-    predecessorLinks.forEach(link => {
-      const predUid = link.querySelector("PredecessorUID")?.textContent;
+    const predecessorLinks = taskElement.PredecessorLink || [];
+    for (const link of predecessorLinks) {
+      const predUid = link.PredecessorUID?.[0];
       if (predUid) {
         predecessors.push(predUid);
       }
-    });
+    }
 
     tasks.push({
       tarefa_id: uid,
@@ -172,7 +158,7 @@ function processTasksFromXml(xmlDoc: Document) {
       nivel_hierarquia: outlineLevel,
       atividade_lps_id: null
     });
-  });
+  }
 
   return tasks;
 }
