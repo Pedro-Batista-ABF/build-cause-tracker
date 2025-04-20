@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -103,13 +104,20 @@ export function LinkTaskDialog({
         <DialogHeader>
           <DialogTitle>Vincular Tarefa à Atividade</DialogTitle>
           <DialogDescription>
-            Vincule a tarefa do cronograma "{task.nome}" a uma atividade existente no LPS.
+            Vincule a tarefa "{task.nome}" a uma atividade existente do projeto.
+            {currentActivityId && (
+              <div className="mt-2 p-2 bg-muted rounded-md">
+                Atualmente vinculada a: {activities.find(a => a.id === currentActivityId)?.name}
+              </div>
+            )}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label htmlFor="activity">Atividade</Label>
+            <Label htmlFor="activity" className="text-sm font-medium">
+              Selecione uma Atividade
+            </Label>
             <Select value={selectedActivity} onValueChange={setSelectedActivity} disabled={isLoading}>
               <SelectTrigger>
                 <SelectValue placeholder="Selecione uma atividade" />
