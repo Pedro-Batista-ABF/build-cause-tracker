@@ -5,22 +5,13 @@ import { AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-
-interface RiskAnalysisItem {
-  id: string;
-  atividade_id: string;
-  atividade_nome: string;
-  risco_atraso_pct: number;
-  classificacao: 'BAIXO' | 'MÉDIO' | 'ALTO';
-}
+import { RiscoAtraso } from "@/types/database";
 
 export function RiskAnalysisDashboard() {
   const { data: risks = [], isLoading } = useQuery({
     queryKey: ['dashboard-risks'],
     queryFn: async () => {
       try {
-        // Fetch risk data for high risk items
         const { data, error } = await supabase
           .from('risco_atraso')
           .select(`
@@ -29,7 +20,9 @@ export function RiskAnalysisDashboard() {
             risco_atraso_pct,
             classificacao,
             activities (
-              name
+              name,
+              discipline,
+              responsible
             )
           `)
           .eq('classificacao', 'ALTO')
@@ -43,7 +36,9 @@ export function RiskAnalysisDashboard() {
           atividade_id: risk.atividade_id,
           atividade_nome: risk.activities?.name || 'Atividade sem nome',
           risco_atraso_pct: risk.risco_atraso_pct,
-          classificacao: risk.classificacao as 'BAIXO' | 'MÉDIO' | 'ALTO',
+          classificacao: risk.classificacao,
+          discipline: risk.activities?.discipline,
+          responsible: risk.activities?.responsible
         }));
       } catch (error) {
         console.error('Error fetching risk analysis:', error);
@@ -80,6 +75,12 @@ export function RiskAnalysisDashboard() {
               >
                 <div className="truncate flex-1 mr-2">
                   <p className="text-sm">{risk.atividade_nome}</p>
+                  {(risk.responsible || risk.discipline) && (
+                    <p className="text-xs text-muted-foreground">
+                      {risk.discipline && `${risk.discipline} · `}
+                      {risk.responsible}
+                    </p>
+                  )}
                 </div>
                 <Badge className="bg-accent-red text-white shrink-0">
                   {Math.round(risk.risco_atraso_pct)}%
@@ -96,5 +97,4 @@ export function RiskAnalysisDashboard() {
         </div>
       </CardContent>
     </Card>
-  );
-}
+  

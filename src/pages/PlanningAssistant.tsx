@@ -2,19 +2,13 @@
 import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { PlanningAssistantMessage } from '@/components/planning/PlanningAssistantMessage';
-import { Refresh } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { RiskAnalysisCard, RiskItem } from '@/components/risk/RiskAnalysisCard';
-
-interface PlanningReport {
-  id: string;
-  content: string;
-  created_at: string;
-  is_current: boolean;
-}
+import { RiskAnalysisCard } from '@/components/risk/RiskAnalysisCard';
+import { PlanningReport, RiscoAtraso } from '@/types/database';
 
 export default function PlanningAssistant() {
   // Query for fetching the latest planning report
@@ -29,11 +23,11 @@ export default function PlanningAssistant() {
         const { data, error } = await supabase
           .from('planning_reports')
           .select('*')
-          .order('created_at', { ascending: false })
-          .limit(1);
+          .eq('is_current', true)
+          .single();
           
         if (error) throw error;
-        return data[0] as PlanningReport;
+        return data as PlanningReport;
       } catch (error) {
         console.error('Error fetching planning report:', error);
         toast.error('Erro ao carregar o relatório de planejamento');
@@ -51,7 +45,6 @@ export default function PlanningAssistant() {
     queryKey: ['risk-analysis'],
     queryFn: async () => {
       try {
-        // Fetch risk data from the database
         const { data, error } = await supabase
           .from('risco_atraso')
           .select(`
@@ -60,7 +53,6 @@ export default function PlanningAssistant() {
             semana,
             risco_atraso_pct,
             classificacao,
-            created_at,
             activities (
               name,
               discipline,
@@ -72,17 +64,16 @@ export default function PlanningAssistant() {
           
         if (error) throw error;
         
-        // Format the data
         return data.map(item => ({
           id: item.id,
           atividade_id: item.atividade_id,
           atividade_nome: item.activities?.name || 'Atividade sem nome',
           risco_atraso_pct: item.risco_atraso_pct,
-          classificacao: item.classificacao as 'BAIXO' | 'MÉDIO' | 'ALTO',
+          classificacao: item.classificacao,
           semana: item.semana,
-          responsible: item.activities?.responsible || '',
-          discipline: item.activities?.discipline || '',
-        })) as RiskItem[];
+          responsible: item.activities?.responsible,
+          discipline: item.activities?.discipline,
+        }));
       } catch (error) {
         console.error('Error fetching risk analysis data:', error);
         toast.error('Erro ao carregar os dados de análise de risco');
@@ -116,7 +107,7 @@ export default function PlanningAssistant() {
           Assistente de Planejamento Semanal
         </h1>
         <Button onClick={handleGenerateReport} disabled={isLoadingReport}>
-          <Refresh className="mr-2 h-4 w-4" />
+          <RefreshCw className="mr-2 h-4 w-4" />
           Gerar Novo Resumo
         </Button>
       </div>

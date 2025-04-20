@@ -1,87 +1,114 @@
-
-import { useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { SidebarSection } from "@/components/ui/sidebar";
-import { BarChart2, LayoutDashboard, FileText, Settings, LogOut, Lightbulb } from "lucide-react";
-import { useAuth } from "@/lib/auth";
+import React from "react";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+} from "@/components/ui/sidebar";
+import {
+  Home,
+  Calendar,
+  ListChecks,
+  BarChart2,
+  Settings,
+  AlertTriangle,
+} from "lucide-react";
+import { Link } from "react-router-dom";
 
 export function AppSidebar() {
-  const navigate = useNavigate();
-  const { signOut } = useAuth();
-
-  const handleSignOut = async () => {
-    await signOut?.();
-    navigate("/auth");
-  };
-
   return (
-    <SidebarSection className="w-full h-full max-w-[250px] border-r border-border-subtle bg-card-bg p-4 flex flex-col">
-      <div className="flex items-center gap-2 py-2 mb-6">
-        <div className="w-8 h-8 bg-accent-blue rounded-md flex items-center justify-center text-white font-bold">L</div>
-        <span className="text-lg font-semibold text-text-primary">LPS Manager</span>
-      </div>
+    <Sidebar>
+      <SidebarHeader>
+        {/*  <Link to="/">
+          <h1 className="font-bold text-2xl">Flowise</h1>
+        </Link> */}
+      </SidebarHeader>
+      
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupLabel>Geral</SidebarGroupLabel>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild tooltip="Dashboard">
+                <Link to="/">
+                  <Home className="h-4 w-4" />
+                  <span>Dashboard</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild tooltip="Projetos">
+                <Link to="/projects">
+                  <Calendar className="h-4 w-4" />
+                  <span>Projetos</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild tooltip="Atividades">
+                <Link to="/activities">
+                  <ListChecks className="h-4 w-4" />
+                  <span>Atividades</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroup>
 
-      <div className="space-y-1 mb-6">
-        <Button 
-          variant="ghost" 
-          className="w-full justify-start" 
-          onClick={() => navigate("/")}
-        >
-          <LayoutDashboard className="h-4 w-4 mr-2" /> Dashboard
-        </Button>
-        <Button 
-          variant="ghost" 
-          className="w-full justify-start" 
-          onClick={() => navigate("/projects")}
-        >
-          <FileText className="h-4 w-4 mr-2" /> Projetos
-        </Button>
-        <Button 
-          variant="ghost" 
-          className="w-full justify-start" 
-          onClick={() => navigate("/activities")}
-        >
-          <FileText className="h-4 w-4 mr-2" /> Atividades
-        </Button>
-        <Button 
-          variant="ghost" 
-          className="w-full justify-start" 
-          onClick={() => navigate("/indicators")}
-        >
-          <BarChart2 className="h-4 w-4 mr-2" /> Indicadores
-        </Button>
-        <Button 
-          variant="ghost" 
-          className="w-full justify-start" 
-          onClick={() => navigate("/causes")}
-        >
-          <FileText className="h-4 w-4 mr-2" /> Causas
-        </Button>
-        <Button 
-          variant="ghost" 
-          className="w-full justify-start" 
-          onClick={() => navigate("/planning")}
-        >
-          <Lightbulb className="h-4 w-4 mr-2" /> Assist. Planejamento
-        </Button>
-      </div>
-
-      <div className="mt-auto space-y-1">
-        <Button 
-          variant="ghost" 
-          className="w-full justify-start" 
-          onClick={() => navigate("/settings")}
-        >
-          <Settings className="h-4 w-4 mr-2" /> Configurações
-        </Button>
-        <Button 
-          variant="ghost" 
-          className="w-full justify-start text-accent-red hover:text-accent-red" 
-          onClick={handleSignOut}
-        >
-          <LogOut className="h-4 w-4 mr-2" /> Sair
-        </Button>
-      </div>
-    </SidebarSection>
+        <SidebarGroup>
+          <SidebarGroupLabel>Análise</SidebarGroupLabel>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild tooltip="Indicadores">
+                <Link to="/indicators">
+                  <BarChart2 className="h-4 w-4" />
+                  <span>Indicadores</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild tooltip="Análise de Riscos">
+                <Link to="/planning">
+                  <AlertTriangle className="h-4 w-4" />
+                  <span>Análise de Riscos</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild tooltip="Causas">
+                <Link to="/causes">
+                  <BarChart2 className="h-4 w-4" />
+                  <span>Causas</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroup>
+        
+        <SidebarGroup>
+          <SidebarGroupLabel>Sistema</SidebarGroupLabel>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild tooltip="Configurações">
+                <Link to="/settings">
+                  <Settings className="h-4 w-4" />
+                  <span>Configurações</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroup>
+      </SidebarContent>
+      
+      <SidebarFooter>
+        {/*  <ModeToggle /> */}
+      </SidebarFooter>
+    </Sidebar>
   );
 }
