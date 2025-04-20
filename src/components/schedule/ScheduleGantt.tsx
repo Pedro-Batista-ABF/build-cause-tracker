@@ -9,9 +9,10 @@ import { getScheduleStatus } from "@/utils/ppcCalculation";
 import { LinkTaskDialog } from "./LinkTaskDialog";
 import { GanttChart } from "./GanttChart";
 import { supabase } from "@/integrations/supabase/client";
-import { Link } from "lucide-react";
+import { Link, Edit } from "lucide-react";
 import { ScheduleTask, LinkedActivity } from "@/types/schedule";
 import { cn } from "@/lib/utils";
+import { EditScheduleItemDialog } from "./EditScheduleItemDialog";
 
 interface ScheduleGanttProps {
   scheduleData: ScheduleTask[];
@@ -23,6 +24,7 @@ interface ScheduleGanttProps {
 export function ScheduleGantt({ scheduleData, isLoading, projectId, onDataChange }: ScheduleGanttProps) {
   const [selectedTask, setSelectedTask] = useState<ScheduleTask | null>(null);
   const [isLinkDialogOpen, setIsLinkDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [linkedActivities, setLinkedActivities] = useState<Record<string, string[]>>({});
   const ganttContainerRef = useRef<HTMLDivElement>(null);
   const [filter, setFilter] = useState("all");
@@ -132,6 +134,11 @@ export function ScheduleGantt({ scheduleData, isLoading, projectId, onDataChange
     );
   }
 
+  const handleEditTask = (task: ScheduleTask) => {
+    setSelectedTask(task);
+    setIsEditDialogOpen(true);
+  };
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
@@ -212,7 +219,7 @@ export function ScheduleGantt({ scheduleData, isLoading, projectId, onDataChange
                       <div className="text-muted-foreground font-medium">
                         {task.percentual_real || 0}%
                       </div>
-                      <div>
+                      <div className="flex gap-2">
                         <Button 
                           size="sm" 
                           variant="ghost" 
@@ -221,6 +228,15 @@ export function ScheduleGantt({ scheduleData, isLoading, projectId, onDataChange
                           title="Vincular à atividade LPS"
                         >
                           <Link className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 w-8 p-0 hover:bg-accent/10"
+                          onClick={() => handleEditTask(task)}
+                          title="Editar item"
+                        >
+                          <Edit className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>
@@ -231,19 +247,30 @@ export function ScheduleGantt({ scheduleData, isLoading, projectId, onDataChange
           </div>
         </div>
 
-        {/* Adicionando o gráfico de Gantt */}
-        <GanttChart tasks={filteredData} />
+        {/* Gantt Chart with S-curve */}
+        <GanttChart 
+          tasks={filteredData}
+          showSCurve={true}
+        />
       </CardContent>
 
       {selectedTask && (
-        <LinkTaskDialog
-          open={isLinkDialogOpen}
-          onOpenChange={setIsLinkDialogOpen}
-          task={selectedTask}
-          projectId={projectId}
-          currentActivityId={selectedTask.atividade_lps_id || undefined}
-          onLinkSuccess={handleLinkSuccess}
-        />
+        <>
+          <LinkTaskDialog
+            open={isLinkDialogOpen}
+            onOpenChange={setIsLinkDialogOpen}
+            task={selectedTask}
+            projectId={projectId}
+            currentActivityId={selectedTask.atividade_lps_id || undefined}
+            onLinkSuccess={handleLinkSuccess}
+          />
+          <EditScheduleItemDialog
+            open={isEditDialogOpen}
+            onOpenChange={setIsEditDialogOpen}
+            item={selectedTask}
+            onSave={onDataChange}
+          />
+        </>
       )}
     </Card>
   );

@@ -1,14 +1,15 @@
-
 import { useMemo } from "react";
 import { ScheduleTask } from "@/types/schedule";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { calculateSCurve } from "@/utils/progressDistribution";
 
 interface GanttChartProps {
   tasks: ScheduleTask[];
+  showSCurve?: boolean;
 }
 
-export function GanttChart({ tasks }: GanttChartProps) {
+export function GanttChart({ tasks, showSCurve = false }: GanttChartProps) {
   const projectStart = useMemo(() => {
     const dates = tasks
       .map(task => task.data_inicio)
@@ -68,6 +69,19 @@ Realizado: ${task.percentual_real || 0}%
 ${task.data_inicio ? `Início: ${new Date(task.data_inicio).toLocaleDateString('pt-BR')}` : ''}
 ${task.data_termino ? `Término: ${new Date(task.data_termino).toLocaleDateString('pt-BR')}` : ''}`;
   };
+
+  const scurveData = useMemo(() => {
+    if (!showSCurve) return null;
+
+    const totalProgress = tasks.reduce((acc, task) => {
+      if (task.nivel_hierarquia === 0) {
+        return acc + (task.percentual_previsto || 0);
+      }
+      return acc;
+    }, 0);
+
+    return calculateSCurve(projectStart.toISOString(), projectEnd.toISOString(), totalProgress, 'Curva S');
+  }, [tasks, showSCurve, projectStart, projectEnd]);
 
   if (tasks.length === 0) {
     return null;
@@ -131,6 +145,25 @@ ${task.data_termino ? `Término: ${new Date(task.data_termino).toLocaleDateStrin
               </div>
             ))}
           </div>
+
+          {/* S-curve overlay */}
+          {showSCurve && scurveData && (
+            <div className="absolute inset-0 pointer-events-none">
+              <svg className="w-full h-full">
+                <path
+                  d={`M${scurveData.map(point => {
+                    const date = new Date(point.date);
+                    const x = ((date.getTime() - projectStart.getTime()) / (projectEnd.getTime() - projectStart.getTime())) * 100;
+                    return `${x},${100 - point.cumulative}%`;
+                  }).join(" L")}`}
+                  fill="none"
+                  stroke="#4338ca"
+                  strokeWidth="2"
+                  strokeDasharray="4"
+                />
+              </svg>
+            </div>
+          )}
 
           {/* Grid lines for months */}
           <div className="absolute inset-0 flex pointer-events-none">
