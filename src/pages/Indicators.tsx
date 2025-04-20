@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { DashboardCard } from "@/components/dashboard/DashboardCard";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,7 @@ import { format, subDays, startOfWeek, endOfWeek, eachWeekOfInterval } from "dat
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import { updateRiskAnalysis } from "@/utils/riskAnalysis";
+import { calculateAveragePPC } from "@/utils/ppcCalculation";
 
 interface WeeklyData {
   semana: string;
@@ -127,16 +129,25 @@ export default function Indicators() {
     }
   });
   
-  // Calculate summary metrics
+  // Calculate summary metrics using consistent method
   const { data: metrics = { ppcAverage: 0, adherence: 0, activeActivities: 0, causesCount: 0 }, isLoading: isLoadingMetrics } = useQuery({
     queryKey: ['indicator-metrics', period],
     queryFn: async () => {
       try {
-        // Calculate PPC average from weekly data
-        const ppcValues = weeklyData.map(week => week.aderencia).filter(val => val > 0);
-        const ppcAverage = ppcValues.length > 0 
-          ? Math.round(ppcValues.reduce((sum, val) => sum + val, 0) / ppcValues.length) 
-          : 0;
+        // Get all progress data for the period
+        const { data: progressData, error: progressError } = await supabase
+          .from('daily_progress')
+          .select('date, planned_qty, actual_qty')
+          .gte('date', startDate.toISOString().split('T')[0])
+          .lte('date', endDate.toISOString().split('T')[0]);
+          
+        if (progressError) {
+          console.error("Error fetching progress data:", progressError);
+          throw progressError;
+        }
+        
+        // Calculate PPC using the same method as Dashboard
+        const ppcAverage = calculateAveragePPC(progressData || []);
           
         // Get active activities count
         const { data: activitiesData, error: activitiesError } = await supabase
@@ -164,11 +175,21 @@ export default function Indicators() {
         
         const causesCount = causesData?.length || 0;
         
-        // Calculate overall adherence
-        const totalPlanned = weeklyData.reduce((sum, week) => sum + week.previsto, 0);
-        const totalActual = weeklyData.reduce((sum, week) => sum + week.realizado, 0);
-        const adherence = totalPlanned > 0 
-          ? Math.round((totalActual / totalPlanned) * 100) 
+        // Calculate overall adherence consistently
+        let compliantActivities = 0;
+        let totalProgressItems = 0;
+        
+        progressData?.forEach(item => {
+          if (item.planned_qty && item.actual_qty) {
+            totalProgressItems++;
+            if (item.actual_qty >= item.planned_qty) {
+              compliantActivities++;
+            }
+          }
+        });
+        
+        const adherence = totalProgressItems > 0 
+          ? Math.round((compliantActivities / totalProgressItems) * 100) 
           : 0;
         
         return {
@@ -187,8 +208,7 @@ export default function Indicators() {
           causesCount: 0 
         };
       }
-    },
-    enabled: weeklyData.length > 0
+    }
   });
   
   // Fetch top causes

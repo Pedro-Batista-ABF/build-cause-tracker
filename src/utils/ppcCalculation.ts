@@ -25,9 +25,11 @@ export const calculatePPC = (actualQty: number, plannedQty: number): number => {
 export const calculateAveragePPC = (
   progressData: Array<{ actual_qty: number | null; planned_qty: number | null }>
 ): number => {
+  // Track total planned and actual quantities
   let totalPlanned = 0;
   let totalActual = 0;
   
+  // Sum up all planned and actual quantities
   progressData.forEach(item => {
     if (item.planned_qty && item.actual_qty) {
       totalPlanned += Number(item.planned_qty);
@@ -35,6 +37,7 @@ export const calculateAveragePPC = (
     }
   });
   
+  // Calculate overall PPC from totals
   return calculatePPC(totalActual, totalPlanned);
 };
 

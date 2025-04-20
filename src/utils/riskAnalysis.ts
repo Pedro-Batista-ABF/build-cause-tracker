@@ -79,41 +79,39 @@ export const updateRiskAnalysis = async (): Promise<{ success: boolean; error?: 
       
       const ppc = totalPlanned > 0 ? Math.round((totalActual / totalPlanned) * 100) : 0;
       
-      // Calcular risco de atraso apenas para atividades com PPC < 90
-      if (ppc < 90) {
-        const riskPct = calculateDelayRisk(ppc, varianceHistory);
-        const classification = getRiskClassification(ppc);
+      // Sempre calcular risco de atraso, independentemente do PPC
+      const riskPct = calculateDelayRisk(ppc, varianceHistory);
+      const classification = getRiskClassification(ppc);
+      
+      // Verificar se já existe um registro para esta atividade/semana
+      const { data: existingRisk } = await supabase
+        .from('risco_atraso')
+        .select('id')
+        .eq('atividade_id', activity.id)
+        .eq('semana', currentWeek)
+        .maybeSingle();
         
-        // Verificar se já existe um registro para esta atividade/semana
-        const { data: existingRisk } = await supabase
+      if (existingRisk) {
+        // Atualizar risco existente
+        riskUpdates.push(supabase
           .from('risco_atraso')
-          .select('id')
-          .eq('atividade_id', activity.id)
-          .eq('semana', currentWeek)
-          .maybeSingle();
-          
-        if (existingRisk) {
-          // Atualizar risco existente
-          riskUpdates.push(supabase
-            .from('risco_atraso')
-            .update({
-              risco_atraso_pct: riskPct,
-              classificacao: classification
-            })
-            .eq('id', existingRisk.id)
-          );
-        } else {
-          // Inserir novo risco
-          riskUpdates.push(supabase
-            .from('risco_atraso')
-            .insert({
-              atividade_id: activity.id,
-              risco_atraso_pct: riskPct,
-              classificacao: classification,
-              semana: currentWeek
-            })
-          );
-        }
+          .update({
+            risco_atraso_pct: riskPct,
+            classificacao: classification
+          })
+          .eq('id', existingRisk.id)
+        );
+      } else {
+        // Inserir novo risco
+        riskUpdates.push(supabase
+          .from('risco_atraso')
+          .insert({
+            atividade_id: activity.id,
+            risco_atraso_pct: riskPct,
+            classificacao: classification,
+            semana: currentWeek
+          })
+        );
       }
     }
     

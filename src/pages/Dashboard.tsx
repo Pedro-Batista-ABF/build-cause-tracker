@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { DashboardCard } from "@/components/dashboard/DashboardCard";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
@@ -84,12 +85,12 @@ export default function Dashboard() {
           
         if (activitiesError) throw activitiesError;
         
-        // Get progress data for PPC calculation
+        // Get progress data for PPC calculation within the selected date range
         const { data: progressData, error: progressError } = await supabase
           .from('daily_progress')
           .select('actual_qty, planned_qty, date')
-          .gte('date', dateRange.startDate.toISOString())
-          .lte('date', dateRange.endDate.toISOString());
+          .gte('date', dateRange.startDate.toISOString().split('T')[0])
+          .lte('date', dateRange.endDate.toISOString().split('T')[0]);
           
         if (progressError) throw progressError;
         
@@ -99,6 +100,7 @@ export default function Dashboard() {
         let compliantActivities = 0;
         let totalProgressItems = 0;
         
+        // Calculate adherence
         progressData?.forEach(item => {
           if (item.planned_qty && item.actual_qty) {
             totalProgressItems++;
@@ -112,6 +114,7 @@ export default function Dashboard() {
           ? Math.round((compliantActivities / totalProgressItems) * 100)
           : 0;
           
+        // Count delayed activities (PPC < 90%)
         let delayedActivities = 0;
         progressData?.forEach(item => {
           if (item.planned_qty && item.actual_qty) {
@@ -164,8 +167,8 @@ export default function Dashboard() {
         const { data, error } = await supabase
           .from('daily_progress')
           .select('date, actual_qty, planned_qty')
-          .gte('date', dateRange.startDate.toISOString())
-          .lte('date', dateRange.endDate.toISOString())
+          .gte('date', dateRange.startDate.toISOString().split('T')[0])
+          .lte('date', dateRange.endDate.toISOString().split('T')[0])
           .order('date');
           
         if (error) throw error;
