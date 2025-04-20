@@ -2,6 +2,7 @@
 import { useMemo } from "react";
 import { ScheduleTask } from "@/types/schedule";
 import { Card, CardContent } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 interface GanttChartProps {
   tasks: ScheduleTask[];
@@ -49,14 +50,33 @@ export function GanttChart({ tasks }: GanttChartProps) {
     return months;
   }, [projectStart, monthsToShow]);
 
+  const getTaskStatusColor = (task: ScheduleTask) => {
+    const completed = task.percentual_real === 100;
+    const notStarted = !task.percentual_real || task.percentual_real === 0;
+    const delayed = task.percentual_real < (task.percentual_previsto || 0);
+
+    if (completed) return 'bg-accent-green';
+    if (notStarted) return 'bg-gray-300';
+    if (delayed) return 'bg-accent-red';
+    return 'bg-accent-blue';
+  };
+
+  const getTaskTooltip = (task: ScheduleTask) => {
+    return `${task.nome}
+Previsto: ${task.percentual_previsto || 0}%
+Realizado: ${task.percentual_real || 0}%
+${task.data_inicio ? `Início: ${new Date(task.data_inicio).toLocaleDateString('pt-BR')}` : ''}
+${task.data_termino ? `Término: ${new Date(task.data_termino).toLocaleDateString('pt-BR')}` : ''}`;
+  };
+
   if (tasks.length === 0) {
     return null;
   }
 
   return (
     <Card className="mt-6">
-      <CardContent className="pt-6">
-        <div className="gantt-chart">
+      <CardContent className="pt-6 overflow-x-auto">
+        <div className="gantt-chart min-w-[800px]">
           {/* Header com meses */}
           <div className="flex border-b mb-4">
             <div className="w-64 flex-shrink-0"></div>
@@ -64,7 +84,7 @@ export function GanttChart({ tasks }: GanttChartProps) {
               {months.map((month, index) => (
                 <div 
                   key={index}
-                  className="flex-1 text-sm font-medium text-center"
+                  className="flex-1 text-sm font-medium text-center text-muted-foreground"
                 >
                   {month.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })}
                 </div>
@@ -75,9 +95,15 @@ export function GanttChart({ tasks }: GanttChartProps) {
           {/* Tarefas */}
           <div className="space-y-2">
             {tasks.map((task) => (
-              <div key={task.id} className="flex items-center min-h-[2rem]">
+              <div 
+                key={task.id} 
+                className={cn(
+                  "flex items-center min-h-[2rem] group hover:bg-accent/5 rounded-sm transition-colors",
+                  task.nivel_hierarquia === 0 && "font-medium"
+                )}
+              >
                 <div 
-                  className="w-64 flex-shrink-0 truncate pr-4 text-sm"
+                  className="w-64 flex-shrink-0 truncate pr-4 text-sm group-hover:text-accent-foreground transition-colors"
                   style={{ paddingLeft: `${task.nivel_hierarquia * 16}px` }}
                 >
                   {task.nome}
@@ -85,18 +111,17 @@ export function GanttChart({ tasks }: GanttChartProps) {
                 <div className="flex-1 relative h-6">
                   {task.data_inicio && task.data_termino && (
                     <div
-                      className={`absolute h-full rounded ${
-                        task.percentual_real === 100
-                          ? "bg-green-500"
-                          : task.percentual_real === 0
-                          ? "bg-gray-300"
-                          : "bg-blue-500"
-                      }`}
+                      className={cn(
+                        "absolute h-full rounded shadow-sm transition-all",
+                        "group-hover:ring-2 group-hover:ring-accent group-hover:ring-offset-1",
+                        getTaskStatusColor(task)
+                      )}
                       style={getTaskPosition(task)}
+                      title={getTaskTooltip(task)}
                     >
-                      {task.percentual_real > 0 && (
+                      {task.percentual_real > 0 && task.percentual_real < 100 && (
                         <div
-                          className="absolute inset-y-0 left-0 bg-green-500 rounded"
+                          className="absolute inset-y-0 left-0 bg-accent-green rounded"
                           style={{ width: `${task.percentual_real}%` }}
                         />
                       )}
@@ -104,6 +129,16 @@ export function GanttChart({ tasks }: GanttChartProps) {
                   )}
                 </div>
               </div>
+            ))}
+          </div>
+
+          {/* Grid lines for months */}
+          <div className="absolute inset-0 flex pointer-events-none">
+            {months.map((_, index) => (
+              <div 
+                key={index}
+                className="flex-1 border-l border-border/20 first:border-l-0"
+              />
             ))}
           </div>
         </div>
