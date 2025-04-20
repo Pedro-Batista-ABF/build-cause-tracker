@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { DashboardCard } from "@/components/dashboard/DashboardCard";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
@@ -23,30 +22,27 @@ const getDateRange = (period: string) => {
   let startDate = new Date();
   
   switch (period) {
-    case "Dia":
-      startDate = new Date(today);
+    case "2weeks":
+      startDate.setDate(today.getDate() - 14);
       break;
-    case "Semana":
-      startDate.setDate(today.getDate() - 7);
+    case "4weeks":
+      startDate.setDate(today.getDate() - 28);
       break;
-    case "Mês":
-      startDate.setMonth(today.getMonth() - 1);
+    case "1month":
+      startDate.setDate(today.getDate() - 30);
       break;
-    case "Trimestre":
+    case "3months":
       startDate.setMonth(today.getMonth() - 3);
       break;
-    case "6M":
-      startDate.setMonth(today.getMonth() - 6);
-      break;
     default:
-      startDate.setDate(today.getDate() - 7); // Default to 1 week
+      startDate.setDate(today.getDate() - 28); // Default to 4 weeks
   }
   
   return { startDate, endDate: today };
 };
 
 export default function Dashboard() {
-  const [activePeriod, setActivePeriod] = useState("Semana");
+  const [activePeriod, setActivePeriod] = useState("4weeks");
   const { session } = useAuth();
   const userName = session?.user?.user_metadata?.full_name?.split(' ')[0];
   
@@ -219,7 +215,6 @@ export default function Dashboard() {
       <PeriodFilter 
         activePeriod={activePeriod}
         onPeriodChange={setActivePeriod}
-        periods={periodFilters}
       />
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -227,7 +222,9 @@ export default function Dashboard() {
           title="PPC Médio"
           value={`${stats.avgPPC}%`}
           icon={<BarChart2 className="h-4 w-4" />}
-          description={`${activePeriod === 'Dia' ? 'Hoje' : `Últimos ${activePeriod === 'Semana' ? '7 dias' : activePeriod === 'Mês' ? '30 dias' : activePeriod === 'Trimestre' ? '3 meses' : '6 meses'}`}`}
+          description={`${activePeriod === '2weeks' ? 'Últimas 2 semanas' : 
+            activePeriod === '4weeks' ? 'Últimas 4 semanas' : 
+            activePeriod === '1month' ? 'Último mês' : 'Últimos 3 meses'}`}
           className="border border-border-subtle shadow-md"
           isLoading={isStatsLoading}
         />
