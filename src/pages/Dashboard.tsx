@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { DashboardCard } from "@/components/dashboard/DashboardCard";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { PeriodFilter } from "@/components/dashboard/PeriodFilter";
@@ -12,6 +12,7 @@ import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { RiskAnalysisDashboard } from '@/components/dashboard/RiskAnalysisDashboard';
 import { calculateAveragePPC } from '@/utils/ppcCalculation';
+import { updateRiskAnalysis } from '@/utils/riskAnalysis';
 
 const periodFilters = ["Dia", "Semana", "Mês", "Trimestre", "6M"];
 
@@ -50,8 +51,30 @@ export default function Dashboard() {
   
   const dateRange = getDateRange(activePeriod);
   
+  // Função para atualizar análise de risco
+  const updateRisk = async () => {
+    try {
+      const result = await updateRiskAnalysis();
+      if (!result.success) {
+        console.error("Falha ao atualizar análise de risco:", result.error);
+      }
+    } catch (error) {
+      console.error("Erro ao atualizar análise de risco:", error);
+    }
+  };
+
+  // Atualizar análise de risco quando o componente montar
+  useEffect(() => {
+    if (session?.user) {
+      updateRisk();
+    }
+  }, [session?.user]);
+  
   // Fetch dashboard stats
-  const { data: stats = { avgPPC: 0, adherence: 0, totalActivities: 0, delayedActivities: 0 }, isLoading: isStatsLoading } = useQuery({
+  const { data: stats = { avgPPC: 0, adherence: 0, totalActivities: 0, delayedActivities: 0 }, 
+    isLoading: isStatsLoading,
+    refetch: refetchStats
+  } = useQuery({
     queryKey: ['dashboard-stats', activePeriod],
     queryFn: async () => {
       try {
@@ -98,6 +121,11 @@ export default function Dashboard() {
             }
           }
         });
+
+        // Atualizar análise de risco quando houver atividades atrasadas
+        if (delayedActivities > 0) {
+          updateRisk();
+        }
         
         return {
           avgPPC,
@@ -119,6 +147,15 @@ export default function Dashboard() {
     enabled: !!session?.user
   });
   
+  // Quando o período mudar, atualizar a análise de risco
+  useEffect(() => {
+    if (session?.user) {
+      refetchStats().then(() => {
+        updateRisk();
+      });
+    }
+  }, [activePeriod]);
+
   // Fetch chart data
   const { data: chartData = [], isLoading: isChartLoading } = useQuery({
     queryKey: ['ppc-chart', activePeriod],

@@ -4,11 +4,12 @@ import { Button } from '@/components/ui/button';
 import { PlanningAssistantMessage } from '@/components/planning/PlanningAssistantMessage';
 import { RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { RiskAnalysisCard, RiskItem } from '@/components/risk/RiskAnalysisCard';
 import { PlanningReport } from '@/types/database';
+import { updateRiskAnalysis } from '@/utils/riskAnalysis';
 
 interface RiscoAtrasoRow {
   id: string;
@@ -24,6 +25,15 @@ interface RiscoAtrasoRow {
 }
 
 export default function PlanningAssistant() {
+  const queryClient = useQueryClient();
+
+  // Analisar riscos ao carregar a página
+  useEffect(() => {
+    updateRiskAnalysis().then(() => {
+      queryClient.invalidateQueries({ queryKey: ['risk-analysis'] });
+    });
+  }, []);
+  
   // Query for fetching the latest planning report
   const { 
     data: latestReport, 
@@ -113,9 +123,13 @@ export default function PlanningAssistant() {
 
   // Handle generating a new report
   const handleGenerateReport = async () => {
-    toast.info('Gerando novo relatório de planejamento...');
-    
+    // Primeiro atualizar a análise de risco
     try {
+      toast.info('Analisando riscos e gerando relatório...');
+      await updateRiskAnalysis();
+      queryClient.invalidateQueries({ queryKey: ['risk-analysis'] });
+      
+      // Agora gerar o relatório
       const { data, error } = await supabase.functions.invoke('generate-planning-report');
       
       if (error) {

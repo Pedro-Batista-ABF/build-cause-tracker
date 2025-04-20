@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { DashboardCard } from "@/components/dashboard/DashboardCard";
 import { Button } from "@/components/ui/button";
@@ -9,14 +8,15 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { AreaChart, BarChart, Calendar, Clock } from "lucide-react";
+import { AlertTriangle, AreaChart, BarChart, Calendar, Clock, RefreshCw } from "lucide-react";
 import { CartesianGrid, Legend, Bar, BarChart as ReBarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CausesAnalysis } from "@/components/dashboard/CausesAnalysis";
 import { format, subDays, startOfWeek, endOfWeek, eachWeekOfInterval } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
+import { updateRiskAnalysis } from "@/utils/riskAnalysis";
 
 interface WeeklyData {
   semana: string;
@@ -29,6 +29,7 @@ interface WeeklyData {
 
 export default function Indicators() {
   const [period, setPeriod] = useState<string>("4weeks");
+  const queryClient = useQueryClient();
   
   // Calculate date range based on selected period
   const getPeriodDates = () => {
@@ -48,6 +49,27 @@ export default function Indicators() {
   };
   
   const { startDate, endDate } = getPeriodDates();
+
+    // Atualizar análise de risco quando o período mudar
+    useEffect(() => {
+      updateRiskAnalysis().then(() => {
+        queryClient.invalidateQueries({ queryKey: ['dashboard-risks'] });
+        queryClient.invalidateQueries({ queryKey: ['risk-analysis'] });
+      });
+    }, [period]);
+    
+    const handleUpdateRiskAnalysis = async () => {
+      try {
+        toast.info("Atualizando análise de riscos...");
+        await updateRiskAnalysis();
+        queryClient.invalidateQueries({ queryKey: ['dashboard-risks'] });
+        queryClient.invalidateQueries({ queryKey: ['risk-analysis'] });
+        toast.success("Análise de riscos atualizada com sucesso");
+      } catch (error) {
+        console.error("Erro ao atualizar análise de riscos:", error);
+        toast.error("Falha ao atualizar análise de riscos");
+      }
+    };
 
   // Fetch weekly data for PPC
   const { data: weeklyData = [], isLoading: isLoadingWeekly } = useQuery({
@@ -235,31 +257,42 @@ export default function Indicators() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold tracking-tight">Indicadores</h1>
-        <div className="flex space-x-2">
+        <div className="flex items-center gap-3">
           <Button 
-            variant={period === "2weeks" ? "default" : "outline"} 
-            onClick={() => setPeriod("2weeks")}
+            variant="outline" 
+            size="sm"
+            onClick={handleUpdateRiskAnalysis} 
+            className="flex items-center gap-1"
           >
-            2 Semanas
+            <RefreshCw className="h-4 w-4" />
+            Atualizar Riscos
           </Button>
-          <Button 
-            variant={period === "4weeks" ? "default" : "outline"} 
-            onClick={() => setPeriod("4weeks")}
-          >
-            4 Semanas
-          </Button>
-          <Button 
-            variant={period === "1month" ? "default" : "outline"} 
-            onClick={() => setPeriod("1month")}
-          >
-            1 Mês
-          </Button>
-          <Button 
-            variant={period === "3months" ? "default" : "outline"} 
-            onClick={() => setPeriod("3months")}
-          >
-            3 Meses
-          </Button>
+          <div className="flex space-x-2">
+            <Button 
+              variant={period === "2weeks" ? "default" : "outline"} 
+              onClick={() => setPeriod("2weeks")}
+            >
+              2 Semanas
+            </Button>
+            <Button 
+              variant={period === "4weeks" ? "default" : "outline"} 
+              onClick={() => setPeriod("4weeks")}
+            >
+              4 Semanas
+            </Button>
+            <Button 
+              variant={period === "1month" ? "default" : "outline"} 
+              onClick={() => setPeriod("1month")}
+            >
+              1 Mês
+            </Button>
+            <Button 
+              variant={period === "3months" ? "default" : "outline"} 
+              onClick={() => setPeriod("3months")}
+            >
+              3 Meses
+            </Button>
+          </div>
         </div>
       </div>
 

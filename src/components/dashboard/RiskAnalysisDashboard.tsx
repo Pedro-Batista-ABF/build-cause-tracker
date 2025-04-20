@@ -1,12 +1,13 @@
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertTriangle, ChevronRight } from "lucide-react";
+import { AlertTriangle, ChevronRight, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { updateRiskAnalysis } from "@/utils/riskAnalysis";
 
 interface RiskItem {
   id: string;
@@ -31,7 +32,9 @@ interface RiscoAtrasoRow {
 }
 
 export function RiskAnalysisDashboard() {
-  const { data: risks = [], isLoading } = useQuery({
+  const queryClient = useQueryClient();
+  
+  const { data: risks = [], isLoading, refetch } = useQuery({
     queryKey: ['dashboard-risks'],
     queryFn: async () => {
       try {
@@ -60,7 +63,6 @@ export function RiskAnalysisDashboard() {
               responsible
             )
           `)
-          .eq('classificacao', 'ALTO')
           .order('risco_atraso_pct', { ascending: false })
           .limit(5);
         
@@ -86,6 +88,23 @@ export function RiskAnalysisDashboard() {
     },
   });
 
+  const handleRefreshRiskAnalysis = async () => {
+    try {
+      toast.info("Atualizando análise de riscos...");
+      const result = await updateRiskAnalysis();
+      if (result.success) {
+        refetch();
+        queryClient.invalidateQueries({ queryKey: ['risk-analysis'] });
+        toast.success("Análise de riscos atualizada com sucesso");
+      } else {
+        toast.error("Erro ao atualizar análise de riscos");
+      }
+    } catch (error) {
+      console.error("Erro ao atualizar riscos:", error);
+      toast.error("Erro ao atualizar riscos");
+    }
+  };
+
   const getRiskColor = (riskPct: number): string => {
     if (riskPct >= 80) return "bg-accent-red text-white";
     if (riskPct >= 50) return "bg-orange-500 text-white";
@@ -94,11 +113,19 @@ export function RiskAnalysisDashboard() {
 
   return (
     <Card className="md:col-span-1">
-      <CardHeader className="pb-2">
+      <CardHeader className="pb-2 flex flex-row justify-between items-center">
         <CardTitle className="text-lg flex items-center gap-2">
           <AlertTriangle className="h-5 w-5 text-accent-red" />
           Risco de Atraso
         </CardTitle>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          onClick={handleRefreshRiskAnalysis}
+          title="Atualizar análise de riscos"
+        >
+          <RefreshCw className="h-4 w-4" />
+        </Button>
       </CardHeader>
       <CardContent>
         {isLoading ? (
@@ -108,9 +135,18 @@ export function RiskAnalysisDashboard() {
             ))}
           </div>
         ) : risks.length === 0 ? (
-          <p className="text-muted-foreground text-sm text-center py-4">
-            Nenhuma atividade com alto risco de atraso.
-          </p>
+          <div className="text-muted-foreground text-sm text-center py-4">
+            <p>Nenhuma atividade com alto risco de atraso.</p>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleRefreshRiskAnalysis}
+              className="mt-2"
+            >
+              <RefreshCw className="h-3 w-3 mr-2" />
+              Analisar riscos
+            </Button>
+          </div>
         ) : (
           <div className="space-y-2">
             {risks.map(risk => (
