@@ -27,10 +27,6 @@ Deno.serve(async (req) => {
       throw new Error('OPENAI_API_KEY is required');
     }
 
-    const openai = new OpenAI({
-      apiKey: openaiApiKey,
-    });
-
     // 1. Obter dados para análise
     // Atividades com PPC baixo - usando uma abordagem diferente para filtrar
     console.log("Buscando atividades com PPC baixo...");
@@ -171,53 +167,111 @@ Deno.serve(async (req) => {
     console.log("Enviando prompt para OpenAI");
     
     // 3. Gerar o relatório com OpenAI
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o", // Usando o modelo mais recente e poderoso
-      messages: [{
-        role: "system", 
-        content: "Você é um assistente especializado em gerenciamento de projetos de construção civil usando Last Planner System."
-      }, {
-        role: "user", 
-        content: prompt
-      }],
-      max_tokens: 1500, // Aumentado para permitir relatórios mais detalhados
-      temperature: 0.7,
-    });
-
-    const generatedText = completion.choices[0]?.message?.content || 'Não foi possível gerar o relatório';
-
-    console.log("Relatório gerado com sucesso");
-    
-    // 4. Salvar o relatório no banco
-    // Primeiro, atualizar todos os relatórios existentes para não serem "current"
-    await supabase
-      .from('planning_reports')
-      .update({ is_current: false })
-      .eq('is_current', true);
+    try {
+      const openai = new OpenAI({
+        apiKey: openaiApiKey,
+      });
       
-    // Depois, inserir o novo relatório como "current"
-    const { data: reportData, error: reportError } = await supabase
-      .from('planning_reports')
-      .insert([
-        { content: generatedText, is_current: true }
-      ])
-      .select();
-    
-    if (reportError) throw reportError;
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini", // Usando um modelo mais leve para evitar problemas de quota
+        messages: [{
+          role: "system", 
+          content: "Você é um assistente especializado em gerenciamento de projetos de construção civil usando Last Planner System."
+        }, {
+          role: "user", 
+          content: prompt
+        }],
+        max_tokens: 1200, // Ajustando para o modelo mais leve
+        temperature: 0.7,
+      });
 
-    // 5. Retornar o novo relatório
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        report: reportData?.[0] || null
-      }),
-      { 
-        headers: { 
-          ...corsHeaders, 
-          'Content-Type': 'application/json'
+      const generatedText = completion.choices[0]?.message?.content || 'Não foi possível gerar o relatório';
+
+      console.log("Relatório gerado com sucesso");
+      
+      // 4. Salvar o relatório no banco
+      // Primeiro, atualizar todos os relatórios existentes para não serem "current"
+      await supabase
+        .from('planning_reports')
+        .update({ is_current: false })
+        .eq('is_current', true);
+        
+      // Depois, inserir o novo relatório como "current"
+      const { data: reportData, error: reportError } = await supabase
+        .from('planning_reports')
+        .insert([
+          { content: generatedText, is_current: true }
+        ])
+        .select();
+      
+      if (reportError) throw reportError;
+
+      // 5. Retornar o novo relatório
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          report: reportData?.[0] || null
+        }),
+        { 
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json'
+          }
         }
-      }
-    );
+      );
+    } catch (openAiError) {
+      console.error("Erro ao chamar OpenAI:", openAiError.message);
+      
+      // Criar um relatório de fallback se ocorrer erro com OpenAI
+      const fallbackReport = `
+      # Relatório de Planejamento Semanal (Gerado automaticamente)
+      
+      ## Resumo Geral
+      
+      Não foi possível gerar um relatório completo devido a uma limitação técnica.
+      
+      ## Dados Disponíveis
+      
+      * Riscos de Atraso: ${(risks || []).length} atividades identificadas com risco alto
+      * Atividades com PPC Baixo: ${filteredLowPpcActivities.length} atividades abaixo de 90% de conclusão
+      * Causas mais frequentes: ${causes.length} causas identificadas
+      * Disciplinas críticas: ${disciplines.length} disciplinas críticas
+      
+      ## Mensagem do Sistema
+      
+      Ocorreu um erro ao conectar com o serviço de IA: ${openAiError.message}
+      Por favor, tente novamente mais tarde ou contate o suporte se o problema persistir.
+      `;
+      
+      // Salvar o relatório de fallback no banco
+      await supabase
+        .from('planning_reports')
+        .update({ is_current: false })
+        .eq('is_current', true);
+        
+      const { data: reportData, error: reportError } = await supabase
+        .from('planning_reports')
+        .insert([
+          { content: fallbackReport, is_current: true }
+        ])
+        .select();
+      
+      if (reportError) throw reportError;
+      
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          report: reportData?.[0] || null,
+          warning: "Relatório gerado em modo de contingência devido a erro na API OpenAI."
+        }),
+        { 
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+    }
 
   } catch (error) {
     console.error("Erro na edge function:", error.message);
