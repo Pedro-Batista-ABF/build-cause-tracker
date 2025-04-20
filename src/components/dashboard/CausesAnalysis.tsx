@@ -13,22 +13,24 @@ interface Cause {
 }
 
 interface CausesAnalysisProps {
-  causes: Cause[];
+  causes?: Cause[];
+  period?: string;
+  startDate?: Date;
+  endDate?: Date;
 }
 
-export function CausesAnalysis({ causes = [] }: CausesAnalysisProps) {
+export function CausesAnalysis({ causes = [], period, startDate, endDate }: CausesAnalysisProps) {
   const { data: dbCauses = [], isLoading } = useQuery({
-    queryKey: ['causes-dashboard'],
+    queryKey: ['causes-dashboard', period, startDate, endDate],
     queryFn: async () => {
       // Use the passed causes prop if available, otherwise fetch from database
       if (causes && causes.length > 0) {
         return causes;
       }
 
-      // Fetch last 4 weeks of progress causes if no causes prop provided
+      // Fetch causes within the specified date range if provided, otherwise last 4 weeks
       const today = new Date();
-      const pastDate = new Date();
-      pastDate.setDate(today.getDate() - 28); // 4 weeks ago
+      const pastDate = startDate || new Date(today.getTime() - 28 * 24 * 60 * 60 * 1000); // 4 weeks ago by default
 
       const { data: progressCauses, error } = await supabase
         .from('progress_causes')
@@ -39,7 +41,7 @@ export function CausesAnalysis({ causes = [] }: CausesAnalysisProps) {
           causes:cause_id(id, name, category)
         `)
         .gte('created_at', pastDate.toISOString())
-        .lte('created_at', today.toISOString());
+        .lte('created_at', (endDate || today).toISOString());
 
       if (error) {
         console.error("Error fetching causes for dashboard:", error);
@@ -126,7 +128,7 @@ export function CausesAnalysis({ causes = [] }: CausesAnalysisProps) {
           </div>
         ) : (
           <div className="py-8 text-center">
-            <p className="text-text-secondary">Nenhuma causa registrada recentemente</p>
+            <p className="text-text-secondary">Nenhuma causa registrada no período selecionado</p>
             <Button variant="outline" className="mt-4 border-border-subtle text-text-primary hover:bg-hover-bg" asChild>
               <Link to="/causes">Ver análise detalhada</Link>
             </Button>
