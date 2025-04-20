@@ -35,19 +35,7 @@ export function DeleteActivityDialog({
     try {
       setIsDeleting(true);
       
-      // Primeiro, verificamos e removemos as referências na tabela cronograma_projeto
-      const { error: scheduleError } = await supabase
-        .from('cronograma_projeto')
-        .delete()
-        .eq('atividade_lps_id', activityId);
-      
-      if (scheduleError) {
-        console.error('Error deleting related schedule entries:', scheduleError);
-        toast.error("Erro ao remover referências da atividade no cronograma");
-        return;
-      }
-      
-      // Também precisamos remover os registros de progresso diário
+      // Removemos apenas os registros de progresso diário
       const { error: progressError } = await supabase
         .from('daily_progress')
         .delete()
@@ -86,7 +74,7 @@ export function DeleteActivityDialog({
           <AlertDialogDescription>
             Tem certeza que deseja excluir a atividade "{activityName}"? Esta ação não pode ser desfeita.
             {isDeleting && (
-              <p className="mt-2 font-medium text-destructive">Removendo referências e excluindo atividade...</p>
+              <p className="mt-2 font-medium text-destructive">Excluindo atividade...</p>
             )}
           </AlertDialogDescription>
         </AlertDialogHeader>
