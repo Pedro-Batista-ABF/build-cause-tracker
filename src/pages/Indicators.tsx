@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { DashboardCard } from "@/components/dashboard/DashboardCard";
 import { Button } from "@/components/ui/button";
@@ -38,13 +37,20 @@ export default function Indicators() {
     const today = new Date();
     
     switch(period) {
+      case "1day":
+        const startOfDay = new Date(today);
+        startOfDay.setHours(0, 0, 0, 0);
+        return { startDate: startOfDay, endDate: today };
+      case "1week":
+        return { startDate: subDays(today, 7), endDate: today };
       case "2weeks":
         return { startDate: subDays(today, 14), endDate: today };
+      case "4weeks":
+        return { startDate: subDays(today, 28), endDate: today };
       case "1month":
         return { startDate: subDays(today, 30), endDate: today };
       case "3months":
         return { startDate: subDays(today, 90), endDate: today };
-      case "4weeks":
       default:
         return { startDate: subDays(today, 28), endDate: today };
     }
@@ -288,6 +294,18 @@ export default function Indicators() {
             Atualizar Riscos
           </Button>
           <div className="flex space-x-2">
+            <Button 
+              variant={period === "1day" ? "default" : "outline"} 
+              onClick={() => setPeriod("1day")}
+            >
+              1 Dia
+            </Button>
+            <Button 
+              variant={period === "1week" ? "default" : "outline"} 
+              onClick={() => setPeriod("1week")}
+            >
+              1 Semana
+            </Button>
             <Button 
               variant={period === "2weeks" ? "default" : "outline"} 
               onClick={() => setPeriod("2weeks")}

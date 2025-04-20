@@ -12,6 +12,18 @@ export function PeriodFilter({ activePeriod, onPeriodChange }: PeriodFilterProps
   return (
     <div className="flex items-center gap-3">
       <Button 
+        variant={activePeriod === "1day" ? "default" : "outline"} 
+        onClick={() => onPeriodChange("1day")}
+      >
+        1 Dia
+      </Button>
+      <Button 
+        variant={activePeriod === "1week" ? "default" : "outline"} 
+        onClick={() => onPeriodChange("1week")}
+      >
+        1 Semana
+      </Button>
+      <Button 
         variant={activePeriod === "2weeks" ? "default" : "outline"} 
         onClick={() => onPeriodChange("2weeks")}
       >

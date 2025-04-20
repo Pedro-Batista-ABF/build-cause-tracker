@@ -22,6 +22,13 @@ const getDateRange = (period: string) => {
   let startDate = new Date();
   
   switch (period) {
+    case "1day":
+      startDate = new Date(today);
+      startDate.setHours(0, 0, 0, 0);
+      break;
+    case "1week":
+      startDate.setDate(today.getDate() - 7);
+      break;
     case "2weeks":
       startDate.setDate(today.getDate() - 14);
       break;
@@ -222,7 +229,9 @@ export default function Dashboard() {
           title="PPC Médio"
           value={`${stats.avgPPC}%`}
           icon={<BarChart2 className="h-4 w-4" />}
-          description={`${activePeriod === '2weeks' ? 'Últimas 2 semanas' : 
+          description={`${activePeriod === '1day' ? 'Hoje' : 
+            activePeriod === '1week' ? 'Última semana' :
+            activePeriod === '2weeks' ? 'Últimas 2 semanas' : 
             activePeriod === '4weeks' ? 'Últimas 4 semanas' : 
             activePeriod === '1month' ? 'Último mês' : 'Últimos 3 meses'}`}
           className="border border-border-subtle shadow-md"
