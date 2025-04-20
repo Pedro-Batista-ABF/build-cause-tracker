@@ -20,6 +20,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
 
 interface Cause {
   id: string;
@@ -40,31 +41,41 @@ export function ProgressCauseDialog({
 }: ProgressCauseDialogProps) {
   const [selectedCause, setSelectedCause] = useState("");
   const [description, setDescription] = useState("");
-  const [causes, setCauses] = useState<Cause[]>([]);
 
-  useEffect(() => {
-    async function fetchCauses() {
-      const { data } = await supabase
+  // Use React Query to fetch causes
+  const { data: causes = [] } = useQuery({
+    queryKey: ['causes'],
+    queryFn: async () => {
+      const { data, error } = await supabase
         .from('causes')
         .select('*')
         .order('category');
       
-      if (data) {
-        // Filter out any causes with empty ids
-        setCauses(data.filter(cause => cause.id));
+      if (error) {
+        console.error('Error fetching causes:', error);
+        return [];
       }
-    }
+      
+      // Filter out any causes with empty ids
+      return (data || []).filter(cause => cause.id);
+    },
+    // Only fetch when dialog is open
+    enabled: open,
+  });
 
-    fetchCauses();
-  }, []);
+  // Reset form when dialog opens/closes
+  useEffect(() => {
+    if (!open) {
+      setSelectedCause("");
+      setDescription("");
+    }
+  }, [open]);
 
   const handleSubmit = () => {
     onSubmit({
       type: selectedCause,
       description,
     });
-    setSelectedCause("");
-    setDescription("");
   };
 
   return (
