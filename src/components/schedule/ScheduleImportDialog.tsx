@@ -54,6 +54,7 @@ export function ScheduleImportDialog({
     try {
       // Read file content
       const fileContent = await file.text();
+      console.log("XML file read successfully, sending to edge function");
       
       // Call edge function to parse and import the MS Project XML
       const { data, error: functionError } = await supabase.functions.invoke('import-ms-project', {
@@ -78,7 +79,8 @@ export function ScheduleImportDialog({
       onOpenChange(false);
     } catch (err: any) {
       console.error("Import error:", err);
-      setError(err.message || "Erro ao importar o cronograma. Verifique se o arquivo XML é válido.");
+      const errorMsg = err.message || "Erro ao importar o cronograma.";
+      setError(errorMsg);
       toast.error("Falha ao importar cronograma");
     } finally {
       setIsUploading(false);

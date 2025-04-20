@@ -11,10 +11,10 @@
  */
 export const calculatePPC = (actualQty: number, plannedQty: number): number => {
   // Avoid division by zero or negative values
-  if (plannedQty <= 0) return 0;
+  if (!plannedQty || plannedQty <= 0) return 0;
   
   // Ensure we don't have negative actual quantities
-  const normalizedActualQty = Math.max(0, actualQty);
+  const normalizedActualQty = Math.max(0, actualQty || 0);
   
   // Calculate percentage and round to nearest integer
   // Cap at 100% to avoid PPC values over 100%
@@ -72,7 +72,11 @@ export const calculateCumulativePPC = (
   
   progressData.forEach(item => {
     try {
+      if (!item.date) return;
+      
       const itemDate = new Date(item.date);
+      if (isNaN(itemDate.getTime())) return; // Skip invalid dates
+      
       const isInRange = (!startDate || new Date(startDate) <= itemDate) && 
                       (!endDate || itemDate <= new Date(endDate));
                       
@@ -112,7 +116,7 @@ export const getRiskClassification = (ppc: number): string => {
  * @returns Schedule variance as a percentage (positive = ahead, negative = behind)
  */
 export const calculateScheduleVariance = (actualProgress: number, plannedProgress: number): number => {
-  return actualProgress - plannedProgress;
+  return (actualProgress || 0) - (plannedProgress || 0);
 };
 
 /**

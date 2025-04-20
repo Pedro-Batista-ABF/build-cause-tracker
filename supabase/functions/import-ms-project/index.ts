@@ -25,9 +25,14 @@ serve(async (req) => {
     }
 
     try {
+      console.log("Parsing XML content...");
+      
       // Parse the XML using the deno xml parser
       const xmlDoc = parse(xmlContent);
       console.log("XML successfully parsed");
+      
+      // Debug the structure
+      console.log("XML structure:", JSON.stringify(xmlDoc).substring(0, 500) + "...");
 
       // Create Supabase client
       const supabaseClient = createClient(
@@ -40,8 +45,14 @@ serve(async (req) => {
       console.log(`Processed ${tasks.length} tasks from XML`);
 
       if (tasks.length === 0) {
+        console.log("No tasks found. XML structure may be different than expected.");
+        // Additional debug info to understand the XML structure
+        console.log("XML root keys:", Object.keys(xmlDoc));
+        
         return new Response(
-          JSON.stringify({ error: "No tasks found in the XML file" }),
+          JSON.stringify({ 
+            error: "No tasks found in the XML file. The XML structure may not be compatible." 
+          }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
         );
       }
@@ -116,33 +127,104 @@ serve(async (req) => {
 function processTasksFromXml(xmlDoc: any) {
   try {
     const tasks = [];
-    // Safely access the Task array with additional error handling
-    const taskElements = xmlDoc.Project?.Task || [];
     
-    if (!Array.isArray(taskElements)) {
-      console.warn("Task elements not found or not an array");
+    // Try to identify tasks in different possible XML structures
+    let taskElements;
+    
+    // Common MS Project XML structures
+    if (xmlDoc.Project?.Tasks?.Task) {
+      // Structure: Project > Tasks > Task
+      taskElements = xmlDoc.Project.Tasks.Task;
+      console.log("Found tasks in Project.Tasks.Task structure");
+    } else if (xmlDoc.Project?.Task) {
+      // Structure: Project > Task
+      taskElements = xmlDoc.Project.Task;
+      console.log("Found tasks in Project.Task structure");
+    } else {
+      // Try to find any node that might contain tasks
+      console.log("Looking for alternative task structures...");
+      
+      const findTasksInObject = (obj: any, path = ""): any[] => {
+        if (!obj || typeof obj !== 'object') return [];
+        
+        // Check if this object is a task array
+        if (Array.isArray(obj) && obj.length > 0 && obj[0].UID) {
+          console.log(`Found potential tasks at ${path}`);
+          return obj;
+        }
+        
+        // If it's an array but not tasks, search in each element
+        if (Array.isArray(obj)) {
+          for (let i = 0; i < obj.length; i++) {
+            const result = findTasksInObject(obj[i], `${path}[${i}]`);
+            if (result.length > 0) return result;
+          }
+          return [];
+        }
+        
+        // Search in object properties
+        for (const key in obj) {
+          const result = findTasksInObject(obj[key], `${path}.${key}`);
+          if (result.length > 0) return result;
+        }
+        
+        return [];
+      };
+      
+      taskElements = findTasksInObject(xmlDoc, "root");
+    }
+    
+    if (!taskElements) {
+      console.log("No task elements found in any expected location");
       return [];
     }
+    
+    // Ensure we're working with an array
+    if (!Array.isArray(taskElements)) {
+      console.log("Task elements found but not in array format, converting to array");
+      taskElements = [taskElements];
+    }
 
+    console.log(`Found ${taskElements.length} task elements to process`);
+    
     for (const taskElement of taskElements) {
       try {
-        const uid = taskElement.UID?.[0];
-        const name = taskElement.Name?.[0];
+        // Extract task fields with more flexible approach
+        const getField = (task: any, fieldName: string) => {
+          if (!task) return null;
+          
+          // Direct property access
+          if (task[fieldName] !== undefined) {
+            // Handle different potential formats
+            const value = task[fieldName];
+            if (Array.isArray(value)) return value[0];
+            return value;
+          }
+          
+          return null;
+        };
         
-        if (!uid || !name || name.trim() === "") {
-          console.log("Skipping task without UID or name");
+        const uid = getField(taskElement, 'UID') || getField(taskElement, 'ID');
+        const name = getField(taskElement, 'Name');
+        
+        if (!uid || !name || String(name).trim() === "") {
+          console.log("Skipping task without UID or name:", JSON.stringify(taskElement).substring(0, 100));
           continue;
         }
-
-        const start = taskElement.Start?.[0];
-        const finish = taskElement.Finish?.[0];
-        const wbs = taskElement.WBS?.[0];
-        const outlineLevel = parseInt(taskElement.OutlineLevel?.[0] || "1", 10);
+        
+        const start = getField(taskElement, 'Start');
+        const finish = getField(taskElement, 'Finish');
+        const wbs = getField(taskElement, 'WBS');
+        const outlineLevel = parseInt(getField(taskElement, 'OutlineLevel') || "1", 10);
         
         // Get percentage complete
         let percentComplete = 0;
-        if (taskElement.PercentComplete?.[0]) {
-          percentComplete = parseInt(taskElement.PercentComplete[0], 10);
+        const percentField = getField(taskElement, 'PercentComplete') || 
+                            getField(taskElement, 'PercentageComplete') ||
+                            getField(taskElement, 'Complete');
+        
+        if (percentField) {
+          percentComplete = parseInt(percentField, 10);
         }
 
         // Calculate duration in days
@@ -152,14 +234,30 @@ function processTasksFromXml(xmlDoc: any) {
           const finishDate = new Date(finish);
           const diffTime = Math.abs(finishDate.getTime() - startDate.getTime());
           durationDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        } else if (getField(taskElement, 'Duration')) {
+          // Try to parse duration field if available
+          const durationStr = getField(taskElement, 'Duration');
+          // Rough estimate from duration string (PT40H0M0S format)
+          if (typeof durationStr === 'string' && durationStr.includes('H')) {
+            const hours = parseInt(durationStr.split('H')[0].replace('PT', ''), 10) || 0;
+            durationDays = Math.ceil(hours / 8); // Assuming 8-hour workdays
+          }
         }
 
-        // Get predecessors
+        // Get predecessors - handle different possible structures
         const predecessors = [];
-        const predecessorLinks = taskElement.PredecessorLink || [];
-        if (Array.isArray(predecessorLinks)) {
-          for (const link of predecessorLinks) {
-            const predUid = link.PredecessorUID?.[0];
+        const predLinks = getField(taskElement, 'PredecessorLink');
+        
+        if (predLinks) {
+          if (Array.isArray(predLinks)) {
+            for (const link of predLinks) {
+              const predUid = getField(link, 'PredecessorUID');
+              if (predUid) {
+                predecessors.push(predUid);
+              }
+            }
+          } else if (typeof predLinks === 'object') {
+            const predUid = getField(predLinks, 'PredecessorUID');
             if (predUid) {
               predecessors.push(predUid);
             }
@@ -173,12 +271,14 @@ function processTasksFromXml(xmlDoc: any) {
           data_termino: finish || null,
           duracao_dias: durationDays,
           predecessores: predecessors.join(","),
-          wbs,
+          wbs: wbs || `${tasks.length + 1}`,
           percentual_previsto: percentComplete,
           percentual_real: percentComplete, // Initially set real to match planned
           nivel_hierarquia: outlineLevel,
           atividade_lps_id: null
         });
+        
+        console.log(`Processed task: ${name} (${uid})`);
       } catch (taskError) {
         console.error("Error processing task:", taskError);
         // Continue with the next task
