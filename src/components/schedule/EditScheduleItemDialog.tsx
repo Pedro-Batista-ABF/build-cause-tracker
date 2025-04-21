@@ -34,7 +34,7 @@ export function EditScheduleItemDialog({
   const [startDate, setStartDate] = useState(item.data_inicio?.split('T')[0] || '');
   const [endDate, setEndDate] = useState(item.data_termino?.split('T')[0] || '');
   const [progress, setProgress] = useState(item.percentual_real?.toString() || '0');
-  const [predecessorId, setPredecessorId] = useState(item.predecessor_id || '');
+  const [predecessorId, setPredecessorId] = useState(item.predecessor_id || 'none');
   const [loading, setLoading] = useState(false);
 
   // Filter out the current task and its successors to avoid circular dependencies
@@ -54,7 +54,7 @@ export function EditScheduleItemDialog({
           data_inicio: startDate || null,
           data_termino: endDate || null,
           percentual_real: progress ? parseFloat(progress) : 0,
-          predecessor_id: predecessorId || null,
+          predecessor_id: predecessorId === 'none' ? null : predecessorId,
         })
         .eq('id', item.id);
 
@@ -134,7 +134,7 @@ export function EditScheduleItemDialog({
                 <SelectValue placeholder="Selecione a predecessora" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Sem predecessor</SelectItem>
+                <SelectItem value="none">Sem predecessor</SelectItem>
                 {availablePredecessors.map((task) => (
                   <SelectItem key={task.id} value={task.id}>
                     {task.wbs} - {task.nome}
