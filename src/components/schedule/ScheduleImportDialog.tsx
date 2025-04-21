@@ -74,7 +74,12 @@ export function ScheduleImportDialog({
         throw new Error(data.error);
       }
 
-      toast.success(`Importado com sucesso: ${data?.taskCount || 0} tarefas.`);
+      if (data?.importedTasksLimited) {
+        toast.success(`Importado parcialmente: ${data?.taskCount || 0} tarefas de um total de ${data?.totalTasksInFile || 0}`);
+      } else {
+        toast.success(`Importado com sucesso: ${data?.taskCount || 0} tarefas.`);
+      }
+      
       onImportSuccess();
       onOpenChange(false);
     } catch (err: any) {
@@ -122,6 +127,10 @@ export function ScheduleImportDialog({
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
+          
+          <div className="text-sm text-muted-foreground">
+            <p>Dica: Se o arquivo for muito grande, considere dividir em arquivos menores ou simplificar o cronograma antes de importar.</p>
+          </div>
         </div>
 
         <DialogFooter>

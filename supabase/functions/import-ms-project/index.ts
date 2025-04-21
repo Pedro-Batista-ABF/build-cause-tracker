@@ -9,7 +9,10 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const MAX_XML_SIZE = 10 * 1024 * 1024; // 10MB limit
+// Reduzido para 5MB para diminuir o consumo de memória
+const MAX_XML_SIZE = 5 * 1024 * 1024; 
+// Timeout mais curto para prevenir consumo excessivo de CPU
+const PARSE_TIMEOUT_MS = 15000;
 
 serve(async (req) => {
   // Handle CORS preflight request
@@ -30,7 +33,7 @@ serve(async (req) => {
     // Check XML size to prevent timeouts
     if (xmlContent.length > MAX_XML_SIZE) {
       return new Response(
-        JSON.stringify({ error: "XML file is too large (max 10MB)" }),
+        JSON.stringify({ error: "XML file is too large (max 5MB)" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
       );
     }
@@ -40,12 +43,14 @@ serve(async (req) => {
       
       // Use a timeout for parsing to prevent CPU exhaustion
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 25000); // 25 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), PARSE_TIMEOUT_MS); // 15 second timeout
       
       // Parse with timeout protection
       let xmlDoc;
       try {
-        xmlDoc = parse(xmlContent);
+        // Extrair apenas as partes relevantes do XML para reduzir a carga de processamento
+        const relevantXmlContent = extractRelevantXml(xmlContent);
+        xmlDoc = parse(relevantXmlContent);
         clearTimeout(timeoutId);
       } catch (parseError) {
         if (parseError.name === 'AbortError') {
@@ -93,12 +98,16 @@ serve(async (req) => {
       }
 
       // Insert tasks in smaller batches with increased delays
-      const BATCH_SIZE = 5; // Reduced batch size for more stability
+      const BATCH_SIZE = 3; // Reduzido para 3 para maior estabilidade
       const totalTasks = tasks.length;
       let importedCount = 0;
+      
+      // Limitar o número máximo de tarefas para evitar timeout
+      const MAX_TASKS = 300;
+      const tasksToImport = tasks.slice(0, MAX_TASKS);
 
-      for (let i = 0; i < totalTasks; i += BATCH_SIZE) {
-        const batch = tasks.slice(i, i + BATCH_SIZE).map(task => ({
+      for (let i = 0; i < tasksToImport.length; i += BATCH_SIZE) {
+        const batch = tasksToImport.slice(i, i + BATCH_SIZE).map(task => ({
           ...task,
           projeto_id: projectId
         }));
@@ -120,9 +129,10 @@ serve(async (req) => {
 
         importedCount += batch.length;
         
-        // Add a longer delay between batches to prevent CPU overload
-        if (i + BATCH_SIZE < totalTasks) {
-          await new Promise(resolve => setTimeout(resolve, 500)); // Increased delay to 500ms
+        // Adicionar uma pausa maior entre lotes para evitar sobrecarga da CPU
+        // Somente fazer a pausa se não for o último lote
+        if (i + BATCH_SIZE < tasksToImport.length) {
+          await new Promise(resolve => setTimeout(resolve, 800)); // Aumentado para 800ms
         }
       }
 
@@ -130,7 +140,9 @@ serve(async (req) => {
         JSON.stringify({ 
           success: true, 
           taskCount: importedCount,
-          message: `Successfully imported ${importedCount} tasks`
+          totalTasksInFile: tasks.length,
+          importedTasksLimited: tasks.length > MAX_TASKS,
+          message: `Successfully imported ${importedCount} tasks${tasks.length > MAX_TASKS ? ' (limited to first ' + MAX_TASKS + ' tasks)' : ''}`
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -149,6 +161,30 @@ serve(async (req) => {
     );
   }
 });
+
+// Função para extrair apenas as partes relevantes do XML para reduzir processamento
+function extractRelevantXml(xmlContent: string): string {
+  // Para simplificar, extraímos apenas o conteúdo entre as tags Project e Tasks
+  // Isso reduz drasticamente o tamanho do XML para análise
+  try {
+    const projectStart = xmlContent.indexOf("<Project");
+    const tasksStart = xmlContent.indexOf("<Tasks>");
+    const tasksEnd = xmlContent.indexOf("</Tasks>") + 8; // 8 é o comprimento de "</Tasks>"
+    
+    if (projectStart !== -1 && tasksStart !== -1 && tasksEnd !== -1) {
+      const header = xmlContent.substring(projectStart, tasksStart);
+      const tasks = xmlContent.substring(tasksStart, tasksEnd);
+      
+      return `${header}${tasks}</Project>`;
+    }
+    
+    // Caso não consiga encontrar as seções específicas, retorna o XML completo
+    return xmlContent;
+  } catch (e) {
+    console.warn("Error extracting relevant XML sections, using full XML:", e);
+    return xmlContent;
+  }
+}
 
 // Optimized task processing function with early bailout for large datasets
 function processTasksFromXml(xmlDoc: any) {
@@ -191,10 +227,11 @@ function processTasksFromXml(xmlDoc: any) {
       taskElements = [taskElements];
     }
 
-    // Limit to first 500 tasks for very large files to prevent timeouts
-    if (taskElements.length > 500) {
-      console.log(`Too many tasks (${taskElements.length}), limiting to first 500`);
-      taskElements = taskElements.slice(0, 500);
+    // Limitar o número de tarefas para processamento
+    const MAX_PROCESSING_TASKS = 500;
+    if (taskElements.length > MAX_PROCESSING_TASKS) {
+      console.log(`Too many tasks (${taskElements.length}), limiting to first ${MAX_PROCESSING_TASKS}`);
+      taskElements = taskElements.slice(0, MAX_PROCESSING_TASKS);
     }
     
     for (const taskElement of taskElements) {
@@ -210,16 +247,16 @@ function processTasksFromXml(xmlDoc: any) {
           return Array.isArray(value) ? value[0] : value;
         };
         
-        const uid = getField(taskElement, 'UID') || getField(taskElement, 'ID');
+        const uid = getField(taskElement, 'UID') || getField(taskElement, 'ID') || `task-${tasks.length + 1}`;
         const name = getField(taskElement, 'Name');
         
-        if (!uid || !name || String(name).trim() === "") {
+        if (!name || String(name).trim() === "") {
           continue;
         }
         
         const start = getField(taskElement, 'Start');
         const finish = getField(taskElement, 'Finish');
-        const wbs = getField(taskElement, 'WBS');
+        const wbs = getField(taskElement, 'WBS') || `${tasks.length + 1}`;
         const outlineLevel = parseInt(getField(taskElement, 'OutlineLevel') || "1", 10);
         
         // Get baseline dates with explicit null handling
@@ -232,49 +269,65 @@ function processTasksFromXml(xmlDoc: any) {
                            getField(taskElement, 'PercentageComplete') ||
                            getField(taskElement, 'Complete');
         
-        if (percentField !== null && !isNaN(parseInt(percentField))) {
-          percentComplete = parseInt(percentField, 10);
+        if (percentField !== null && !isNaN(parseInt(String(percentField)))) {
+          percentComplete = parseInt(String(percentField), 10);
         }
 
         // Calculate duration in days with validation
         let durationDays = 0;
         if (start && finish) {
-          const startDate = new Date(start);
-          const finishDate = new Date(finish);
-          if (!isNaN(startDate.getTime()) && !isNaN(finishDate.getTime())) {
-            const diffTime = Math.abs(finishDate.getTime() - startDate.getTime());
-            durationDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          try {
+            const startDate = new Date(start);
+            const finishDate = new Date(finish);
+            if (!isNaN(startDate.getTime()) && !isNaN(finishDate.getTime())) {
+              const diffTime = Math.abs(finishDate.getTime() - startDate.getTime());
+              durationDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            }
+          } catch (e) {
+            console.warn("Error calculating duration:", e);
           }
         }
 
         // Get predecessors with improved handling
         let predecessores = null;
-        const predLinks = getField(taskElement, 'PredecessorLink');
-        
-        if (predLinks) {
-          if (Array.isArray(predLinks)) {
-            const link = predLinks[0];
-            predecessores = getField(link, 'PredecessorUID') || null;
-          } else if (typeof predLinks === 'object') {
-            predecessores = getField(predLinks, 'PredecessorUID') || null;
+        // Verificar diferentes formatos de predecessores em diversos tipos de XML do MS Project
+        try {
+          const predLinks = getField(taskElement, 'PredecessorLink');
+          if (predLinks) {
+            if (Array.isArray(predLinks)) {
+              const link = predLinks[0];
+              predecessores = getField(link, 'PredecessorUID') || null;
+            } else if (typeof predLinks === 'object') {
+              predecessores = getField(predLinks, 'PredecessorUID') || null;
+            }
           }
+          
+          // Verificar formato alternativo de predecessores
+          if (!predecessores) {
+            const pred = getField(taskElement, 'Predecessors');
+            if (pred) {
+              predecessores = String(pred);
+            }
+          }
+        } catch (e) {
+          console.warn("Error processing predecessors:", e);
         }
 
-        // Add task with validated fields
+        // Add task with validated fields - garantindo que os campos correspondam ao banco de dados
         tasks.push({
-          tarefa_id: uid,
-          nome: name,
-          data_inicio: start || null,
-          data_termino: finish || null,
+          tarefa_id: String(uid),
+          nome: String(name),
+          data_inicio: start ? formatDate(start) : null,
+          data_termino: finish ? formatDate(finish) : null,
           duracao_dias: durationDays || null,
-          wbs: wbs || `${tasks.length + 1}`,
+          wbs: wbs ? String(wbs) : `${tasks.length + 1}`,
           percentual_previsto: percentComplete,
           percentual_real: percentComplete,
           nivel_hierarquia: outlineLevel || 1,
           atividade_lps_id: null,
-          inicio_linha_base: baselineStart || null,
-          termino_linha_base: baselineFinish || null,
-          predecessores: predecessores
+          inicio_linha_base: baselineStart ? formatDate(baselineStart) : null,
+          termino_linha_base: baselineFinish ? formatDate(baselineFinish) : null,
+          predecessores: predecessores ? String(predecessores) : null
         });
       } catch (taskError) {
         console.error("Error processing task, skipping:", taskError);
@@ -286,5 +339,19 @@ function processTasksFromXml(xmlDoc: any) {
   } catch (error) {
     console.error("Error in processTasksFromXml:", error);
     return [];
+  }
+}
+
+// Função para formatar datas no formato YYYY-MM-DD para PostgreSQL
+function formatDate(dateStr: string): string {
+  try {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) {
+      return null;
+    }
+    return date.toISOString().split('T')[0]; // YYYY-MM-DD
+  } catch (e) {
+    console.warn("Error formatting date:", e);
+    return null;
   }
 }
