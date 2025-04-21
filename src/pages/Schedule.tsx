@@ -8,10 +8,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { AlertCircle, Upload, FileUp } from "lucide-react";
+import { AlertCircle, Upload, FileUp, BarChart } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ScheduleGantt } from "@/components/schedule/ScheduleGantt";
 import { ScheduleImportDialog } from "@/components/schedule/ScheduleImportDialog";
+import { ScheduleAnalysisDialog } from "@/components/schedule/ScheduleAnalysisDialog";
 
 export default function Schedule() {
   const { id: projectId } = useParams<{ id: string }>();
@@ -20,6 +21,7 @@ export default function Schedule() {
   const [scheduleData, setScheduleData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [analysisDialogOpen, setAnalysisDialogOpen] = useState(false);
 
   useEffect(() => {
     if (projectId) {
@@ -83,13 +85,23 @@ export default function Schedule() {
             Visualize e gerencie o cronograma do projeto
           </p>
         </div>
-        <Button 
-          onClick={() => setImportDialogOpen(true)}
-          className="gap-2"
-        >
-          <FileUp className="h-4 w-4" />
-          Importar Cronograma
-        </Button>
+        <div className="flex gap-3">
+          <Button 
+            onClick={() => setAnalysisDialogOpen(true)}
+            className="gap-2"
+            variant="outline"
+          >
+            <BarChart className="h-4 w-4" />
+            Análise Crítica
+          </Button>
+          <Button 
+            onClick={() => setImportDialogOpen(true)}
+            className="gap-2"
+          >
+            <FileUp className="h-4 w-4" />
+            Importar Cronograma
+          </Button>
+        </div>
       </div>
 
       <Separator />
@@ -130,6 +142,13 @@ export default function Schedule() {
         onOpenChange={setImportDialogOpen}
         projectId={projectId || ""}
         onImportSuccess={handleImportSuccess}
+      />
+
+      <ScheduleAnalysisDialog
+        open={analysisDialogOpen}
+        onOpenChange={setAnalysisDialogOpen}
+        projectId={projectId || ""}
+        scheduleData={scheduleData}
       />
     </div>
   );

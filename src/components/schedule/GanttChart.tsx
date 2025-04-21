@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { calculateDistribution } from "@/utils/progressDistribution";
 import { Badge } from "@/components/ui/badge";
-import { Info, AlertTriangle, CheckCircle } from "lucide-react";
+import { Info, AlertTriangle, CheckCircle, Clock } from "lucide-react";
 import { getScheduleStatus } from "@/utils/ppcCalculation";
 
 interface GanttChartProps {
@@ -43,24 +43,38 @@ export function GanttChart({ tasks, showSCurve = false }: GanttChartProps) {
     if (!startDate || !endDate) return 0;
     const start = getTaskPosition(startDate, referenceStart, referenceEnd);
     const end = getTaskPosition(endDate, referenceStart, referenceEnd);
-    return end - start;
+    return Math.max(end - start, 0.5); // Ensure minimum width for visibility
+  };
+
+  const calculateDeviationDays = (task: ScheduleTask) => {
+    if (!task.data_termino || !task.termino_linha_base) return 0;
+    
+    const termino = new Date(task.data_termino);
+    const terminoBase = new Date(task.termino_linha_base);
+    
+    // Calculate difference in days
+    const diffTime = termino.getTime() - terminoBase.getTime();
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
   const getTaskStatusColor = (task: ScheduleTask) => {
     const completed = task.percentual_real === 100;
     const notStarted = !task.percentual_real || task.percentual_real === 0;
     const delayed = (task.percentual_real || 0) < (task.percentual_previsto || 0);
+    const deviation = calculateDeviationDays(task);
 
-    if (completed) return 'bg-accent-green';
+    if (completed) return 'bg-green-500';
     if (notStarted) return 'bg-gray-300';
-    if (delayed) return 'bg-accent-red';
-    return 'bg-accent-blue';
+    if (delayed || deviation > 0) return 'bg-red-500';
+    if (deviation === 0) return 'bg-blue-500';
+    return 'bg-amber-500';  // slight deviation but not delayed
   };
 
   const getTaskStatusBadge = (task: ScheduleTask) => {
     const completed = task.percentual_real === 100;
     const notStarted = !task.percentual_real || task.percentual_real === 0;
     const delayed = (task.percentual_real || 0) < (task.percentual_previsto || 0);
+    const deviation = calculateDeviationDays(task);
 
     if (completed) return (
       <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300">
@@ -74,9 +88,15 @@ export function GanttChart({ tasks, showSCurve = false }: GanttChartProps) {
       </Badge>
     );
     
-    if (delayed) return (
+    if (delayed || deviation > 5) return (
       <Badge variant="outline" className="bg-red-100 text-red-800 border-red-300">
         <AlertTriangle className="h-3 w-3 mr-1" /> Atrasada
+      </Badge>
+    );
+    
+    if (deviation > 0) return (
+      <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-300">
+        <Clock className="h-3 w-3 mr-1" /> Em risco
       </Badge>
     );
     
@@ -91,6 +111,12 @@ export function GanttChart({ tasks, showSCurve = false }: GanttChartProps) {
     const predecessor = tasks.find(t => t.id === task.predecessor_id);
     const completedDays = task.percentual_real ? Math.round((task.percentual_real / 100) * (task.duracao_dias || 0)) : 0;
     const remainingDays = (task.duracao_dias || 0) - completedDays;
+    const deviationDays = calculateDeviationDays(task);
+    const deviationText = deviationDays > 0 
+      ? `Atraso: ${deviationDays} dias`
+      : deviationDays < 0
+        ? `Adiantado: ${Math.abs(deviationDays)} dias`
+        : 'No prazo';
     
     return `${task.nome}
 Previsto: ${task.percentual_previsto || 0}%
@@ -102,6 +128,7 @@ Início Base: ${task.inicio_linha_base ? new Date(task.inicio_linha_base).toLoca
 Término Base: ${task.termino_linha_base ? new Date(task.termino_linha_base).toLocaleDateString('pt-BR') : 'N/A'}
 Início Atual: ${task.data_inicio ? new Date(task.data_inicio).toLocaleDateString('pt-BR') : 'N/A'}
 Término Atual: ${task.data_termino ? new Date(task.data_termino).toLocaleDateString('pt-BR') : 'N/A'}
+${deviationText}
 ${predecessor ? `Predecessora: ${predecessor.nome}` : ''}`;
   };
 
@@ -129,15 +156,19 @@ ${predecessor ? `Predecessora: ${predecessor.nome}` : ''}`;
             <span className="text-sm text-muted-foreground">Linha de Base</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="h-5 w-8 bg-accent-blue rounded"></div>
+            <div className="h-5 w-8 bg-blue-500 rounded"></div>
             <span className="text-sm text-muted-foreground">No Prazo</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="h-5 w-8 bg-accent-red rounded"></div>
+            <div className="h-5 w-8 bg-amber-500 rounded"></div>
+            <span className="text-sm text-muted-foreground">Em Risco</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="h-5 w-8 bg-red-500 rounded"></div>
             <span className="text-sm text-muted-foreground">Atrasado</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="h-5 w-8 bg-accent-green rounded"></div>
+            <div className="h-5 w-8 bg-green-500 rounded"></div>
             <span className="text-sm text-muted-foreground">Concluído</span>
           </div>
         </div>
@@ -179,6 +210,18 @@ ${predecessor ? `Predecessora: ${predecessor.nome}` : ''}`;
                           {task.duracao_dias && (
                             <span className="text-xs text-muted-foreground whitespace-nowrap">
                               {task.duracao_dias} dias
+                              {task.data_inicio && task.data_termino && task.inicio_linha_base && task.termino_linha_base && (
+                                <>
+                                  {' | '}
+                                  <span className={cn(
+                                    calculateDeviationDays(task) > 0 ? "text-red-500 font-medium" : 
+                                    calculateDeviationDays(task) < 0 ? "text-green-500 font-medium" : ""
+                                  )}>
+                                    {calculateDeviationDays(task) > 0 ? `+${calculateDeviationDays(task)}d` :
+                                     calculateDeviationDays(task) < 0 ? `${calculateDeviationDays(task)}d` : "0d"}
+                                  </span>
+                                </>
+                              )}
                             </span>
                           )}
                         </div>
@@ -201,7 +244,8 @@ ${predecessor ? `Predecessora: ${predecessor.nome}` : ''}`;
                             top: '50%',
                             marginTop: '-6px',
                             left: `${getTaskPosition(task.inicio_linha_base, projectStart, projectEnd)}%`,
-                            width: `${getTaskBarWidth(task.inicio_linha_base, task.termino_linha_base, projectStart, projectEnd)}%`
+                            width: `${getTaskBarWidth(task.inicio_linha_base, task.termino_linha_base, projectStart, projectEnd)}%`,
+                            minWidth: '8px'
                           }}
                         />
                       )}
@@ -225,7 +269,7 @@ ${predecessor ? `Predecessora: ${predecessor.nome}` : ''}`;
                         >
                           {task.percentual_real && task.percentual_real > 0 && (
                             <div
-                              className="absolute inset-y-0 left-0 bg-accent-green/50 rounded-l-sm border-r border-white/30"
+                              className="absolute inset-y-0 left-0 bg-opacity-50 bg-green-500 rounded-l-sm border-r border-white/30"
                               style={{ 
                                 width: `${task.percentual_real}%`,
                                 maxWidth: '100%'

@@ -14,6 +14,7 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const { projectId, scheduleData } = await req.json();
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
     
@@ -27,175 +28,184 @@ Deno.serve(async (req) => {
       throw new Error('OPENAI_API_KEY is required');
     }
 
-    // 1. Obter dados para análise
-    // Atividades com PPC baixo - usando uma abordagem diferente para filtrar
-    console.log("Buscando atividades com PPC baixo...");
-    const { data: lowPpcActivities, error: lowPpcError } = await supabase
-      .from('daily_progress')
-      .select(`
-        id,
-        activity_id,
-        planned_qty,
-        actual_qty,
-        activities (
-          name,
-          discipline,
-          responsible
-        )
-      `)
-      .gt('planned_qty', 0) // Garantir que planned_qty seja maior que zero
-      .lte('actual_qty', 0.9) // Pré-filtro para performance
-      .order('date', { ascending: false })
-      .limit(50); // Buscar mais dados para filtrar depois
+    // Get project info
+    const { data: projectData, error: projectError } = await supabase
+      .from('projects')
+      .select('name')
+      .eq('id', projectId)
+      .single();
 
-    if (lowPpcError) {
-      console.log("Erro ao obter atividades com PPC baixo:", lowPpcError);
-      // Continuar mesmo com erro, usando array vazio
+    if (projectError) {
+      throw projectError;
     }
 
-    // Filtrar programaticamente para PPC < 90%
-    const filteredLowPpcActivities = (lowPpcActivities || []).filter(item => {
-      const ppcRatio = item.planned_qty > 0 ? (item.actual_qty / item.planned_qty) : 0;
-      return ppcRatio < 0.9;
-    }).slice(0, 10); // Limitar aos 10 primeiros resultados
-
-    console.log(`Encontradas ${filteredLowPpcActivities.length} atividades com PPC < 90%`);
-
-    // Riscos de atraso
-    let risks = [];
-    try {
-      const { data: risksData, error: risksError } = await supabase
-        .from('risco_atraso')
-        .select(`
-          id,
-          atividade_id,
-          risco_atraso_pct,
-          classificacao,
-          activities (
-            name,
-            discipline,
-            responsible
-          )
-        `)
-        .eq('classificacao', 'ALTO')
-        .order('risco_atraso_pct', { ascending: false })
-        .limit(10);
-      
-      if (!risksError) {
-        risks = risksData || [];
-      } else {
-        console.log("Erro ao obter riscos de atraso:", risksError);
-      }
-    } catch (error) {
-      console.log("Exceção ao consultar riscos de atraso:", error);
-    }
+    // Analyze schedule data
+    const tasksWithDelay = [];
+    const tasksWithRisk = [];
     
-    // Causas mais frequentes
-    let causes = [];
-    try {
-      const { data: causesData, error: causesError } = await supabase.rpc('get_common_causes', { limit_count: 5 });
-      if (!causesError && causesData) {
-        causes = causesData;
-      } else if (causesError) {
-        console.log("Erro na função get_common_causes:", causesError);
+    for (const task of scheduleData) {
+      if (task.data_termino && task.termino_linha_base) {
+        const termino = new Date(task.data_termino);
+        const terminoBase = new Date(task.termino_linha_base);
+        const diffTime = termino.getTime() - terminoBase.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        // Tasks with more than 5 days of delay
+        if (diffDays > 5) {
+          tasksWithDelay.push({
+            nome: task.nome,
+            desvio_dias: diffDays,
+            percentual_real: task.percentual_real || 0,
+            percentual_previsto: task.percentual_previsto || 0,
+            wbs: task.wbs
+          });
+        } 
+        // Tasks with small delay (1-5 days) or those behind planned progress
+        else if (diffDays > 0 || 
+                ((task.percentual_real || 0) < (task.percentual_previsto || 0) && 
+                (task.percentual_previsto || 0) - (task.percentual_real || 0) > 10)) {
+          tasksWithRisk.push({
+            nome: task.nome,
+            desvio_dias: diffDays,
+            percentual_real: task.percentual_real || 0,
+            percentual_previsto: task.percentual_previsto || 0,
+            wbs: task.wbs
+          });
+        }
       }
-    } catch (error) {
-      console.log("Erro ao obter causas comuns:", error);
-      // Continuar mesmo com erro, usando array vazio
     }
 
-    // Disciplinas críticas
-    let disciplines = [];
-    try {
-      const { data: disciplinesData, error: disciplinesError } = await supabase.rpc('get_critical_disciplines', { limit_count: 5 });
-      if (!disciplinesError && disciplinesData) {
-        disciplines = disciplinesData;
-      } else if (disciplinesError) {
-        console.log("Erro na função get_critical_disciplines:", disciplinesError);
+    // Create dependencies map to analyze impact
+    const dependencyMap = {};
+    for (const task of scheduleData) {
+      if (task.predecessor_id) {
+        if (!dependencyMap[task.predecessor_id]) {
+          dependencyMap[task.predecessor_id] = [];
+        }
+        dependencyMap[task.predecessor_id].push(task.id);
       }
-    } catch (error) {
-      console.log("Erro ao obter disciplinas críticas:", error);
-      // Continuar mesmo com erro, usando array vazio
+    }
+
+    // Find critical path and impacted activities
+    const criticalTasks = new Set();
+    const impactedTasks = {};
+    
+    for (const task of tasksWithDelay) {
+      const taskObj = scheduleData.find(t => t.nome === task.nome);
+      if (taskObj && dependencyMap[taskObj.id]) {
+        criticalTasks.add(taskObj.id);
+        
+        // Find all impacted tasks
+        const findImpacted = (taskId, deviationSource) => {
+          if (dependencyMap[taskId]) {
+            for (const dependentId of dependencyMap[taskId]) {
+              const dependent = scheduleData.find(t => t.id === dependentId);
+              if (dependent) {
+                if (!impactedTasks[dependent.id]) {
+                  impactedTasks[dependent.id] = {
+                    nome: dependent.nome,
+                    impactedBy: deviationSource
+                  };
+                }
+                findImpacted(dependent.id, deviationSource);
+              }
+            }
+          }
+        };
+        
+        findImpacted(taskObj.id, task.nome);
+      }
     }
 
     // 2. Construir o prompt para GPT
-    const riskActivitiesText = (risks || []).map(risk => (
-      `- Atividade "${risk.activities?.name || 'Sem nome'}" com ${Math.round(risk.risco_atraso_pct)}% de risco de atraso (${risk.classificacao}), ` +
-      `responsável: ${risk.activities?.responsible || 'Não definido'}, disciplina: ${risk.activities?.discipline || 'Não definida'}`
-    )).join('\n');
+    const delaysText = tasksWithDelay.map(task => 
+      `- Atividade "${task.nome}" (WBS: ${task.wbs}) com ${task.desvio_dias} dias de atraso. ` + 
+      `Percentual previsto: ${task.percentual_previsto || 0}%, ` +
+      `percentual real: ${task.percentual_real || 0}%`
+    ).join('\n');
 
-    const lowPpcText = filteredLowPpcActivities.map(act => {
-      const ppc = act.planned_qty > 0 ? Math.round((act.actual_qty / act.planned_qty) * 100) : 0;
-      return `- Atividade "${act.activities?.name || 'Sem nome'}" com PPC de ${ppc}%, ` +
-        `responsável: ${act.activities?.responsible || 'Não definido'}, disciplina: ${act.activities?.discipline || 'Não definida'}`
-    }).join('\n');
+    const risksText = tasksWithRisk.map(task => 
+      `- Atividade "${task.nome}" (WBS: ${task.wbs}) com ${task.desvio_dias} dias de desvio. ` + 
+      `Percentual previsto: ${task.percentual_previsto || 0}%, ` +
+      `percentual real: ${task.percentual_real || 0}%`
+    ).join('\n');
 
-    const causesText = causes?.map(cause => 
-      `- ${cause.name}: ${cause.count} ocorrências (${cause.percentage}%)`
-    ).join('\n') || 'Nenhuma causa registrada';
+    const impactsText = Object.values(impactedTasks).map((task: any) => 
+      `- Atividade "${task.nome}" impactada por: ${task.impactedBy}`
+    ).join('\n');
 
-    const disciplinesText = disciplines?.map(disc => 
-      `- ${disc.discipline || 'Sem disciplina'}: ${disc.count} atividades atrasadas`
-    ).join('\n') || 'Nenhuma disciplina crítica identificada';
+    const today = new Date();
+    const weekId = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
     const prompt = `
-    Você é um especialista em gerenciamento de projetos e planejamento usando o Last Planner System (LPS).
-    Com base nos dados a seguir, crie um resumo de planejamento semanal com tom conversacional, 
-    orientado à ação e focado em melhorias para a próxima semana.
+    Você é um especialista em gerenciamento de projetos e planejamento.
+    Com base nos dados de cronograma abaixo, crie uma análise crítica semanal no formato JSON com os campos conforme modelo abaixo.
     
-    DADOS DISPONÍVEIS:
+    DADOS DO PROJETO:
+    Nome do projeto: ${projectData.name}
+    Data da análise: ${weekId}
     
-    1. RISCOS DE ATRASO IDENTIFICADOS:
-    ${riskActivitiesText || 'Nenhum risco de atraso alto identificado.'}
+    TAREFAS COM ATRASO SIGNIFICATIVO (>5 dias):
+    ${delaysText || 'Nenhuma tarefa com atraso significativo identificada.'}
     
-    2. ATIVIDADES COM PPC ABAIXO DE 90%:
-    ${lowPpcText || 'Nenhuma atividade com PPC baixo.'}
+    TAREFAS EM RISCO OU COM PEQUENOS DESVIOS (1-5 dias ou com % realizado < previsto):
+    ${risksText || 'Nenhuma tarefa em risco identificada.'}
     
-    3. CAUSAS MAIS FREQUENTES DE ATRASO:
-    ${causesText}
+    IMPACTOS IDENTIFICADOS NAS DEPENDÊNCIAS:
+    ${impactsText || 'Nenhum impacto em dependências identificado.'}
     
-    4. DISCIPLINAS CRÍTICAS:
-    ${disciplinesText}
+    FORMATO ESPERADO DA RESPOSTA:
+    {
+      "projeto": "${projectData.name}",
+      "semana": "${weekId}",
+      "analise_geral": "Análise geral da situação do cronograma, tendências, principais preocupações e recomendações gerais.",
+      "atividades_em_alerta": [
+        {
+          "atividade": "Nome da atividade em atraso/risco",
+          "desvio_dias": XX,
+          "impacto": "Descrição do impacto nas outras atividades"
+        }
+      ],
+      "acoes_recomendadas": [
+        "Ação recomendada 1",
+        "Ação recomendada 2",
+        "Ação recomendada 3"
+      ]
+    }
     
-    ORIENTAÇÕES PARA O RELATÓRIO:
-    - Use um tom conversacional mas profissional
-    - Estruture em seções: resumo geral, alertas críticos, ações recomendadas
-    - Sugira ações específicas para mitigar os riscos identificados
-    - Recomende realocação de recursos quando necessário
-    - Mencione tendências e padrões nas causas de atraso
-    - Linguagem deve ser em Português do Brasil
-    - Limite de 500-700 palavras
-    - Foco principal nas ações para a próxima semana
-    - Sugira reuniões se necessário com as pessoas responsáveis
-    - Faça referências aos dados específicos fornecidos
+    ORIENTAÇÕES PARA A ANÁLISE:
+    - Use um tom profissional e orientado a ações
+    - Identifique as atividades mais críticas e seus impactos
+    - Sugira ações corretivas específicas
+    - Limite a no máximo 5 atividades em alerta (as mais críticas)
+    - Limite a no máximo 5 ações recomendadas
+    - Responda APENAS com o JSON, sem texto adicional
     `;
 
     console.log("Enviando prompt para OpenAI");
     
-    // 3. Gerar o relatório com OpenAI
     try {
       const openai = new OpenAI({
         apiKey: openaiApiKey,
       });
       
       const completion = await openai.chat.completions.create({
-        model: "gpt-4o-mini", // Usando um modelo mais leve para evitar problemas de quota
+        model: "gpt-4o-mini",
         messages: [{
           role: "system", 
-          content: "Você é um assistente especializado em gerenciamento de projetos de construção civil usando Last Planner System."
+          content: "Você é um assistente especializado em gerenciamento de projetos e análise de cronogramas."
         }, {
           role: "user", 
           content: prompt
         }],
-        max_tokens: 1200, // Ajustando para o modelo mais leve
+        max_tokens: 1200,
         temperature: 0.7,
       });
 
-      const generatedText = completion.choices[0]?.message?.content || 'Não foi possível gerar o relatório';
-
+      const generatedText = completion.choices[0]?.message?.content || '{"erro": "Não foi possível gerar o relatório"}';
       console.log("Relatório gerado com sucesso");
       
-      // 4. Salvar o relatório no banco
+      // Salvar o relatório no banco
       try {
         // Primeiro, atualizar todos os relatórios existentes para não serem "current"
         await supabase
@@ -216,7 +226,7 @@ Deno.serve(async (req) => {
           throw reportError;
         }
 
-        // 5. Retornar o novo relatório
+        // Retornar o novo relatório
         return new Response(
           JSON.stringify({ 
             success: true, 
@@ -238,27 +248,15 @@ Deno.serve(async (req) => {
       
       // Criar um relatório de fallback se ocorrer erro com OpenAI
       const fallbackReport = `
-      # Relatório de Planejamento Semanal (Gerado automaticamente)
-      
-      ## Resumo Geral
-      
-      Não foi possível gerar um relatório completo devido a uma limitação técnica.
-      
-      ## Dados Disponíveis
-      
-      * Riscos de Atraso: ${(risks || []).length} atividades identificadas com risco alto
-      * Atividades com PPC Baixo: ${filteredLowPpcActivities.length} atividades abaixo de 90% de conclusão
-      * Causas mais frequentes: ${causes.length} causas identificadas
-      * Disciplinas críticas: ${disciplines.length} disciplinas críticas
-      
-      ## Mensagem do Sistema
-      
-      Ocorreu um erro ao conectar com o serviço de IA: ${openAiError.message}
-      Por favor, tente novamente mais tarde ou contate o suporte se o problema persistir.
-      `;
+      {
+        "projeto": "${projectData.name}",
+        "semana": "${weekId}",
+        "analise_geral": "Não foi possível gerar uma análise completa devido a um erro técnico. Por favor, tente novamente mais tarde ou contate o suporte.",
+        "atividades_em_alerta": [],
+        "acoes_recomendadas": ["Verificar manualmente as atividades com percentual realizado abaixo do previsto", "Analisar impactos das atividades atrasadas"]
+      }`;
       
       try {
-        // Salvar o relatório de fallback no banco
         await supabase
           .from('planning_reports')
           .update({ is_current: false })
@@ -294,7 +292,6 @@ Deno.serve(async (req) => {
         throw error;
       }
     }
-
   } catch (error) {
     console.error("Erro na edge function:", error.message);
     return new Response(

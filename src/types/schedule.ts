@@ -32,3 +32,15 @@ export interface LinkedActivity {
     name: string;
   } | null;
 }
+
+export interface ScheduleAnalysis {
+  projeto: string;
+  semana: string;
+  analise_geral: string;
+  atividades_em_alerta: {
+    atividade: string;
+    desvio_dias: number;
+    impacto: string;
+  }[];
+  acoes_recomendadas: string[];
+}
