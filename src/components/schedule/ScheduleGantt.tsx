@@ -162,14 +162,17 @@ export function ScheduleGantt({ scheduleData, isLoading, projectId, onDataChange
       </CardHeader>
       <CardContent>
         <div ref={ganttContainerRef} className="gantt-container overflow-x-auto">
-          <div className="min-w-[800px]">
-            <div className="grid grid-cols-[0.5fr_1.2fr_0.8fr_0.8fr_0.8fr_0.8fr_0.5fr] text-sm font-medium px-4 py-2 border-b bg-muted/40">
+          <div className="min-w-[1200px]">
+            <div className="grid grid-cols-[0.4fr_1fr_0.6fr_0.6fr_0.6fr_0.6fr_0.6fr_0.6fr_0.6fr_0.4fr] text-sm font-medium px-4 py-2 border-b bg-muted/40">
               <div className="text-muted-foreground">WBS</div>
               <div className="text-muted-foreground">Tarefa</div>
               <div className="text-muted-foreground">Início</div>
               <div className="text-muted-foreground">Término</div>
+              <div className="text-muted-foreground">Início Base</div>
+              <div className="text-muted-foreground">Término Base</div>
               <div className="text-muted-foreground">% Previsto</div>
               <div className="text-muted-foreground">% Real</div>
+              <div className="text-muted-foreground">Predecessor</div>
               <div className="text-muted-foreground">Ações</div>
             </div>
 
@@ -181,11 +184,15 @@ export function ScheduleGantt({ scheduleData, isLoading, projectId, onDataChange
               <div className="space-y-1 mt-1">
                 {filteredData.map((task) => {
                   const paddingLeft = task.nivel_hierarquia * 16;
+                  const predecessorTask = task.predecessor_id 
+                    ? scheduleData.find(t => t.id === task.predecessor_id)
+                    : null;
+
                   return (
                     <div 
                       key={task.id} 
                       className={cn(
-                        "grid grid-cols-[0.5fr_1.2fr_0.8fr_0.8fr_0.8fr_0.8fr_0.5fr] items-center px-4 py-2",
+                        "grid grid-cols-[0.4fr_1fr_0.6fr_0.6fr_0.6fr_0.6fr_0.6fr_0.6fr_0.6fr_0.4fr] items-center px-4 py-2",
                         "hover:bg-accent/5 rounded-sm transition-colors",
                         "text-sm",
                         task.nivel_hierarquia === 0 && "font-medium"
@@ -213,11 +220,20 @@ export function ScheduleGantt({ scheduleData, isLoading, projectId, onDataChange
                       <div className="text-muted-foreground">
                         {task.data_termino ? new Date(task.data_termino).toLocaleDateString('pt-BR') : 'N/A'}
                       </div>
+                      <div className="text-muted-foreground">
+                        {task.inicio_linha_base ? new Date(task.inicio_linha_base).toLocaleDateString('pt-BR') : 'N/A'}
+                      </div>
+                      <div className="text-muted-foreground">
+                        {task.termino_linha_base ? new Date(task.termino_linha_base).toLocaleDateString('pt-BR') : 'N/A'}
+                      </div>
                       <div className="text-muted-foreground font-medium">
                         {task.percentual_previsto || 0}%
                       </div>
                       <div className="text-muted-foreground font-medium">
                         {task.percentual_real || 0}%
+                      </div>
+                      <div className="text-muted-foreground">
+                        {predecessorTask ? `${predecessorTask.wbs} - ${predecessorTask.nome}` : 'N/A'}
                       </div>
                       <div className="flex gap-2">
                         <Button 
