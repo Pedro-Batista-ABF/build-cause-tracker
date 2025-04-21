@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
@@ -150,7 +149,31 @@ export default function NewActivity() {
       toast.error("Erro ao carregar tarefas do cronograma");
       console.error(error);
     } else {
-      setScheduleTasks(data || []);
+      // Map the database records to ensure they match the ScheduleTask interface
+      const mappedTasks: ScheduleTask[] = (data || []).map(task => ({
+        id: task.id,
+        projeto_id: task.projeto_id,
+        tarefa_id: task.tarefa_id,
+        nome: task.nome,
+        data_inicio: task.data_inicio,
+        data_termino: task.data_termino,
+        duracao_dias: task.duracao_dias,
+        wbs: task.wbs,
+        percentual_previsto: task.percentual_previsto,
+        percentual_real: task.percentual_real,
+        nivel_hierarquia: task.nivel_hierarquia,
+        atividade_lps_id: task.atividade_lps_id,
+        // Add the missing properties from our ScheduleTask interface
+        inicio_linha_base: null,
+        termino_linha_base: null,
+        predecessor_id: null,
+        // The database might provide these values, add them if they exist
+        ...(task.inicio_linha_base && { inicio_linha_base: task.inicio_linha_base }),
+        ...(task.termino_linha_base && { termino_linha_base: task.termino_linha_base }),
+        ...(task.predecessor_id && { predecessor_id: task.predecessor_id })
+      }));
+      
+      setScheduleTasks(mappedTasks);
     }
   }
 
