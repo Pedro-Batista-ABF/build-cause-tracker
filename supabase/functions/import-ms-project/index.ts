@@ -1,4 +1,5 @@
 
+// Edge function for importing MS Project XML files
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.24.0";
 import { parse } from "https://deno.land/x/xml@2.1.1/mod.ts";
@@ -92,7 +93,7 @@ serve(async (req) => {
       }
 
       // Insert tasks in smaller batches to prevent timeouts
-      const BATCH_SIZE = 15; // Further reduced batch size
+      const BATCH_SIZE = 10; // Further reduced batch size
       const totalTasks = tasks.length;
       let importedCount = 0;
 
@@ -121,7 +122,7 @@ serve(async (req) => {
         
         // Add a short delay between batches to prevent CPU overload
         if (i + BATCH_SIZE < totalTasks) {
-          await new Promise(resolve => setTimeout(resolve, 100)); // Increased delay
+          await new Promise(resolve => setTimeout(resolve, 200)); // Increased delay
         }
       }
 
@@ -244,7 +245,7 @@ function processTasksFromXml(xmlDoc: any) {
           durationDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         }
 
-        // Get predecessors - note the field name change to match database schema
+        // Get predecessors - using the field name that matches the database schema
         let predecessores = null;
         const predLinks = getField(taskElement, 'PredecessorLink');
         
@@ -271,7 +272,7 @@ function processTasksFromXml(xmlDoc: any) {
           atividade_lps_id: null,
           inicio_linha_base: baselineStart || null,
           termino_linha_base: baselineFinish || null,
-          predecessores: predecessores // Using the correct field name that matches database schema
+          predecessores: predecessores // Using the field name that matches the database schema
         });
       } catch (taskError) {
         console.error("Error processing task, skipping:", taskError);

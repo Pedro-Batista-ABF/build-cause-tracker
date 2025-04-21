@@ -185,9 +185,10 @@ export function ScheduleGantt({ scheduleData, isLoading, projectId, onDataChange
               <div className="space-y-1 mt-1">
                 {filteredData.map((task) => {
                   const paddingLeft = task.nivel_hierarquia * 16;
-                  // Update to use predecessores instead of predecessor_id
-                  const predecessorTask = task.predecessores 
-                    ? scheduleData.find(t => t.id === task.predecessores)
+                  // Update to consistently use predecessores field
+                  const predecessorId = task.predecessores;
+                  const predecessorTask = predecessorId 
+                    ? scheduleData.find(t => t.id === predecessorId || t.tarefa_id === predecessorId)
                     : null;
 
                   return (

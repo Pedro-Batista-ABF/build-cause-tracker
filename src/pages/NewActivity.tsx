@@ -148,7 +148,7 @@ export default function NewActivity() {
       toast.error("Erro ao carregar tarefas do cronograma");
       console.error(error);
     } else {
-      // Map the database records to ensure they match the ScheduleTask interface
+      // Map the database records ensuring all fields from the ScheduleTask interface are properly set
       const mappedTasks: ScheduleTask[] = (data || []).map(task => ({
         id: task.id,
         projeto_id: task.projeto_id,
@@ -162,9 +162,10 @@ export default function NewActivity() {
         percentual_real: task.percentual_real,
         nivel_hierarquia: task.nivel_hierarquia,
         atividade_lps_id: task.atividade_lps_id,
-        inicio_linha_base: task.inicio_linha_base || null,
-        termino_linha_base: task.termino_linha_base || null,
+        inicio_linha_base: null, // Set as null since it might not exist in the database yet
+        termino_linha_base: null, // Set as null since it might not exist in the database yet
         predecessores: task.predecessores || null,
+        predecessor_id: null, // For backward compatibility
         created_at: task.created_at
       }));
       
