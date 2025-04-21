@@ -268,6 +268,7 @@ export function ScheduleGantt({ scheduleData, isLoading, projectId, onDataChange
             open={isEditDialogOpen}
             onOpenChange={setIsEditDialogOpen}
             item={selectedTask}
+            tasks={scheduleData}
             onSave={onDataChange}
           />
         </>

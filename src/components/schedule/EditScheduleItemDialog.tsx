@@ -7,11 +7,13 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ScheduleTask } from "@/types/schedule";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface EditScheduleItemDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   item: ScheduleTask;
+  tasks: ScheduleTask[];
   onSave: () => void;
 }
 
@@ -19,12 +21,20 @@ export function EditScheduleItemDialog({
   open,
   onOpenChange,
   item,
+  tasks,
   onSave,
 }: EditScheduleItemDialogProps) {
   const [startDate, setStartDate] = useState(item.data_inicio?.split('T')[0] || '');
   const [endDate, setEndDate] = useState(item.data_termino?.split('T')[0] || '');
   const [progress, setProgress] = useState(item.percentual_real?.toString() || '0');
+  const [predecessorId, setPredecessorId] = useState(item.predecessor_id || '');
   const [loading, setLoading] = useState(false);
+
+  // Filter out the current task and its successors to avoid circular dependencies
+  const availablePredecessors = tasks.filter(task => 
+    task.id !== item.id && 
+    task.nivel_hierarquia === item.nivel_hierarquia
+  );
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -37,6 +47,7 @@ export function EditScheduleItemDialog({
           data_inicio: startDate || null,
           data_termino: endDate || null,
           percentual_real: progress ? parseFloat(progress) : 0,
+          predecessor_id: predecessorId || null,
         })
         .eq('id', item.id);
 
@@ -55,7 +66,7 @@ export function EditScheduleItemDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Editar {item.nome}</DialogTitle>
         </DialogHeader>
@@ -91,6 +102,23 @@ export function EditScheduleItemDialog({
               value={progress}
               onChange={(e) => setProgress(e.target.value)}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="predecessor">Atividade Predecessora</Label>
+            <Select value={predecessorId} onValueChange={setPredecessorId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione a predecessora" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">Sem predecessor</SelectItem>
+                {availablePredecessors.map((task) => (
+                  <SelectItem key={task.id} value={task.id}>
+                    {task.wbs} - {task.nome}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">
