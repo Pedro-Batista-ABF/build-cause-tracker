@@ -1,7 +1,9 @@
+
 import { useMemo } from "react";
 import { ScheduleTask } from "@/types/schedule";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { calculateDistribution } from "@/utils/progressDistribution";
 
 interface GanttChartProps {
   tasks: ScheduleTask[];
@@ -46,10 +48,10 @@ export function GanttChart({ tasks, showSCurve = false }: GanttChartProps) {
     const notStarted = !task.percentual_real || task.percentual_real === 0;
     const delayed = task.percentual_real < (task.percentual_previsto || 0);
 
-    if (completed) return 'bg-green-500/90';
-    if (notStarted) return 'bg-gray-400/80';
-    if (delayed) return 'bg-red-500/90';
-    return 'bg-blue-500/90';
+    if (completed) return 'bg-accent-green';
+    if (notStarted) return 'bg-gray-300';
+    if (delayed) return 'bg-accent-red';
+    return 'bg-accent-blue';
   };
 
   const getTaskTooltip = (task: ScheduleTask) => {
@@ -82,88 +84,75 @@ ${predecessor ? `Predecessora: ${predecessor.nome}` : ''}`;
   return (
     <Card className="mt-6">
       <CardContent className="pt-6 overflow-x-auto">
-        <div className="gantt-chart min-w-[800px] relative">
-          {/* Month Headers */}
-          <div className="relative grid border-b border-border-subtle" 
-               style={{ gridTemplateColumns: `repeat(${monthsToShow}, 1fr)` }}>
-            {months.map((month, index) => (
-              <div 
-                key={index}
-                className="text-sm font-medium text-center py-2 border-r border-border-subtle last:border-r-0"
-              >
-                {month.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })}
-              </div>
-            ))}
+        <div className="gantt-chart min-w-[800px]">
+          <div className="flex border-b mb-4">
+            <div className="w-64 flex-shrink-0"></div>
+            <div className="flex-1 flex">
+              {months.map((month, index) => (
+                <div 
+                  key={index}
+                  className="flex-1 text-sm font-medium text-center text-muted-foreground"
+                >
+                  {month.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })}
+                </div>
+              ))}
+            </div>
           </div>
 
-          {/* Grid Background */}
-          <div className="absolute inset-0 top-10 grid" 
-               style={{ gridTemplateColumns: `repeat(${monthsToShow}, 1fr)` }}>
-            {months.map((_, index) => (
-              <div 
-                key={index} 
-                className="border-r border-border-subtle last:border-r-0 h-full"
-              />
-            ))}
-          </div>
-
-          {/* Tasks */}
-          <div className="space-y-6 pt-6 relative">
+          <div className="space-y-2">
             {tasks.map((task) => (
               <div 
                 key={task.id} 
                 className={cn(
-                  "group relative h-10",
+                  "flex items-center min-h-[2rem] group hover:bg-accent/5 rounded-sm transition-colors",
                   task.nivel_hierarquia === 0 && "font-medium"
                 )}
-                style={{ marginLeft: `${task.nivel_hierarquia * 16}px` }}
               >
-                {/* Baseline bar */}
-                {task.inicio_linha_base && task.termino_linha_base && (
-                  <div
-                    className="absolute h-3 top-4 rounded-full bg-gray-300/50"
-                    style={{
-                      left: `${getTaskPosition(task.inicio_linha_base, projectStart, projectEnd)}%`,
-                      width: `${getTaskBarWidth(task.inicio_linha_base, task.termino_linha_base, projectStart, projectEnd)}%`
-                    }}
-                  />
-                )}
-                
-                {/* Current progress bar */}
-                {task.data_inicio && task.data_termino && (
-                  <div
-                    className={cn(
-                      "absolute h-8 rounded-full shadow-md transition-all cursor-pointer",
-                      "hover:brightness-110",
-                      getTaskStatusColor(task)
-                    )}
-                    style={{
-                      left: `${getTaskPosition(task.data_inicio, projectStart, projectEnd)}%`,
-                      width: `${getTaskBarWidth(task.data_inicio, task.data_termino, projectStart, projectEnd)}%`,
-                      top: '2px'
-                    }}
-                    title={getTaskTooltip(task)}
-                  >
-                    {/* Task name overlay */}
-                    <div className="absolute inset-0 flex items-center px-3 text-sm text-white font-medium">
-                      <span className="truncate">{task.nome}</span>
-                    </div>
-
-                    {/* Progress indicator */}
-                    {task.percentual_real > 0 && task.percentual_real < 100 && (
-                      <div
-                        className="absolute inset-y-0 left-0 bg-green-500/90 rounded-full"
-                        style={{ width: `${task.percentual_real}%` }}
-                      />
-                    )}
-                  </div>
-                )}
-
-                {/* Dependency arrow */}
-                {task.predecessor_id && (
-                  <div className="absolute top-1/2 transform -translate-y-1/2">
+                <div 
+                  className="w-64 flex-shrink-0 truncate pr-4 text-sm group-hover:text-accent-foreground transition-colors"
+                  style={{ paddingLeft: `${task.nivel_hierarquia * 16}px` }}
+                >
+                  {task.nome}
+                </div>
+                <div className="flex-1 relative h-6">
+                  {/* Baseline bar */}
+                  {task.inicio_linha_base && task.termino_linha_base && (
                     <div
-                      className="absolute h-px w-4 bg-gray-400"
+                      className="absolute h-2 top-1 rounded bg-gray-200"
+                      style={{
+                        left: `${getTaskPosition(task.inicio_linha_base, projectStart, projectEnd)}%`,
+                        width: `${getTaskBarWidth(task.inicio_linha_base, task.termino_linha_base, projectStart, projectEnd)}%`
+                      }}
+                    />
+                  )}
+                  
+                  {/* Current progress bar */}
+                  {task.data_inicio && task.data_termino && (
+                    <div
+                      className={cn(
+                        "absolute h-4 rounded shadow-sm transition-all",
+                        "group-hover:ring-2 group-hover:ring-accent group-hover:ring-offset-1",
+                        getTaskStatusColor(task)
+                      )}
+                      style={{
+                        left: `${getTaskPosition(task.data_inicio, projectStart, projectEnd)}%`,
+                        width: `${getTaskBarWidth(task.data_inicio, task.data_termino, projectStart, projectEnd)}%`
+                      }}
+                      title={getTaskTooltip(task)}
+                    >
+                      {task.percentual_real > 0 && task.percentual_real < 100 && (
+                        <div
+                          className="absolute inset-y-0 left-0 bg-accent-green rounded"
+                          style={{ width: `${task.percentual_real}%` }}
+                        />
+                      )}
+                    </div>
+                  )}
+
+                  {/* Draw dependency lines */}
+                  {task.predecessor_id && (
+                    <div
+                      className="absolute h-6 border-l border-dashed border-accent/50"
                       style={{
                         left: `${getTaskPosition(
                           tasks.find(t => t.id === task.predecessor_id)?.data_termino || null,
@@ -171,33 +160,11 @@ ${predecessor ? `Predecessora: ${predecessor.nome}` : ''}`;
                           projectEnd
                         )}%`,
                       }}
-                    >
-                      <div className="absolute right-0 top-1/2 transform translate-x-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-gray-400" />
-                    </div>
-                  </div>
-                )}
+                    />
+                  )}
+                </div>
               </div>
             ))}
-          </div>
-          
-          {/* Legend */}
-          <div className="mt-8 flex items-center gap-6 justify-end border-t pt-4 text-sm">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-green-500/90" />
-              <span>Concluído</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-blue-500/90" />
-              <span>Em andamento</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-red-500/90" />
-              <span>Atrasado</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-gray-400/80" />
-              <span>Não iniciado</span>
-            </div>
           </div>
         </div>
       </CardContent>
