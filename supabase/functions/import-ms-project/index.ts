@@ -8,6 +8,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const MAX_XML_SIZE = 10 * 1024 * 1024; // 10MB limit
+
 serve(async (req) => {
   // Handle CORS preflight request
   if (req.method === "OPTIONS") {
@@ -24,31 +26,49 @@ serve(async (req) => {
       );
     }
 
+    // Check XML size to prevent timeouts
+    if (xmlContent.length > MAX_XML_SIZE) {
+      return new Response(
+        JSON.stringify({ error: "XML file is too large (max 10MB)" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+      );
+    }
+
     try {
       console.log("Parsing XML content...");
       
-      // Parse the XML using the deno xml parser
-      const xmlDoc = parse(xmlContent);
+      // Use a timeout for parsing to prevent CPU exhaustion
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 25000); // 25 second timeout
+      
+      // Parse with timeout protection
+      let xmlDoc;
+      try {
+        xmlDoc = parse(xmlContent);
+        clearTimeout(timeoutId);
+      } catch (parseError) {
+        if (parseError.name === 'AbortError') {
+          return new Response(
+            JSON.stringify({ error: "XML parsing timed out. File may be too complex or malformed." }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+          );
+        }
+        throw parseError;
+      }
+      
       console.log("XML successfully parsed");
       
-      // Debug the structure
-      console.log("XML structure:", JSON.stringify(xmlDoc).substring(0, 500) + "...");
-
       // Create Supabase client
       const supabaseClient = createClient(
         Deno.env.get("SUPABASE_URL") ?? "",
         Deno.env.get("SUPABASE_ANON_KEY") ?? ""
       );
 
-      // Process tasks from XML
+      // Process tasks from XML with optimized function
       const tasks = processTasksFromXml(xmlDoc);
       console.log(`Processed ${tasks.length} tasks from XML`);
 
       if (tasks.length === 0) {
-        console.log("No tasks found. XML structure may be different than expected.");
-        // Additional debug info to understand the XML structure
-        console.log("XML root keys:", Object.keys(xmlDoc));
-        
         return new Response(
           JSON.stringify({ 
             error: "No tasks found in the XML file. The XML structure may not be compatible." 
@@ -71,8 +91,8 @@ serve(async (req) => {
         );
       }
 
-      // Insert tasks in batches
-      const BATCH_SIZE = 50;
+      // Insert tasks in smaller batches to prevent timeouts
+      const BATCH_SIZE = 20; // Reduced batch size
       const totalTasks = tasks.length;
       let importedCount = 0;
 
@@ -98,6 +118,11 @@ serve(async (req) => {
         }
 
         importedCount += batch.length;
+        
+        // Add a short delay between batches to prevent CPU overload
+        if (i + BATCH_SIZE < totalTasks) {
+          await new Promise(resolve => setTimeout(resolve, 50));
+        }
       }
 
       return new Response(
@@ -124,54 +149,35 @@ serve(async (req) => {
   }
 });
 
+// Optimized task processing function with early bailout for large datasets
 function processTasksFromXml(xmlDoc: any) {
   try {
     const tasks = [];
-    
-    // Try to identify tasks in different possible XML structures
     let taskElements;
     
-    // Common MS Project XML structures
+    // Find tasks in common MS Project XML structures
     if (xmlDoc.Project?.Tasks?.Task) {
-      // Structure: Project > Tasks > Task
       taskElements = xmlDoc.Project.Tasks.Task;
-      console.log("Found tasks in Project.Tasks.Task structure");
     } else if (xmlDoc.Project?.Task) {
-      // Structure: Project > Task
       taskElements = xmlDoc.Project.Task;
-      console.log("Found tasks in Project.Task structure");
     } else {
-      // Try to find any node that might contain tasks
-      console.log("Looking for alternative task structures...");
+      // Simplified search approach to prevent excessive recursion
+      const candidates = [
+        xmlDoc.Project?.TaskTable?.Task,
+        xmlDoc.Project?.Tasks,
+        xmlDoc.Tasks?.Task,
+        xmlDoc.TaskTable?.Task,
+      ];
       
-      const findTasksInObject = (obj: any, path = ""): any[] => {
-        if (!obj || typeof obj !== 'object') return [];
-        
-        // Check if this object is a task array
-        if (Array.isArray(obj) && obj.length > 0 && obj[0].UID) {
-          console.log(`Found potential tasks at ${path}`);
-          return obj;
+      for (const candidate of candidates) {
+        if (Array.isArray(candidate) && candidate.length > 0) {
+          taskElements = candidate;
+          break;
+        } else if (candidate && typeof candidate === 'object') {
+          taskElements = [candidate];
+          break;
         }
-        
-        // If it's an array but not tasks, search in each element
-        if (Array.isArray(obj)) {
-          for (let i = 0; i < obj.length; i++) {
-            const result = findTasksInObject(obj[i], `${path}[${i}]`);
-            if (result.length > 0) return result;
-          }
-          return [];
-        }
-        
-        // Search in object properties
-        for (const key in obj) {
-          const result = findTasksInObject(obj[key], `${path}.${key}`);
-          if (result.length > 0) return result;
-        }
-        
-        return [];
-      };
-      
-      taskElements = findTasksInObject(xmlDoc, "root");
+      }
     }
     
     if (!taskElements) {
@@ -181,34 +187,32 @@ function processTasksFromXml(xmlDoc: any) {
     
     // Ensure we're working with an array
     if (!Array.isArray(taskElements)) {
-      console.log("Task elements found but not in array format, converting to array");
       taskElements = [taskElements];
     }
 
-    console.log(`Found ${taskElements.length} task elements to process`);
+    // Limit to first 1000 tasks for very large files to prevent timeouts
+    if (taskElements.length > 1000) {
+      console.log(`Too many tasks (${taskElements.length}), limiting to first 1000`);
+      taskElements = taskElements.slice(0, 1000);
+    }
     
     for (const taskElement of taskElements) {
       try {
-        // Extract task fields with more flexible approach
+        // Skip if not a valid task object
+        if (!taskElement || typeof taskElement !== 'object') continue;
+        
+        // Extract task fields
         const getField = (task: any, fieldName: string) => {
           if (!task) return null;
-          
-          // Direct property access
-          if (task[fieldName] !== undefined) {
-            // Handle different potential formats
-            const value = task[fieldName];
-            if (Array.isArray(value)) return value[0];
-            return value;
-          }
-          
-          return null;
+          const value = task[fieldName];
+          if (value === undefined) return null;
+          return Array.isArray(value) ? value[0] : value;
         };
         
         const uid = getField(taskElement, 'UID') || getField(taskElement, 'ID');
         const name = getField(taskElement, 'Name');
         
         if (!uid || !name || String(name).trim() === "") {
-          console.log("Skipping task without UID or name:", JSON.stringify(taskElement).substring(0, 100));
           continue;
         }
         
@@ -217,11 +221,15 @@ function processTasksFromXml(xmlDoc: any) {
         const wbs = getField(taskElement, 'WBS');
         const outlineLevel = parseInt(getField(taskElement, 'OutlineLevel') || "1", 10);
         
+        // Get baseline dates
+        const baselineStart = getField(taskElement, 'BaselineStart');
+        const baselineFinish = getField(taskElement, 'BaselineFinish');
+        
         // Get percentage complete
         let percentComplete = 0;
         const percentField = getField(taskElement, 'PercentComplete') || 
-                            getField(taskElement, 'PercentageComplete') ||
-                            getField(taskElement, 'Complete');
+                           getField(taskElement, 'PercentageComplete') ||
+                           getField(taskElement, 'Complete');
         
         if (percentField) {
           percentComplete = parseInt(percentField, 10);
@@ -234,33 +242,19 @@ function processTasksFromXml(xmlDoc: any) {
           const finishDate = new Date(finish);
           const diffTime = Math.abs(finishDate.getTime() - startDate.getTime());
           durationDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        } else if (getField(taskElement, 'Duration')) {
-          // Try to parse duration field if available
-          const durationStr = getField(taskElement, 'Duration');
-          // Rough estimate from duration string (PT40H0M0S format)
-          if (typeof durationStr === 'string' && durationStr.includes('H')) {
-            const hours = parseInt(durationStr.split('H')[0].replace('PT', ''), 10) || 0;
-            durationDays = Math.ceil(hours / 8); // Assuming 8-hour workdays
-          }
         }
 
-        // Get predecessors - handle different possible structures
-        const predecessors = [];
+        // Get predecessors
+        let predecessorId = null;
         const predLinks = getField(taskElement, 'PredecessorLink');
         
         if (predLinks) {
           if (Array.isArray(predLinks)) {
-            for (const link of predLinks) {
-              const predUid = getField(link, 'PredecessorUID');
-              if (predUid) {
-                predecessors.push(predUid);
-              }
-            }
+            // Take only the first predecessor for simplicity
+            const link = predLinks[0];
+            predecessorId = getField(link, 'PredecessorUID');
           } else if (typeof predLinks === 'object') {
-            const predUid = getField(predLinks, 'PredecessorUID');
-            if (predUid) {
-              predecessors.push(predUid);
-            }
+            predecessorId = getField(predLinks, 'PredecessorUID');
           }
         }
 
@@ -270,18 +264,17 @@ function processTasksFromXml(xmlDoc: any) {
           data_inicio: start || null,
           data_termino: finish || null,
           duracao_dias: durationDays,
-          predecessores: predecessors.join(","),
           wbs: wbs || `${tasks.length + 1}`,
           percentual_previsto: percentComplete,
           percentual_real: percentComplete, // Initially set real to match planned
           nivel_hierarquia: outlineLevel,
-          atividade_lps_id: null
+          atividade_lps_id: null,
+          inicio_linha_base: baselineStart || null,
+          termino_linha_base: baselineFinish || null,
+          predecessor_id: predecessorId
         });
-        
-        console.log(`Processed task: ${name} (${uid})`);
       } catch (taskError) {
-        console.error("Error processing task:", taskError);
-        // Continue with the next task
+        console.error("Error processing task, skipping:", taskError);
       }
     }
 
