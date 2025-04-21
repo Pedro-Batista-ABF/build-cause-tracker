@@ -143,7 +143,6 @@ export default function NewActivity() {
       .from('cronograma_projeto')
       .select('*')
       .eq('projeto_id', projectId);
-      // Removed the filter for unlinked tasks to allow multiple activities per schedule task
 
     if (error) {
       toast.error("Erro ao carregar tarefas do cronograma");
@@ -163,14 +162,10 @@ export default function NewActivity() {
         percentual_real: task.percentual_real,
         nivel_hierarquia: task.nivel_hierarquia,
         atividade_lps_id: task.atividade_lps_id,
-        // Add the missing properties from our ScheduleTask interface
-        inicio_linha_base: null,
-        termino_linha_base: null,
-        predecessor_id: null,
-        // The database might provide these values, add them if they exist
-        ...(task.inicio_linha_base && { inicio_linha_base: task.inicio_linha_base }),
-        ...(task.termino_linha_base && { termino_linha_base: task.termino_linha_base }),
-        ...(task.predecessor_id && { predecessor_id: task.predecessor_id })
+        inicio_linha_base: task.inicio_linha_base || null,
+        termino_linha_base: task.termino_linha_base || null,
+        predecessores: task.predecessores || null,
+        created_at: task.created_at
       }));
       
       setScheduleTasks(mappedTasks);

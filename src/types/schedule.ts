@@ -1,3 +1,4 @@
+
 export interface ScheduleTask {
   id: string;
   projeto_id: string;
@@ -13,7 +14,8 @@ export interface ScheduleTask {
   atividade_lps_id: string | null;
   inicio_linha_base: string | null;
   termino_linha_base: string | null;
-  predecessor_id: string | null;
+  predecessores: string | null;
+  predecessor_id?: string | null; // Keep for backward compatibility
   created_at?: string;
 }
 

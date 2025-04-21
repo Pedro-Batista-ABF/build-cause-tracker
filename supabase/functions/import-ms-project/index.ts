@@ -92,7 +92,7 @@ serve(async (req) => {
       }
 
       // Insert tasks in smaller batches to prevent timeouts
-      const BATCH_SIZE = 20; // Reduced batch size
+      const BATCH_SIZE = 15; // Further reduced batch size
       const totalTasks = tasks.length;
       let importedCount = 0;
 
@@ -121,7 +121,7 @@ serve(async (req) => {
         
         // Add a short delay between batches to prevent CPU overload
         if (i + BATCH_SIZE < totalTasks) {
-          await new Promise(resolve => setTimeout(resolve, 50));
+          await new Promise(resolve => setTimeout(resolve, 100)); // Increased delay
         }
       }
 
@@ -190,10 +190,10 @@ function processTasksFromXml(xmlDoc: any) {
       taskElements = [taskElements];
     }
 
-    // Limit to first 1000 tasks for very large files to prevent timeouts
-    if (taskElements.length > 1000) {
-      console.log(`Too many tasks (${taskElements.length}), limiting to first 1000`);
-      taskElements = taskElements.slice(0, 1000);
+    // Limit to first 500 tasks for very large files to prevent timeouts
+    if (taskElements.length > 500) {
+      console.log(`Too many tasks (${taskElements.length}), limiting to first 500`);
+      taskElements = taskElements.slice(0, 500);
     }
     
     for (const taskElement of taskElements) {
@@ -244,17 +244,17 @@ function processTasksFromXml(xmlDoc: any) {
           durationDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         }
 
-        // Get predecessors
-        let predecessorId = null;
+        // Get predecessors - note the field name change to match database schema
+        let predecessores = null;
         const predLinks = getField(taskElement, 'PredecessorLink');
         
         if (predLinks) {
           if (Array.isArray(predLinks)) {
             // Take only the first predecessor for simplicity
             const link = predLinks[0];
-            predecessorId = getField(link, 'PredecessorUID');
+            predecessores = getField(link, 'PredecessorUID');
           } else if (typeof predLinks === 'object') {
-            predecessorId = getField(predLinks, 'PredecessorUID');
+            predecessores = getField(predLinks, 'PredecessorUID');
           }
         }
 
@@ -271,7 +271,7 @@ function processTasksFromXml(xmlDoc: any) {
           atividade_lps_id: null,
           inicio_linha_base: baselineStart || null,
           termino_linha_base: baselineFinish || null,
-          predecessor_id: predecessorId
+          predecessores: predecessores // Using the correct field name that matches database schema
         });
       } catch (taskError) {
         console.error("Error processing task, skipping:", taskError);

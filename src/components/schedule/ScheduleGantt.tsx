@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -184,8 +185,9 @@ export function ScheduleGantt({ scheduleData, isLoading, projectId, onDataChange
               <div className="space-y-1 mt-1">
                 {filteredData.map((task) => {
                   const paddingLeft = task.nivel_hierarquia * 16;
-                  const predecessorTask = task.predecessor_id 
-                    ? scheduleData.find(t => t.id === task.predecessor_id)
+                  // Update to use predecessores instead of predecessor_id
+                  const predecessorTask = task.predecessores 
+                    ? scheduleData.find(t => t.id === task.predecessores)
                     : null;
 
                   return (
