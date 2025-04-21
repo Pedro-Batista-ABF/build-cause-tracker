@@ -3,7 +3,6 @@ import { useMemo } from "react";
 import { ScheduleTask } from "@/types/schedule";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { calculateDistribution } from "@/utils/progressDistribution";
 
 interface GanttChartProps {
   tasks: ScheduleTask[];
@@ -48,10 +47,10 @@ export function GanttChart({ tasks, showSCurve = false }: GanttChartProps) {
     const notStarted = !task.percentual_real || task.percentual_real === 0;
     const delayed = task.percentual_real < (task.percentual_previsto || 0);
 
-    if (completed) return 'bg-accent-green';
-    if (notStarted) return 'bg-gray-300';
-    if (delayed) return 'bg-accent-red';
-    return 'bg-accent-blue';
+    if (completed) return 'bg-accent-green/80';
+    if (notStarted) return 'bg-muted/30';
+    if (delayed) return 'bg-accent-red/80';
+    return 'bg-accent-blue/80';
   };
 
   const getTaskTooltip = (task: ScheduleTask) => {
@@ -84,75 +83,86 @@ ${predecessor ? `Predecessora: ${predecessor.nome}` : ''}`;
   return (
     <Card className="mt-6">
       <CardContent className="pt-6 overflow-x-auto">
-        <div className="gantt-chart min-w-[800px]">
-          <div className="flex border-b mb-4">
-            <div className="w-64 flex-shrink-0"></div>
-            <div className="flex-1 flex">
-              {months.map((month, index) => (
-                <div 
-                  key={index}
-                  className="flex-1 text-sm font-medium text-center text-muted-foreground"
-                >
-                  {month.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })}
-                </div>
-              ))}
-            </div>
+        <div className="gantt-chart min-w-[800px] relative">
+          {/* Grid Background */}
+          <div className="absolute inset-0 grid" style={{ gridTemplateColumns: `repeat(${monthsToShow}, 1fr)` }}>
+            {months.map((_, index) => (
+              <div key={index} className="border-l border-muted h-full last:border-r" />
+            ))}
           </div>
 
-          <div className="space-y-2">
+          {/* Month Headers */}
+          <div className="relative grid border-b mb-4" style={{ gridTemplateColumns: `repeat(${monthsToShow}, 1fr)` }}>
+            {months.map((month, index) => (
+              <div 
+                key={index}
+                className="text-sm font-medium text-center text-muted-foreground py-2"
+              >
+                {month.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })}
+              </div>
+            ))}
+          </div>
+
+          {/* Tasks */}
+          <div className="space-y-3 relative">
             {tasks.map((task) => (
               <div 
                 key={task.id} 
                 className={cn(
-                  "flex items-center min-h-[2rem] group hover:bg-accent/5 rounded-sm transition-colors",
+                  "group relative h-8",
                   task.nivel_hierarquia === 0 && "font-medium"
                 )}
+                style={{ marginLeft: `${task.nivel_hierarquia * 16}px` }}
               >
+                {/* Task Name Tooltip */}
                 <div 
-                  className="w-64 flex-shrink-0 truncate pr-4 text-sm group-hover:text-accent-foreground transition-colors"
-                  style={{ paddingLeft: `${task.nivel_hierarquia * 16}px` }}
+                  className="absolute -left-4 top-1/2 -translate-y-1/2 -translate-x-full 
+                           opacity-0 group-hover:opacity-100 transition-opacity bg-popover 
+                           text-popover-foreground px-2 py-1 rounded text-sm whitespace-nowrap z-10"
                 >
                   {task.nome}
                 </div>
-                <div className="flex-1 relative h-6">
-                  {/* Baseline bar */}
-                  {task.inicio_linha_base && task.termino_linha_base && (
-                    <div
-                      className="absolute h-2 top-1 rounded bg-gray-200"
-                      style={{
-                        left: `${getTaskPosition(task.inicio_linha_base, projectStart, projectEnd)}%`,
-                        width: `${getTaskBarWidth(task.inicio_linha_base, task.termino_linha_base, projectStart, projectEnd)}%`
-                      }}
-                    />
-                  )}
-                  
-                  {/* Current progress bar */}
-                  {task.data_inicio && task.data_termino && (
-                    <div
-                      className={cn(
-                        "absolute h-4 rounded shadow-sm transition-all",
-                        "group-hover:ring-2 group-hover:ring-accent group-hover:ring-offset-1",
-                        getTaskStatusColor(task)
-                      )}
-                      style={{
-                        left: `${getTaskPosition(task.data_inicio, projectStart, projectEnd)}%`,
-                        width: `${getTaskBarWidth(task.data_inicio, task.data_termino, projectStart, projectEnd)}%`
-                      }}
-                      title={getTaskTooltip(task)}
-                    >
-                      {task.percentual_real > 0 && task.percentual_real < 100 && (
-                        <div
-                          className="absolute inset-y-0 left-0 bg-accent-green rounded"
-                          style={{ width: `${task.percentual_real}%` }}
-                        />
-                      )}
-                    </div>
-                  )}
 
-                  {/* Draw dependency lines */}
-                  {task.predecessor_id && (
+                {/* Baseline bar */}
+                {task.inicio_linha_base && task.termino_linha_base && (
+                  <div
+                    className="absolute h-2 top-3 rounded bg-muted/30"
+                    style={{
+                      left: `${getTaskPosition(task.inicio_linha_base, projectStart, projectEnd)}%`,
+                      width: `${getTaskBarWidth(task.inicio_linha_base, task.termino_linha_base, projectStart, projectEnd)}%`
+                    }}
+                  />
+                )}
+                
+                {/* Current progress bar */}
+                {task.data_inicio && task.data_termino && (
+                  <div
+                    className={cn(
+                      "absolute h-6 rounded shadow-sm transition-all",
+                      "group-hover:ring-2 group-hover:ring-ring group-hover:ring-offset-1",
+                      getTaskStatusColor(task)
+                    )}
+                    style={{
+                      left: `${getTaskPosition(task.data_inicio, projectStart, projectEnd)}%`,
+                      width: `${getTaskBarWidth(task.data_inicio, task.data_termino, projectStart, projectEnd)}%`
+                    }}
+                    title={getTaskTooltip(task)}
+                  >
+                    {/* Progress indicator */}
+                    {task.percentual_real > 0 && task.percentual_real < 100 && (
+                      <div
+                        className="absolute inset-y-0 left-0 bg-accent-green/90 rounded"
+                        style={{ width: `${task.percentual_real}%` }}
+                      />
+                    )}
+                  </div>
+                )}
+
+                {/* Dependency lines */}
+                {task.predecessor_id && (
+                  <>
                     <div
-                      className="absolute h-6 border-l border-dashed border-accent/50"
+                      className="absolute h-full border-l border-muted/50"
                       style={{
                         left: `${getTaskPosition(
                           tasks.find(t => t.id === task.predecessor_id)?.data_termino || null,
@@ -161,8 +171,16 @@ ${predecessor ? `Predecessora: ${predecessor.nome}` : ''}`;
                         )}%`,
                       }}
                     />
-                  )}
-                </div>
+                    <div
+                      className="absolute w-2 h-2 rounded-full bg-muted/50"
+                      style={{
+                        left: `${getTaskPosition(task.data_inicio, projectStart, projectEnd)}%`,
+                        top: '50%',
+                        transform: 'translate(-50%, -50%)'
+                      }}
+                    />
+                  </>
+                )}
               </div>
             ))}
           </div>
