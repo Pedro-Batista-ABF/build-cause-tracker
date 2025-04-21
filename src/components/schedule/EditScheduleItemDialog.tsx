@@ -1,37 +1,17 @@
 
-import { useState } from "react";
-import { toast } from "sonner";
-import { Calendar } from "@/components/ui/calendar";
-import { format } from "date-fns";
-import { CalendarIcon } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { useState } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { toast } from "sonner";
+import { ScheduleTask } from "@/types/schedule";
 
 interface EditScheduleItemDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  item: {
-    id: string;
-    nome: string;
-    data_inicio: string | null;
-    data_termino: string | null;
-    percentual_real: number | null;
-  };
+  item: ScheduleTask;
   onSave: () => void;
 }
 
@@ -41,117 +21,70 @@ export function EditScheduleItemDialog({
   item,
   onSave,
 }: EditScheduleItemDialogProps) {
-  const [startDate, setStartDate] = useState<Date | undefined>(
-    item.data_inicio ? new Date(item.data_inicio) : undefined
-  );
-  const [endDate, setEndDate] = useState<Date | undefined>(
-    item.data_termino ? new Date(item.data_termino) : undefined
-  );
-  const [progress, setProgress] = useState(item.percentual_real?.toString() || "0");
-  const [isSaving, setIsSaving] = useState(false);
+  const [startDate, setStartDate] = useState(item.data_inicio?.split('T')[0] || '');
+  const [endDate, setEndDate] = useState(item.data_termino?.split('T')[0] || '');
+  const [progress, setProgress] = useState(item.percentual_real?.toString() || '0');
+  const [loading, setLoading] = useState(false);
 
-  const handleSave = async () => {
-    if (!startDate || !endDate) {
-      toast.error("Datas de início e término são obrigatórias");
-      return;
-    }
-
-    const progressValue = Number(progress);
-    if (isNaN(progressValue) || progressValue < 0 || progressValue > 100) {
-      toast.error("Percentual deve ser um número entre 0 e 100");
-      return;
-    }
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
 
     try {
-      setIsSaving(true);
       const { error } = await supabase
-        .from("cronograma_projeto")
+        .from('cronograma_projeto')
         .update({
-          data_inicio: startDate.toISOString().split("T")[0],
-          data_termino: endDate.toISOString().split("T")[0],
-          percentual_real: progressValue,
+          data_inicio: startDate || null,
+          data_termino: endDate || null,
+          percentual_real: progress ? parseFloat(progress) : 0,
         })
-        .eq("id", item.id);
+        .eq('id', item.id);
 
       if (error) throw error;
 
-      toast.success("Item atualizado com sucesso");
+      toast.success('Item atualizado com sucesso');
       onSave();
       onOpenChange(false);
     } catch (error) {
-      console.error("Error updating schedule item:", error);
-      toast.error("Erro ao atualizar item do cronograma");
+      console.error('Error updating schedule item:', error);
+      toast.error('Erro ao atualizar item');
     } finally {
-      setIsSaving(false);
+      setLoading(false);
     }
-  };
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Editar Item do Cronograma</DialogTitle>
-          <DialogDescription>{item.nome}</DialogDescription>
+          <DialogTitle>Editar {item.nome}</DialogTitle>
         </DialogHeader>
 
-        <div className="grid gap-4 py-4">
-          <div className="grid gap-2">
-            <Label>Data de Início</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant={"outline"}
-                  className={cn(
-                    "w-full justify-start text-left font-normal",
-                    !startDate && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {startDate ? format(startDate, "dd/MM/yyyy") : "Selecione uma data"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={startDate}
-                  onSelect={setStartDate}
-                  initialFocus
-                  className={cn("p-3 pointer-events-auto")}
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-
-          <div className="grid gap-2">
-            <Label>Data de Término</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant={"outline"}
-                  className={cn(
-                    "w-full justify-start text-left font-normal",
-                    !endDate && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {endDate ? format(endDate, "dd/MM/yyyy") : "Selecione uma data"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={endDate}
-                  onSelect={setEndDate}
-                  initialFocus
-                  className={cn("p-3 pointer-events-auto")}
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-
-          <div className="grid gap-2">
-            <Label>Percentual Realizado (%)</Label>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="startDate">Data de Início</Label>
             <Input
+              id="startDate"
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="endDate">Data de Término</Label>
+            <Input
+              id="endDate"
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="progress">Percentual Real (%)</Label>
+            <Input
+              id="progress"
               type="number"
               min="0"
               max="100"
@@ -159,16 +92,42 @@ export function EditScheduleItemDialog({
               onChange={(e) => setProgress(e.target.value)}
             />
           </div>
-        </div>
 
-        <div className="flex justify-end gap-3">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancelar
-          </Button>
-          <Button onClick={handleSave} disabled={isSaving}>
-            {isSaving ? "Salvando..." : "Salvar"}
-          </Button>
-        </div>
+          <div className="space-y-2">
+            <Label>Datas da Linha de Base</Label>
+            <div className="grid grid-cols-2 gap-4 p-4 bg-muted/20 rounded-md">
+              <div>
+                <Label className="text-sm text-muted-foreground">Início Base</Label>
+                <div className="font-medium">
+                  {item.inicio_linha_base 
+                    ? new Date(item.inicio_linha_base).toLocaleDateString('pt-BR')
+                    : 'N/A'}
+                </div>
+              </div>
+              <div>
+                <Label className="text-sm text-muted-foreground">Término Base</Label>
+                <div className="font-medium">
+                  {item.termino_linha_base
+                    ? new Date(item.termino_linha_base).toLocaleDateString('pt-BR')
+                    : 'N/A'}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={loading}>
+              {loading ? 'Salvando...' : 'Salvar'}
+            </Button>
+          </div>
+        </form>
       </DialogContent>
     </Dialog>
   );

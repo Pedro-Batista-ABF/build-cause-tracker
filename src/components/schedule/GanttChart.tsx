@@ -13,14 +13,14 @@ interface GanttChartProps {
 export function GanttChart({ tasks, showSCurve = false }: GanttChartProps) {
   const projectStart = useMemo(() => {
     const dates = tasks
-      .map(task => task.data_inicio)
+      .map(task => task.inicio_linha_base || task.data_inicio)
       .filter(Boolean) as string[];
     return dates.length > 0 ? new Date(Math.min(...dates.map(d => new Date(d).getTime()))) : new Date();
   }, [tasks]);
 
   const projectEnd = useMemo(() => {
     const dates = tasks
-      .map(task => task.data_termino)
+      .map(task => task.termino_linha_base || task.data_termino)
       .filter(Boolean) as string[];
     return dates.length > 0 ? new Date(Math.max(...dates.map(d => new Date(d).getTime()))) : new Date();
   }, [tasks]);
@@ -28,29 +28,20 @@ export function GanttChart({ tasks, showSCurve = false }: GanttChartProps) {
   const totalDays = Math.ceil((projectEnd.getTime() - projectStart.getTime()) / (1000 * 60 * 60 * 24));
   const monthsToShow = Math.ceil(totalDays / 30);
 
-  const getTaskPosition = (task: ScheduleTask) => {
-    if (!task.data_inicio || !task.data_termino) return { left: 0, width: 0 };
+  const getTaskPosition = (task: ScheduleTask, useBaseline: boolean = false) => {
+    const startDate = useBaseline ? task.inicio_linha_base : task.data_inicio;
+    const endDate = useBaseline ? task.termino_linha_base : task.data_termino;
     
-    const startDate = new Date(task.data_inicio);
-    const endDate = new Date(task.data_termino);
+    if (!startDate || !endDate) return { left: 0, width: 0 };
     
-    const left = ((startDate.getTime() - projectStart.getTime()) / (projectEnd.getTime() - projectStart.getTime())) * 100;
-    const width = ((endDate.getTime() - startDate.getTime()) / (projectEnd.getTime() - projectStart.getTime())) * 100;
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    const left = ((start.getTime() - projectStart.getTime()) / (projectEnd.getTime() - projectStart.getTime())) * 100;
+    const width = ((end.getTime() - start.getTime()) / (projectEnd.getTime() - projectStart.getTime())) * 100;
     
     return { left: `${left}%`, width: `${width}%` };
   };
-
-  const months = useMemo(() => {
-    const months = [];
-    const currentDate = new Date(projectStart);
-    
-    for (let i = 0; i < monthsToShow; i++) {
-      months.push(new Date(currentDate));
-      currentDate.setMonth(currentDate.getMonth() + 1);
-    }
-    
-    return months;
-  }, [projectStart, monthsToShow]);
 
   const getTaskStatusColor = (task: ScheduleTask) => {
     const completed = task.percentual_real === 100;
@@ -67,9 +58,23 @@ export function GanttChart({ tasks, showSCurve = false }: GanttChartProps) {
     return `${task.nome}
 Previsto: ${task.percentual_previsto || 0}%
 Realizado: ${task.percentual_real || 0}%
-${task.data_inicio ? `Início: ${new Date(task.data_inicio).toLocaleDateString('pt-BR')}` : ''}
-${task.data_termino ? `Término: ${new Date(task.data_termino).toLocaleDateString('pt-BR')}` : ''}`;
+Início Base: ${task.inicio_linha_base ? new Date(task.inicio_linha_base).toLocaleDateString('pt-BR') : 'N/A'}
+Término Base: ${task.termino_linha_base ? new Date(task.termino_linha_base).toLocaleDateString('pt-BR') : 'N/A'}
+Início Atual: ${task.data_inicio ? new Date(task.data_inicio).toLocaleDateString('pt-BR') : 'N/A'}
+Término Atual: ${task.data_termino ? new Date(task.data_termino).toLocaleDateString('pt-BR') : 'N/A'}`;
   };
+
+  const months = useMemo(() => {
+    const months = [];
+    const currentDate = new Date(projectStart);
+    
+    for (let i = 0; i < monthsToShow; i++) {
+      months.push(new Date(currentDate));
+      currentDate.setMonth(currentDate.getMonth() + 1);
+    }
+    
+    return months;
+  }, [projectStart, monthsToShow]);
 
   const scurveData = useMemo(() => {
     if (!showSCurve) return null;
@@ -129,6 +134,15 @@ ${task.data_termino ? `Término: ${new Date(task.data_termino).toLocaleDateStrin
                   {task.nome}
                 </div>
                 <div className="flex-1 relative h-6">
+                  {/* Baseline bar */}
+                  {task.inicio_linha_base && task.termino_linha_base && (
+                    <div
+                      className="absolute h-full rounded bg-gray-300 opacity-50"
+                      style={getTaskPosition(task, true)}
+                    />
+                  )}
+                  
+                  {/* Current progress bar */}
                   {task.data_inicio && task.data_termino && (
                     <div
                       className={cn(
