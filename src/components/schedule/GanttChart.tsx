@@ -13,20 +13,20 @@ interface GanttChartProps {
 export function GanttChart({ tasks, showSCurve = false }: GanttChartProps) {
   const projectStart = useMemo(() => {
     const dates = tasks
-      .map(task => [
+      .flatMap(task => [
         task.inicio_linha_base,
         task.data_inicio,
       ].filter(Boolean)) as string[];
-    return dates.length > 0 ? new Date(Math.min(...dates.flat().map(d => new Date(d).getTime()))) : new Date();
+    return dates.length > 0 ? new Date(Math.min(...dates.map(d => new Date(d).getTime()))) : new Date();
   }, [tasks]);
 
   const projectEnd = useMemo(() => {
     const dates = tasks
-      .map(task => [
+      .flatMap(task => [
         task.termino_linha_base,
         task.data_termino,
       ].filter(Boolean)) as string[];
-    return dates.length > 0 ? new Date(Math.max(...dates.flat().map(d => new Date(d).getTime()))) : new Date();
+    return dates.length > 0 ? new Date(Math.max(...dates.map(d => new Date(d).getTime()))) : new Date();
   }, [tasks]);
 
   const getTaskPosition = (date: string | null, referenceStart: Date, referenceEnd: Date) => {

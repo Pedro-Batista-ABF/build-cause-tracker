@@ -8,6 +8,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ScheduleTask } from "@/types/schedule";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { 
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger 
+} from "@/components/ui/tooltip";
+import { InfoIcon } from "lucide-react";
 
 interface EditScheduleItemDialogProps {
   open: boolean;
@@ -105,7 +112,23 @@ export function EditScheduleItemDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="predecessor">Atividade Predecessora</Label>
+            <Label htmlFor="predecessor" className="flex items-center gap-2">
+              Atividade Predecessora
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <InfoIcon className="h-4 w-4 text-muted-foreground" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="max-w-xs text-sm">
+                      Ao definir uma predecessora, a data de início desta tarefa 
+                      será automaticamente ajustada quando a data de término da 
+                      predecessora for alterada.
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </Label>
             <Select value={predecessorId} onValueChange={setPredecessorId}>
               <SelectTrigger>
                 <SelectValue placeholder="Selecione a predecessora" />
