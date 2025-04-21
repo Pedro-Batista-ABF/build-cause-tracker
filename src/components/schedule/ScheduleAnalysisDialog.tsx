@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -10,9 +9,10 @@ import { Card } from "@/components/ui/card";
 import { ScheduleTask, ScheduleAnalysis } from "@/types/schedule";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { FileDown, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
+import { ScheduleExportReport } from "./ScheduleExportReport";
 
 interface ScheduleAnalysisDialogProps {
   open: boolean;
@@ -74,12 +74,7 @@ export function ScheduleAnalysisDialog({
     }
   };
   
-  const handleExportPDF = async () => {
-    if (!analysis) return;
-    
-    toast.info("Funcionalidade de exportação para PDF será implementada em breve.");
-    // Implementação da exportação para PDF virá aqui
-  };
+  
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -113,27 +108,40 @@ export function ScheduleAnalysisDialog({
         {analysis && !isLoading && (
           <div className="space-y-6">
             <div>
-              <div className="flex justify-between mb-2">
-                <h3 className="text-lg font-medium">{analysis.projeto}</h3>
-                <Badge variant="outline">Semana: {format(new Date(analysis.semana), "dd/MM/yyyy", { locale: pt })}</Badge>
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="text-lg font-medium mb-2">{analysis.projeto}</h3>
+                  <Badge variant="outline">
+                    Semana: {format(new Date(analysis.semana), "dd/MM/yyyy", { locale: pt })}
+                  </Badge>
+                </div>
+                <ScheduleExportReport 
+                  analysis={analysis}
+                  projectName={analysis.projeto}
+                  additionalNotes={additionalNotes}
+                />
               </div>
+              
               <Separator className="my-4" />
-              <div className="prose prose-sm max-w-none">
+              
+              <Card className="p-4 bg-card mb-6">
                 <h4 className="text-base font-medium mb-2">Análise Geral</h4>
-                <p className="text-sm text-muted-foreground whitespace-pre-line">{analysis.analise_geral}</p>
-              </div>
+                <p className="text-sm text-muted-foreground whitespace-pre-line leading-relaxed">
+                  {analysis.analise_geral}
+                </p>
+              </Card>
             </div>
             
             {analysis.atividades_em_alerta && analysis.atividades_em_alerta.length > 0 && (
               <div>
-                <h4 className="text-base font-medium mb-2">Atividades em Alerta</h4>
-                <div className="space-y-2">
+                <h4 className="text-base font-medium mb-3">Atividades em Alerta</h4>
+                <div className="grid gap-3">
                   {analysis.atividades_em_alerta.map((atividade, index) => (
-                    <Card key={index} className="p-3">
+                    <Card key={index} className="p-4 border-l-4 border-l-amber-500">
                       <div className="flex justify-between items-start">
                         <div>
                           <p className="font-medium">{atividade.atividade}</p>
-                          <p className="text-sm text-muted-foreground">Impacto: {atividade.impacto}</p>
+                          <p className="text-sm text-muted-foreground mt-1">Impacto: {atividade.impacto}</p>
                         </div>
                         <Badge 
                           variant="outline" 
@@ -153,12 +161,17 @@ export function ScheduleAnalysisDialog({
             
             {analysis.acoes_recomendadas && analysis.acoes_recomendadas.length > 0 && (
               <div>
-                <h4 className="text-base font-medium mb-2">Ações Recomendadas</h4>
-                <ul className="list-disc pl-5 space-y-1">
-                  {analysis.acoes_recomendadas.map((acao, index) => (
-                    <li key={index} className="text-sm">{acao}</li>
-                  ))}
-                </ul>
+                <h4 className="text-base font-medium mb-3">Ações Recomendadas</h4>
+                <Card className="p-4">
+                  <ul className="space-y-2">
+                    {analysis.acoes_recomendadas.map((acao, index) => (
+                      <li key={index} className="flex items-center gap-2">
+                        <div className="h-2 w-2 rounded-full bg-primary shrink-0" />
+                        <span className="text-sm">{acao}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </Card>
               </div>
             )}
             
@@ -170,16 +183,6 @@ export function ScheduleAnalysisDialog({
                 placeholder="Adicione suas observações aqui..."
                 className="h-24"
               />
-            </div>
-            
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
-                Fechar
-              </Button>
-              <Button onClick={handleExportPDF} className="gap-2">
-                <FileDown className="h-4 w-4" />
-                Exportar Relatório
-              </Button>
             </div>
           </div>
         )}
