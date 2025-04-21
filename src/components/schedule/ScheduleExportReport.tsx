@@ -27,12 +27,13 @@ Data: ${format(new Date(analysis.semana), "dd/MM/yyyy", { locale: pt })}
 ANÁLISE GERAL:
 ${analysis.analise_geral}
 
+${analysis.atividades_em_alerta.length > 0 ? `
 ATIVIDADES EM ALERTA:
 ${analysis.atividades_em_alerta.map(atividade => 
   `- ${atividade.atividade}
    Desvio: ${atividade.desvio_dias} dias
    Impacto: ${atividade.impacto}`
-).join('\n\n')}
+).join('\n\n')}` : ''}
 
 AÇÕES RECOMENDADAS:
 ${analysis.acoes_recomendadas.map(acao => `- ${acao}`).join('\n')}
@@ -58,3 +59,4 @@ ${additionalNotes ? `\nOBSERVAÇÕES ADICIONAIS:\n${additionalNotes}` : ''}
     </Button>
   );
 }
+
