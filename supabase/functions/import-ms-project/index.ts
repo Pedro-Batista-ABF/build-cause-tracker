@@ -92,8 +92,8 @@ serve(async (req) => {
         );
       }
 
-      // Insert tasks in smaller batches to prevent timeouts
-      const BATCH_SIZE = 10; // Further reduced batch size
+      // Insert tasks in smaller batches with increased delays
+      const BATCH_SIZE = 5; // Reduced batch size for more stability
       const totalTasks = tasks.length;
       let importedCount = 0;
 
@@ -120,9 +120,9 @@ serve(async (req) => {
 
         importedCount += batch.length;
         
-        // Add a short delay between batches to prevent CPU overload
+        // Add a longer delay between batches to prevent CPU overload
         if (i + BATCH_SIZE < totalTasks) {
-          await new Promise(resolve => setTimeout(resolve, 200)); // Increased delay
+          await new Promise(resolve => setTimeout(resolve, 500)); // Increased delay to 500ms
         }
       }
 
@@ -202,7 +202,7 @@ function processTasksFromXml(xmlDoc: any) {
         // Skip if not a valid task object
         if (!taskElement || typeof taskElement !== 'object') continue;
         
-        // Extract task fields
+        // Extract task fields with better error handling
         const getField = (task: any, fieldName: string) => {
           if (!task) return null;
           const value = task[fieldName];
@@ -222,60 +222,63 @@ function processTasksFromXml(xmlDoc: any) {
         const wbs = getField(taskElement, 'WBS');
         const outlineLevel = parseInt(getField(taskElement, 'OutlineLevel') || "1", 10);
         
-        // Get baseline dates
+        // Get baseline dates with explicit null handling
         const baselineStart = getField(taskElement, 'BaselineStart');
         const baselineFinish = getField(taskElement, 'BaselineFinish');
         
-        // Get percentage complete
+        // Get percentage complete with better validation
         let percentComplete = 0;
         const percentField = getField(taskElement, 'PercentComplete') || 
                            getField(taskElement, 'PercentageComplete') ||
                            getField(taskElement, 'Complete');
         
-        if (percentField) {
+        if (percentField !== null && !isNaN(parseInt(percentField))) {
           percentComplete = parseInt(percentField, 10);
         }
 
-        // Calculate duration in days
+        // Calculate duration in days with validation
         let durationDays = 0;
         if (start && finish) {
           const startDate = new Date(start);
           const finishDate = new Date(finish);
-          const diffTime = Math.abs(finishDate.getTime() - startDate.getTime());
-          durationDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          if (!isNaN(startDate.getTime()) && !isNaN(finishDate.getTime())) {
+            const diffTime = Math.abs(finishDate.getTime() - startDate.getTime());
+            durationDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          }
         }
 
-        // Get predecessors - using the field name that matches the database schema
+        // Get predecessors with improved handling
         let predecessores = null;
         const predLinks = getField(taskElement, 'PredecessorLink');
         
         if (predLinks) {
           if (Array.isArray(predLinks)) {
-            // Take only the first predecessor for simplicity
             const link = predLinks[0];
-            predecessores = getField(link, 'PredecessorUID');
+            predecessores = getField(link, 'PredecessorUID') || null;
           } else if (typeof predLinks === 'object') {
-            predecessores = getField(predLinks, 'PredecessorUID');
+            predecessores = getField(predLinks, 'PredecessorUID') || null;
           }
         }
 
+        // Add task with validated fields
         tasks.push({
           tarefa_id: uid,
           nome: name,
           data_inicio: start || null,
           data_termino: finish || null,
-          duracao_dias: durationDays,
+          duracao_dias: durationDays || null,
           wbs: wbs || `${tasks.length + 1}`,
           percentual_previsto: percentComplete,
-          percentual_real: percentComplete, // Initially set real to match planned
-          nivel_hierarquia: outlineLevel,
+          percentual_real: percentComplete,
+          nivel_hierarquia: outlineLevel || 1,
           atividade_lps_id: null,
           inicio_linha_base: baselineStart || null,
           termino_linha_base: baselineFinish || null,
-          predecessores: predecessores // Using the field name that matches the database schema
+          predecessores: predecessores
         });
       } catch (taskError) {
         console.error("Error processing task, skipping:", taskError);
+        continue;
       }
     }
 

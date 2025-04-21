@@ -98,6 +98,7 @@ export type Database = {
           data_termino: string | null
           duracao_dias: number | null
           id: string
+          inicio_linha_base: string | null
           nivel_hierarquia: number | null
           nome: string
           percentual_previsto: number | null
@@ -105,6 +106,7 @@ export type Database = {
           predecessores: string | null
           projeto_id: string
           tarefa_id: string
+          termino_linha_base: string | null
           wbs: string | null
         }
         Insert: {
@@ -114,6 +116,7 @@ export type Database = {
           data_termino?: string | null
           duracao_dias?: number | null
           id?: string
+          inicio_linha_base?: string | null
           nivel_hierarquia?: number | null
           nome: string
           percentual_previsto?: number | null
@@ -121,6 +124,7 @@ export type Database = {
           predecessores?: string | null
           projeto_id: string
           tarefa_id: string
+          termino_linha_base?: string | null
           wbs?: string | null
         }
         Update: {
@@ -130,6 +134,7 @@ export type Database = {
           data_termino?: string | null
           duracao_dias?: number | null
           id?: string
+          inicio_linha_base?: string | null
           nivel_hierarquia?: number | null
           nome?: string
           percentual_previsto?: number | null
@@ -137,6 +142,7 @@ export type Database = {
           predecessores?: string | null
           projeto_id?: string
           tarefa_id?: string
+          termino_linha_base?: string | null
           wbs?: string | null
         }
         Relationships: [
