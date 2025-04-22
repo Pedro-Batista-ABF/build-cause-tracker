@@ -40,6 +40,13 @@ export function EditProgressDialog({
     setNewValue(progress.actual.toString());
   }
 
+  const handleSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    // Handle empty input as 0
+    const numericValue = newValue === "" ? 0 : Number(newValue);
+    onSave(numericValue);
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
@@ -51,10 +58,7 @@ export function EditProgressDialog({
         </DialogHeader>
         <form
           className="space-y-4"
-          onSubmit={e => {
-            e.preventDefault();
-            onSave(Number(newValue));
-          }}
+          onSubmit={handleSave}
         >
           <div className="space-y-2">
             <Label htmlFor="newValue">Nova quantidade ({unit}):</Label>

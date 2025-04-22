@@ -148,6 +148,10 @@ export function DailyProgress({
         plannedValue = plannedQty;
       }
 
+      // Ensure qtyValue is a valid number (not NaN)
+      qtyValue = isNaN(qtyValue) ? 0 : qtyValue;
+      plannedValue = isNaN(plannedValue) ? 0 : plannedValue;
+
       let progressData;
       if (existingProgressId) {
         const { data, error: updateError } = await supabase
@@ -251,33 +255,40 @@ export function DailyProgress({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Convert inputs to numbers and handle empty inputs
+    const numericQuantity = quantity === "" ? 0 : Number(quantity);
+    const numericPercent = percent === "" ? 0 : Number(percent);
+    
     if (registerAsPercent) {
-      const percentValue = Number(percent);
-      if (percentValue < plannedPercent) {
+      // Allow zero percent progress without causing prompt
+      if (numericPercent < plannedPercent) {
         setShowCauseDialog(true);
         return;
       }
-      submitProgressMutation.mutate({ percent: percentValue, date });
+      submitProgressMutation.mutate({ percent: numericPercent, date });
     } else {
-      const progress = Number(quantity);
-      if (progress < plannedQty) {
+      // Allow zero quantity progress without causing prompt
+      if (numericQuantity < plannedQty) {
         setShowCauseDialog(true);
         return;
       }
-      submitProgressMutation.mutate({ quantity: Number(quantity), date });
+      submitProgressMutation.mutate({ quantity: numericQuantity, date });
     }
   };
 
   const handleCauseSubmit = (cause: { type: string; description: string }) => {
     if (registerAsPercent) {
+      const numericPercent = percent === "" ? 0 : Number(percent);
       submitProgressMutation.mutate({ 
-        percent: Number(percent), 
+        percent: numericPercent, 
         date, 
         cause 
       });
     } else {
+      const numericQuantity = quantity === "" ? 0 : Number(quantity);
       submitProgressMutation.mutate({ 
-        quantity: Number(quantity), 
+        quantity: numericQuantity, 
         date, 
         cause 
       });

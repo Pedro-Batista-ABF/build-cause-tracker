@@ -133,9 +133,15 @@ export function ActivityDetails({ activityId }: ActivityDetailsProps) {
                       );
                       
                       const plannedQty = dailyGoal.qty;
-                      const deviation = item.actual_qty !== null && plannedQty !== null
-                        ? ((item.actual_qty - plannedQty) / plannedQty) * 100
-                        : 0;
+                      
+                      // Fix: Prevent division by zero when calculating deviation
+                      let deviation = 0;
+                      if (plannedQty > 0) {
+                        deviation = ((item.actual_qty - plannedQty) / plannedQty) * 100;
+                      } else if (item.actual_qty > 0) {
+                        // If planned is 0 but actual is not, show 100% positive deviation
+                        deviation = 100;
+                      }
                       
                       return (
                         <TableRow key={item.id}>
