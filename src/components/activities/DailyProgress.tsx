@@ -1,5 +1,8 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
+import { EditProgressDialog } from "./EditProgressDialog";
+import { DeleteProgressDialog } from "./DeleteProgressDialog";
+import { calculateDailyGoal } from "@/utils/dateUtils"; // Assuming we'll create this utility function
 import {
   Dialog,
   DialogContent,
@@ -17,8 +20,6 @@ import { ActivityProgressChart } from "./ActivityProgressChart";
 import { Card, CardContent } from "@/components/ui/card";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
-import { EditProgressDialog } from "./EditProgressDialog";
-import { DeleteProgressDialog } from "./DeleteProgressDialog";
 
 // NOVO: Calcular meta diária automática (quantidade e percentual)
 // Atualizar função para pegar só dias úteis:
@@ -34,18 +35,6 @@ function calculateBusinessDays(startDate?: string | null, endDate?: string | nul
     curr.setDate(curr.getDate() + 1);
   }
   return count > 0 ? count : 1;
-}
-
-function calculateDailyGoal(startDate?: string | null, endDate?: string | null, totalQty?: number) {
-  if (!startDate || !endDate || !totalQty || isNaN(totalQty)) return {qty: 0, percent: 0};
-  try {
-    const businessDays = calculateBusinessDays(startDate, endDate);
-    const qtyGoal = Math.round(totalQty / businessDays);
-    const percentGoal = Number((100 / businessDays).toFixed(2));
-    return {qty: qtyGoal, percent: percentGoal};
-  } catch {
-    return {qty: 0, percent: 0};
-  }
 }
 
 interface DailyProgressProps {
@@ -433,6 +422,84 @@ export function DailyProgress({
           </div>
         </CardContent>
       </Card>
+
+      {progressData && progressData.length > 0 && (
+        <div className="overflow-x-auto">
+          <table className="min-w-full border text-xs bg-muted/40 rounded-lg">
+            <thead>
+              <tr>
+                <th className="px-2 py-1 font-semibold">Data</th>
+                <th className="px-2 py-1">Quantidade ({unit})</th>
+                <th className="px-2 py-1">Meta Diária</th>
+                <th className="px-2 py-1 text-center" colSpan={2}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {progressData.map((p) => {
+                const dailyGoal = calculateDailyGoal(startDate, endDate, totalQty);
+                return (
+                  <tr key={p.id} className="border-t">
+                    <td className="px-2 py-1">{p.date}</td>
+                    <td className="px-2 py-1 text-center">{p.actual}</td>
+                    <td className="px-2 py-1 text-center">{dailyGoal.qty} {unit}</td>
+                    <td className="px-2 py-1">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setSelectedProgress({ 
+                            id: p.id, 
+                            date: p.date, 
+                            actual: p.actual, 
+                            planned: dailyGoal.qty 
+                          });
+                          setEditDialogOpen(true);
+                        }}
+                      >
+                        Editar
+                      </Button>
+                    </td>
+                    <td className="px-2 py-1">
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => {
+                          setProgressToDelete(p.id);
+                          setDeleteDialogOpen(true);
+                        }}
+                      >
+                        Apagar
+                      </Button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <EditProgressDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        progress={selectedProgress}
+        unit={unit}
+        onSave={newValue => {
+          if (selectedProgress) {
+            editProgressMutation.mutate({ progressId: selectedProgress.id, newValue });
+          }
+        }}
+      />
+
+      <DeleteProgressDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        progressId={progressToDelete}
+        onDeleted={() => {
+          queryClient.invalidateQueries({ queryKey: ['progress', activityId] });
+          setProgressToDelete(null);
+        }}
+      />
 
       {isLoading ? (
         <div className="h-[300px] flex items-center justify-center">
