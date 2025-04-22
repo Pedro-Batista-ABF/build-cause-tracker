@@ -40,7 +40,11 @@ export function ResponsibleContactForm() {
     try {
       const { error } = await supabase
         .from("responsible_contacts")
-        .insert([data]);
+        .insert([{
+          name: data.name,
+          email: data.email,
+          discipline: data.discipline || null
+        }]);
 
       if (error) throw error;
 

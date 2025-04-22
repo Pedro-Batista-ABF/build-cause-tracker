@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
@@ -42,6 +43,7 @@ const formSchema = z.object({
   discipline: z.string().min(1, "Selecione uma disciplina"),
   manager: z.string().min(2, "Responsável deve ter pelo menos 2 caracteres"),
   responsible: z.string().min(1, "Selecione um responsável"),
+  team: z.string().min(2, "Equipe deve ter pelo menos 2 caracteres"),
   unit: z.string().min(1, "Selecione uma unidade"),
   totalQty: z.string().min(1, "Quantidade é obrigatória"),
   description: z.string().optional(),
@@ -101,6 +103,7 @@ export default function NewActivity() {
       discipline: "",
       manager: "",
       responsible: "",
+      team: "",
       unit: "",
       totalQty: "",
       description: "",
@@ -344,9 +347,9 @@ export default function NewActivity() {
                   name="manager"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Responsável</FormLabel>
+                      <FormLabel>Gerente</FormLabel>
                       <FormControl>
-                        <Input placeholder="Nome do responsável" {...field} />
+                        <Input placeholder="Nome do gerente" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -382,7 +385,7 @@ export default function NewActivity() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FormField
                   control={form.control}
-                  name="responsible"
+                  name="team"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Equipe</FormLabel>
