@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,12 +18,26 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 
+// NOVO: Calcular meta diária automática
+function calculateDailyGoal(startDate?: string | null, endDate?: string | null, totalQty?: number) {
+  if (!startDate || !endDate || !totalQty || isNaN(totalQty)) return 0;
+  try {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const duration = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+    return Math.round(totalQty / duration);
+  } catch {
+    return 0;
+  }
+}
+
 interface DailyProgressProps {
   activityId: string;
   activityName: string;
   unit: string;
   totalQty: number;
-  plannedProgress?: number;
+  startDate?: string | null;
+  endDate?: string | null;
 }
 
 export function DailyProgress({ 
@@ -32,17 +45,20 @@ export function DailyProgress({
   activityName, 
   unit, 
   totalQty,
-  plannedProgress = 10,
+  startDate,
+  endDate,
 }: DailyProgressProps) {
   const { session } = useAuth();
   const [quantity, setQuantity] = useState("");
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [open, setOpen] = useState(false);
   const [showCauseDialog, setShowCauseDialog] = useState(false);
-  
+
   const queryClient = useQueryClient();
 
-  // Fetch progress data
+  // Meta diária automática
+  const plannedProgress = calculateDailyGoal(startDate, endDate, totalQty);
+
   const { data: progressData = [], isLoading } = useQuery({
     queryKey: ['progress', activityId],
     queryFn: async () => {
@@ -69,7 +85,6 @@ export function DailyProgress({
     enabled: !!session?.user
   });
 
-  // Check for existing progress on the selected date
   const checkExistingProgress = async (activityId: string, date: string) => {
     const { data, error } = await supabase
       .from('daily_progress')
@@ -77,16 +92,13 @@ export function DailyProgress({
       .eq('activity_id', activityId)
       .eq('date', date)
       .maybeSingle();
-      
     if (error) {
       console.error('Error checking for existing progress:', error);
       return null;
     }
-    
     return data?.id;
   };
 
-  // Submit progress mutation
   const submitProgressMutation = useMutation({
     mutationFn: async ({ quantity, date, cause }: { 
       quantity: number, 
@@ -94,16 +106,10 @@ export function DailyProgress({
       cause?: { type: string; description: string } 
     }) => {
       if (!session?.user) throw new Error("Usuário não autenticado");
-      
-      console.log("Starting progress submission");
-      
-      // Check if progress for this activity and date already exists
       const existingProgressId = await checkExistingProgress(activityId, date);
-      
+
       let progressData;
-      
       if (existingProgressId) {
-        // Update existing record
         const { data, error: updateError } = await supabase
           .from('daily_progress')
           .update({
@@ -114,15 +120,12 @@ export function DailyProgress({
           .eq('id', existingProgressId)
           .select('id')
           .single();
-          
         if (updateError) {
           console.error("Error updating daily progress:", updateError);
           throw updateError;
         }
         progressData = data;
-        console.log("Progress entry updated successfully, ID:", progressData.id);
       } else {
-        // Insert new record
         const { data, error: progressError } = await supabase
           .from('daily_progress')
           .insert([{
@@ -140,12 +143,9 @@ export function DailyProgress({
           throw progressError;
         }
         progressData = data;
-        console.log("Progress entry created successfully, ID:", progressData.id);
       }
 
       if (cause && progressData) {
-        console.log("Inserting cause data:", cause);
-        
         const { error: causeError } = await supabase
           .from('progress_causes')
           .insert([{
@@ -154,15 +154,11 @@ export function DailyProgress({
             notes: cause.description,
             created_by: session.user.id
           }]);
-
         if (causeError) {
           console.error("Error inserting cause:", causeError);
           throw causeError;
         }
-        
-        console.log("Cause entry created successfully");
       }
-
       return progressData;
     },
     onSuccess: () => {
@@ -170,15 +166,12 @@ export function DailyProgress({
       setOpen(false);
       setQuantity("");
       setShowCauseDialog(false);
-      // Refresh progress data
       queryClient.invalidateQueries({ queryKey: ['progress', activityId] });
-      // Also refresh activities list to update progress indicators
       queryClient.invalidateQueries({ queryKey: ['activities'] });
     },
     onError: (error) => {
       console.error('Error submitting progress:', error);
       toast.error(error instanceof Error ? error.message : "Erro ao registrar avanço");
-      // Always close dialogs on error to prevent them from getting stuck
       setOpen(false);
       setShowCauseDialog(false);
     }
@@ -186,16 +179,11 @@ export function DailyProgress({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
     const progress = Number(quantity);
-    
-    // Only show cause dialog when progress is less than planned
-    // This fixes the issue where deviations were required for progress above plan
     if (progress < plannedProgress) {
       setShowCauseDialog(true);
       return;
     }
-    
     submitProgressMutation.mutate({ quantity: Number(quantity), date });
   };
 
@@ -206,8 +194,7 @@ export function DailyProgress({
       cause 
     });
   };
-  
-  // Handle dialog cancel properly
+
   const handleDialogCancel = () => {
     setOpen(false);
     setShowCauseDialog(false);
@@ -234,7 +221,7 @@ export function DailyProgress({
             <div>
               <h3 className="font-semibold">{activityName}</h3>
               <p className="text-sm text-muted-foreground">
-                Meta: {plannedProgress} {unit}/dia
+                Meta diária automática: {plannedProgress} {unit}/dia
               </p>
             </div>
             <Dialog open={open} onOpenChange={setOpen}>
@@ -306,7 +293,6 @@ export function DailyProgress({
       <ProgressCauseDialog
         open={showCauseDialog}
         onOpenChange={(open) => {
-          // Ensure proper closing of nested dialog
           setShowCauseDialog(open);
           if (!open) setOpen(false);
         }}

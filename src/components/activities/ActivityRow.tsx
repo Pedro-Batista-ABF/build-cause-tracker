@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { DailyProgress } from "./DailyProgress";
@@ -123,7 +124,8 @@ export function ActivityRow({
             activityName={name}
             unit={unit}
             totalQty={totalQty}
-            // A meta diária será calculada corretamente pela lógica do componente
+            startDate={startDate}
+            endDate={endDate}
           />
         </div>
       )}

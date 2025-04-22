@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
@@ -31,9 +32,6 @@ import { useNavigate, useParams } from "react-router-dom"
 import { toast } from "sonner"
 import { ScheduleTask } from "@/types/schedule"
 import { supabase } from "@/integrations/supabase/client"
-import { Slider } from "@/components/ui/slider"
-import { ProgressDistributionChart } from "@/components/activities/ProgressDistributionChart";
-import { DistributionType } from "@/utils/progressDistribution";
 import { Tables } from "@/integrations/supabase/types";
 
 const formSchema = z.object({
@@ -47,11 +45,6 @@ const formSchema = z.object({
   description: z.string().optional(),
   startDate: z.string().min(1, "Data de início é obrigatória"),
   endDate: z.string().min(1, "Data de término é obrigatória"),
-  planningType: z.string().min(1, "Selecione o tipo de planejamento"),
-  dailyGoal: z.string().optional(),
-  weeklyGoal: z.string().optional(),
-  monthlyGoal: z.string().optional(),
-  distributionType: z.string().min(1, "Selecione o tipo de distribuição"),
   scheduleTaskId: z.string().optional(),
 })
 
@@ -70,18 +63,6 @@ const units = [
   "m³",
   "ton",
   "kg",
-]
-
-const planningTypes = [
-  "Diário",
-  "Semanal",
-  "Mensal",
-]
-
-const distributionTypes = [
-  "Linear",
-  "Personalizado",
-  "Curva S",
 ]
 
 export default function NewActivity() {
@@ -106,11 +87,6 @@ export default function NewActivity() {
       description: "",
       startDate: "",
       endDate: "",
-      planningType: "",
-      dailyGoal: "",
-      weeklyGoal: "",
-      monthlyGoal: "",
-      distributionType: "",
       scheduleTaskId: "",
     },
   });
@@ -245,12 +221,6 @@ export default function NewActivity() {
       setLoading(false);
     }
   }
-
-  const showDistributionChart = form.watch("startDate") && 
-    form.watch("endDate") && 
-    form.watch("totalQty") && 
-    form.watch("distributionType") &&
-    form.watch("unit");
 
   return (
     <div className="space-y-6">
@@ -471,120 +441,6 @@ export default function NewActivity() {
                   )}
                 />
               </div>
-
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium">Planejamento de Avanço</h3>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <FormField
-                    control={form.control}
-                    name="planningType"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Tipo de Planejamento</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione o tipo" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {planningTypes.map((type) => (
-                              <SelectItem key={type} value={type}>
-                                {type}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="distributionType"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Distribuição do Avanço</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione a distribuição" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {distributionTypes.map((type) => (
-                              <SelectItem key={type} value={type}>
-                                {type}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                {form.watch("planningType") === "Diário" && (
-                  <FormField
-                    control={form.control}
-                    name="dailyGoal"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Meta Diária ({form.watch("unit")})</FormLabel>
-                        <FormControl>
-                          <Input type="number" placeholder="0" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                )}
-
-                {form.watch("planningType") === "Semanal" && (
-                  <FormField
-                    control={form.control}
-                    name="weeklyGoal"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Meta Semanal ({form.watch("unit")})</FormLabel>
-                        <FormControl>
-                          <Input type="number" placeholder="0" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                )}
-
-                {form.watch("planningType") === "Mensal" && (
-                  <FormField
-                    control={form.control}
-                    name="monthlyGoal"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Meta Mensal ({form.watch("unit")})</FormLabel>
-                        <FormControl>
-                          <Input type="number" placeholder="0" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                )}
-              </div>
-
-              {showDistributionChart && (
-                <ProgressDistributionChart
-                  startDate={form.watch("startDate")}
-                  endDate={form.watch("endDate")}
-                  totalQuantity={Number(form.watch("totalQty"))}
-                  distributionType={form.watch("distributionType") as DistributionType}
-                  unit={form.watch("unit")}
-                />
-              )}
 
               {selectedProjectId && (
                 <FormField
