@@ -37,7 +37,17 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-async function getStatusClass(ppc: number): Promise<string> {
+async function getStatusClass(ppc: number, startDate?: string): Promise<string> {
+  // Verificar se a atividade já deveria ter começado
+  const now = new Date();
+  const hasStarted = startDate ? new Date(startDate) <= now : true;
+  
+  // Se a atividade não começou ainda, não deve ser considerada atrasada
+  if (!hasStarted) {
+    return "⚪️ Não iniciada";
+  }
+  
+  // Para atividades que já começaram, aplicar a lógica normal de status
   if (ppc >= 90) return "✅ OK";
   if (ppc >= 70) return "⚠️ Risco";
   return "❌ Atrasado";
@@ -211,18 +221,14 @@ function getCurrentWeekLabel(): string {
   return `Semana ${weekNumber} - ${now.getFullYear()}`;
 }
 
-function generateActivityTableHTML(activities: ActivityData[]): string {
+async function generateActivityTableHTML(activities: ActivityData[]): Promise<string> {
   // Sort activities by status (most critical first)
   const sortedActivities = [...activities].sort((a, b) => a.ppc - b.ppc);
   
   let tableRows = "";
   
   for (const activity of sortedActivities) {
-    const statusClass = activity.ppc >= 90 
-      ? "✅ OK" 
-      : activity.ppc >= 70 
-        ? "⚠️ Risco" 
-        : "❌ Atrasado";
+    const statusClass = await getStatusClass(activity.ppc, activity.start_date);
         
     const startDate = activity.start_date 
       ? new Date(activity.start_date).toLocaleDateString('pt-BR')
@@ -306,8 +312,9 @@ const handler = async (req: Request): Promise<Response> => {
     
     // Generate HTML email content
     const weekLabel = week || getCurrentWeekLabel();
-    const activitiesTable = generateActivityTableHTML(activities);
+    const activitiesTable = await generateActivityTableHTML(activities);
     
+    // Movemos a análise para antes da tabela
     const emailHtml = `
       <!DOCTYPE html>
       <html>
@@ -327,12 +334,12 @@ const handler = async (req: Request): Promise<Response> => {
           <p>Responsável: <strong>${responsibleName}</strong></p>
         </div>
         
-        ${activitiesTable}
-        
         <div class="analysis">
           <h3>Análise de Desempenho</h3>
           <p>${aiAnalysis}</p>
         </div>
+        
+        ${activitiesTable}
         
         <div class="footer">
           <p>Enviado automaticamente pela plataforma ABF Engenharia</p>
@@ -362,12 +369,12 @@ const handler = async (req: Request): Promise<Response> => {
         <h1>Olá Pedro,</h1>
         <p>Relatório Semanal de Atividades para ${responsibleName}</p>
         
-        ${activitiesTable}
-        
         <div class="analysis">
           <h3>Análise de Desempenho</h3>
           <p>${aiAnalysis}</p>
         </div>
+        
+        ${activitiesTable}
         
         <div class="footer">
           <p>Enviado automaticamente pela plataforma ABF Engenharia</p>
