@@ -52,6 +52,12 @@ export function ScheduleImportDialog({
     setError(null);
 
     try {
+      // Verificar o tamanho do arquivo
+      const fileSize = file.size / (1024 * 1024); // tamanho em MB
+      if (fileSize > 5) {
+        throw new Error(`O arquivo é muito grande (${fileSize.toFixed(2)} MB). O limite é de 5 MB.`);
+      }
+
       // Read file content
       const fileContent = await file.text();
       console.log("XML file read successfully, sending to edge function");
@@ -59,6 +65,7 @@ export function ScheduleImportDialog({
       // Call edge function to parse and import the MS Project XML
       const { data, error: functionError } = await supabase.functions.invoke('import-ms-project', {
         body: { 
+          action: 'import',
           xmlContent: fileContent,
           projectId 
         }
@@ -130,6 +137,7 @@ export function ScheduleImportDialog({
           
           <div className="text-sm text-muted-foreground">
             <p>Dica: Se o arquivo for muito grande, considere dividir em arquivos menores ou simplificar o cronograma antes de importar.</p>
+            <p className="mt-1">Limite de tamanho: 5 MB. Máximo de 300 tarefas por importação.</p>
           </div>
         </div>
 

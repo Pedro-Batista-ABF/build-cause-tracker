@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -37,8 +38,10 @@ export function ScheduleAnalysisDialog({
     setAnalysis(null);
     
     try {
-      const { data: reportData, error } = await supabase.functions.invoke('generate-planning-report', {
+      // Chamar a função específica para análise do cronograma
+      const { data: reportData, error } = await supabase.functions.invoke('import-ms-project', {
         body: { 
+          action: 'analyze',
           projectId, 
           scheduleData
         }
@@ -46,23 +49,20 @@ export function ScheduleAnalysisDialog({
       
       if (error) throw error;
       
-      if (reportData?.report?.content) {
+      if (reportData?.analysis) {
         try {
-          // Try to parse content if it's JSON
-          const contentObj = JSON.parse(reportData.report.content);
-          setAnalysis(contentObj);
+          // Parse the analysis content if it's JSON
+          if (typeof reportData.analysis === 'string') {
+            setAnalysis(JSON.parse(reportData.analysis));
+          } else {
+            setAnalysis(reportData.analysis);
+          }
+          setAnalysisId(reportData.id || null);
+          toast.success("Análise crítica gerada com sucesso!");
         } catch (e) {
-          // If it's not JSON, use it as text
-          setAnalysis({
-            projeto: "Projeto",
-            semana: format(new Date(), "yyyy-MM-dd"),
-            analise_geral: reportData.report.content,
-            atividades_em_alerta: [],
-            acoes_recomendadas: []
-          });
+          console.error("Erro ao processar análise:", e);
+          throw new Error("Formato de resposta inválido da análise");
         }
-        setAnalysisId(reportData.report.id);
-        toast.success("Análise crítica gerada com sucesso!");
       } else {
         toast.error("Não foi possível gerar a análise crítica.");
       }
@@ -74,8 +74,6 @@ export function ScheduleAnalysisDialog({
     }
   };
   
-  
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">

@@ -14,7 +14,10 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { projectId, scheduleData } = await req.json();
+    // Extrair os parâmetros da solicitação (se houver)
+    const requestData = await req.json().catch(() => ({}));
+    const { scheduleData } = requestData;
+    
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
     
@@ -28,158 +31,110 @@ Deno.serve(async (req) => {
       throw new Error('OPENAI_API_KEY is required');
     }
 
-    // Get project info
-    const { data: projectData, error: projectError } = await supabase
-      .from('projects')
-      .select('name')
-      .eq('id', projectId)
-      .single();
+    // Buscar dados de atividades e progressos para análise geral (não específica do cronograma)
+    const { data: activities, error: activitiesError } = await supabase
+      .from('activities')
+      .select(`
+        id,
+        name,
+        discipline,
+        responsible,
+        daily_progress (
+          date,
+          planned_qty,
+          actual_qty
+        )
+      `);
 
-    if (projectError) {
-      throw projectError;
+    if (activitiesError) {
+      throw activitiesError;
     }
 
-    // Analyze schedule data
-    const tasksWithDelay = [];
-    const tasksWithRisk = [];
+    // Processar dados de progressos para análise
+    const progressData = [];
+    const delayedActivities = [];
     
-    for (const task of scheduleData) {
-      if (task.data_termino && task.termino_linha_base) {
-        const termino = new Date(task.data_termino);
-        const terminoBase = new Date(task.termino_linha_base);
-        const diffTime = termino.getTime() - terminoBase.getTime();
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        
-        // Tasks with more than 5 days of delay
-        if (diffDays > 5) {
-          tasksWithDelay.push({
-            nome: task.nome,
-            desvio_dias: diffDays,
-            percentual_real: task.percentual_real || 0,
-            percentual_previsto: task.percentual_previsto || 0,
-            wbs: task.wbs
-          });
-        } 
-        // Tasks with small delay (1-5 days) or those behind planned progress
-        else if (diffDays > 0 || 
-                ((task.percentual_real || 0) < (task.percentual_previsto || 0) && 
-                (task.percentual_previsto || 0) - (task.percentual_real || 0) > 10)) {
-          tasksWithRisk.push({
-            nome: task.nome,
-            desvio_dias: diffDays,
-            percentual_real: task.percentual_real || 0,
-            percentual_previsto: task.percentual_previsto || 0,
-            wbs: task.wbs
-          });
-        }
-      }
-    }
-
-    // Create dependencies map to analyze impact
-    const dependencyMap = {};
-    for (const task of scheduleData) {
-      if (task.predecessor_id) {
-        if (!dependencyMap[task.predecessor_id]) {
-          dependencyMap[task.predecessor_id] = [];
-        }
-        dependencyMap[task.predecessor_id].push(task.id);
-      }
-    }
-
-    // Find critical path and impacted activities
-    const criticalTasks = new Set();
-    const impactedTasks = {};
+    // Calcular métricas de desempenho
+    let totalPlanned = 0;
+    let totalActual = 0;
     
-    for (const task of tasksWithDelay) {
-      const taskObj = scheduleData.find(t => t.nome === task.nome);
-      if (taskObj && dependencyMap[taskObj.id]) {
-        criticalTasks.add(taskObj.id);
+    activities.forEach(activity => {
+      if (activity.daily_progress && activity.daily_progress.length > 0) {
+        let activityPlanned = 0;
+        let activityActual = 0;
         
-        // Find all impacted tasks
-        const findImpacted = (taskId, deviationSource) => {
-          if (dependencyMap[taskId]) {
-            for (const dependentId of dependencyMap[taskId]) {
-              const dependent = scheduleData.find(t => t.id === dependentId);
-              if (dependent) {
-                if (!impactedTasks[dependent.id]) {
-                  impactedTasks[dependent.id] = {
-                    nome: dependent.nome,
-                    impactedBy: deviationSource
-                  };
-                }
-                findImpacted(dependent.id, deviationSource);
-              }
-            }
+        activity.daily_progress.forEach(progress => {
+          if (progress.planned_qty && progress.actual_qty) {
+            activityPlanned += Number(progress.planned_qty);
+            activityActual += Number(progress.actual_qty);
+            totalPlanned += Number(progress.planned_qty);
+            totalActual += Number(progress.actual_qty);
           }
-        };
+        });
         
-        findImpacted(taskObj.id, task.nome);
+        const ppc = activityPlanned > 0 ? (activityActual / activityPlanned) * 100 : 100;
+        
+        progressData.push({
+          activity: activity.name,
+          discipline: activity.discipline || 'Não especificada',
+          responsible: activity.responsible || 'Não especificado',
+          ppc: Math.round(ppc)
+        });
+        
+        // Identificar atividades com atraso
+        if (ppc < 80) {
+          delayedActivities.push({
+            name: activity.name,
+            discipline: activity.discipline || 'Não especificada',
+            responsible: activity.responsible || 'Não especificado',
+            ppc: Math.round(ppc)
+          });
+        }
       }
-    }
-
-    // 2. Construir o prompt para GPT
-    const delaysText = tasksWithDelay.map(task => 
-      `- Atividade "${task.nome}" (WBS: ${task.wbs}) com ${task.desvio_dias} dias de atraso. ` + 
-      `Percentual previsto: ${task.percentual_previsto || 0}%, ` +
-      `percentual real: ${task.percentual_real || 0}%`
-    ).join('\n');
-
-    const risksText = tasksWithRisk.map(task => 
-      `- Atividade "${task.nome}" (WBS: ${task.wbs}) com ${task.desvio_dias} dias de desvio. ` + 
-      `Percentual previsto: ${task.percentual_previsto || 0}%, ` +
-      `percentual real: ${task.percentual_real || 0}%`
-    ).join('\n');
-
-    const impactsText = Object.values(impactedTasks).map((task: any) => 
-      `- Atividade "${task.nome}" impactada por: ${task.impactedBy}`
-    ).join('\n');
-
+    });
+    
+    // Calcular PPC geral
+    const overallPPC = totalPlanned > 0 ? Math.round((totalActual / totalPlanned) * 100) : 0;
+    
     const today = new Date();
     const weekId = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
+    // Consultar causas de atrasos mais comuns
+    const { data: causes } = await supabase.rpc('get_common_causes', { limit_count: 3 });
+    
+    // Consultar disciplinas críticas
+    const { data: criticalDisciplines } = await supabase.rpc('get_critical_disciplines', { limit_count: 3 });
+
+    // Construir o prompt para o GPT
     const prompt = `
-    Você é um especialista em gerenciamento de projetos e planejamento.
-    Com base nos dados de cronograma abaixo, crie uma análise crítica semanal no formato JSON com os campos conforme modelo abaixo.
+    Você é um especialista em gerenciamento de projetos.
     
     DADOS DO PROJETO:
-    Nome do projeto: ${projectData.name}
     Data da análise: ${weekId}
+    PPC Geral: ${overallPPC}%
+    Atividades com atraso (PPC < 80%): ${delayedActivities.length}
     
-    TAREFAS COM ATRASO SIGNIFICATIVO (>5 dias):
-    ${delaysText || 'Nenhuma tarefa com atraso significativo identificada.'}
+    PRINCIPAIS CAUSAS DE ATRASO:
+    ${causes && causes.length > 0 
+      ? causes.map(c => `- ${c.name}: ${c.percentage}%`).join('\n')
+      : 'Dados insuficientes para análise de causas.'}
     
-    TAREFAS EM RISCO OU COM PEQUENOS DESVIOS (1-5 dias ou com % realizado < previsto):
-    ${risksText || 'Nenhuma tarefa em risco identificada.'}
+    DISCIPLINAS COM MAIOR INCIDÊNCIA DE ATRASOS:
+    ${criticalDisciplines && criticalDisciplines.length > 0 
+      ? criticalDisciplines.map(d => `- ${d.discipline}: ${d.count} ocorrências`).join('\n')
+      : 'Dados insuficientes para análise de disciplinas críticas.'}
     
-    IMPACTOS IDENTIFICADOS NAS DEPENDÊNCIAS:
-    ${impactsText || 'Nenhum impacto em dependências identificado.'}
+    ATIVIDADES ATRASADAS:
+    ${delayedActivities.length > 0 
+      ? delayedActivities.map(a => `- ${a.name} (${a.discipline}): PPC ${a.ppc}%`).join('\n')
+      : 'Nenhuma atividade com atraso significativo.'}
     
-    FORMATO ESPERADO DA RESPOSTA:
-    {
-      "projeto": "${projectData.name}",
-      "semana": "${weekId}",
-      "analise_geral": "Análise geral da situação do cronograma, tendências, principais preocupações e recomendações gerais.",
-      "atividades_em_alerta": [
-        {
-          "atividade": "Nome da atividade em atraso/risco",
-          "desvio_dias": XX,
-          "impacto": "Descrição do impacto nas outras atividades"
-        }
-      ],
-      "acoes_recomendadas": [
-        "Ação recomendada 1",
-        "Ação recomendada 2",
-        "Ação recomendada 3"
-      ]
-    }
+    Com base nesses dados, gere um relatório semanal de planejamento com:
+    1. Um resumo da situação atual do projeto (2-3 parágrafos)
+    2. Análise das principais causas de atraso
+    3. Recomendações práticas para melhorar o PPC nas próximas semanas
     
-    ORIENTAÇÕES PARA A ANÁLISE:
-    - Use um tom profissional e orientado a ações
-    - Identifique as atividades mais críticas e seus impactos
-    - Sugira ações corretivas específicas
-    - Limite a no máximo 5 atividades em alerta (as mais críticas)
-    - Limite a no máximo 5 ações recomendadas
-    - Responda APENAS com o JSON, sem texto adicional
+    O relatório deve ser bem estruturado, profissional e prático. Use termos técnicos de gerenciamento de projetos mas mantenha a linguagem acessível. Limite a 600 palavras no total.
     `;
 
     console.log("Enviando prompt para OpenAI");
@@ -193,16 +148,16 @@ Deno.serve(async (req) => {
         model: "gpt-4o-mini",
         messages: [{
           role: "system", 
-          content: "Você é um assistente especializado em gerenciamento de projetos e análise de cronogramas."
+          content: "Você é um assistente especializado em gerenciamento de projetos e análise de indicadores de desempenho."
         }, {
           role: "user", 
           content: prompt
         }],
-        max_tokens: 1200,
+        max_tokens: 1000,
         temperature: 0.7,
       });
 
-      const generatedText = completion.choices[0]?.message?.content || '{"erro": "Não foi possível gerar o relatório"}';
+      const generatedText = completion.choices[0]?.message?.content || 'Não foi possível gerar o relatório devido a um erro.';
       console.log("Relatório gerado com sucesso");
       
       // Salvar o relatório no banco
@@ -247,14 +202,7 @@ Deno.serve(async (req) => {
       console.error("Erro ao chamar OpenAI:", openAiError.message);
       
       // Criar um relatório de fallback se ocorrer erro com OpenAI
-      const fallbackReport = `
-      {
-        "projeto": "${projectData.name}",
-        "semana": "${weekId}",
-        "analise_geral": "Não foi possível gerar uma análise completa devido a um erro técnico. Por favor, tente novamente mais tarde ou contate o suporte.",
-        "atividades_em_alerta": [],
-        "acoes_recomendadas": ["Verificar manualmente as atividades com percentual realizado abaixo do previsto", "Analisar impactos das atividades atrasadas"]
-      }`;
+      const fallbackReport = "Não foi possível gerar o relatório semanal de planejamento devido a um problema técnico. Por favor, tente novamente mais tarde ou contate o suporte técnico.";
       
       try {
         await supabase
