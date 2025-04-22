@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
@@ -41,7 +40,7 @@ const formSchema = z.object({
   projectId: z.string().min(1, "Selecione um projeto"),
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
   discipline: z.string().min(1, "Selecione uma disciplina"),
-  manager: z.string().min(2, "Responsável deve ter pelo menos 2 caracteres"),
+  manager: z.string().min(2, "Gerente deve ter pelo menos 2 caracteres"),
   responsible: z.string().min(1, "Selecione um responsável"),
   team: z.string().min(2, "Equipe deve ter pelo menos 2 caracteres"),
   unit: z.string().min(1, "Selecione uma unidade"),
