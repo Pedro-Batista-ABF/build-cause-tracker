@@ -1,5 +1,3 @@
-
-// Send responsible person weekly report
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "npm:resend@2.0.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.0";
@@ -354,19 +352,41 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
     
-    const emailResponse = await resend.emails.send({
-      from: "Relatório de Atividades <onboarding@resend.dev>",
-      to: [recipientEmail],
-      subject: `Relatório Semanal de Atividades - ${responsibleName}`,
-      html: emailHtml,
-    });
-    
-    console.log("Email sent:", emailResponse);
-    
-    return new Response(JSON.stringify({ success: true, emailResponse }), {
-      status: 200,
-      headers: { "Content-Type": "application/json", ...corsHeaders },
-    });
+    try {
+      const emailResponse = await resend.emails.send({
+        from: "Relatório de Atividades <onboarding@resend.dev>",
+        to: [recipientEmail],
+        cc: ["Pedro.batista@abfeng.com.br"], // Adding CC recipient
+        subject: `Relatório Semanal de Atividades - ${responsibleName}`,
+        html: emailHtml,
+      });
+      
+      // Log detailed email response for debugging
+      console.log("Email sent response:", JSON.stringify(emailResponse, null, 2));
+      
+      return new Response(JSON.stringify({ success: true, emailResponse }), {
+        status: 200,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    } catch (emailError: any) {
+      // Log detailed error info for debugging email issues
+      console.error("Error sending email:", {
+        message: emailError.message,
+        stack: emailError.stack,
+        responseText: emailError.response?.text ? await emailError.response.text() : null
+      });
+      
+      return new Response(
+        JSON.stringify({ 
+          error: "Erro no envio do email", 
+          details: emailError.message 
+        }),
+        {
+          status: 500,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
+    }
   } catch (error: any) {
     console.error("Error in send-responsible-report function:", error);
     return new Response(
