@@ -30,10 +30,17 @@ export default function PlanningAssistant() {
 
   // Analisar riscos ao carregar a página
   useEffect(() => {
-    updateRiskAnalysis().then(() => {
-      queryClient.invalidateQueries({ queryKey: ['risk-analysis'] });
-    });
-  }, []);
+    const analyzeRisks = async () => {
+      try {
+        await updateRiskAnalysis();
+        queryClient.invalidateQueries({ queryKey: ['risk-analysis'] });
+      } catch (error) {
+        console.error("Erro ao analisar riscos:", error);
+      }
+    };
+    
+    analyzeRisks();
+  }, [queryClient]);
   
   // Query for fetching the latest planning report
   const { 
@@ -49,20 +56,24 @@ export default function PlanningAssistant() {
           
         if (error) {
           console.error("Erro na função edge:", error);
+          toast.error(`Erro ao buscar relatório: ${error.message || 'Erro desconhecido'}`);
           return null;
         }
         
         if (!data.success) {
           console.error("Erro na resposta:", data.error);
+          toast.error(`Erro na resposta: ${data.error || 'Erro desconhecido'}`);
           return null;
         }
         
         return data.report as PlanningReport;
       } catch (error) {
         console.error('Error fetching planning report:', error);
+        toast.error(`Erro ao carregar relatório: ${(error as Error).message || 'Erro desconhecido'}`);
         return null;
       }
-    }
+    },
+    retry: 1
   });
   
   // Query for fetching risk analysis data
@@ -103,7 +114,10 @@ export default function PlanningAssistant() {
           .order('risco_atraso_pct', { ascending: false })
           .limit(10);
           
-        if (error) throw error;
+        if (error) {
+          console.error("Erro ao buscar dados de risco:", error);
+          throw error;
+        }
         
         return (data as RiscoAtrasoRow[]).map(item => ({
           id: item.id,
@@ -117,6 +131,7 @@ export default function PlanningAssistant() {
         } as RiskItem));
       } catch (error) {
         console.error('Error fetching risk analysis data:', error);
+        toast.error(`Erro ao carregar análise de risco: ${(error as Error).message || 'Erro desconhecido'}`);
         return [];
       }
     }
@@ -126,10 +141,19 @@ export default function PlanningAssistant() {
   const handleGenerateReport = async () => {
     if (isGeneratingReport) return;
     
-    // Primeiro atualizar a análise de risco
     try {
       setIsGeneratingReport(true);
       toast.info('Analisando riscos e gerando relatório...');
+      
+      // Primeiro atualizar a análise de risco
+      const riskResult = await updateRiskAnalysis();
+      if (!riskResult.success) {
+        console.error("Erro ao atualizar análise de risco:", riskResult.error);
+        toast.warning("Houve um problema ao atualizar a análise de risco, mas tentaremos gerar o relatório mesmo assim.");
+      }
+      
+      // Atualizar os dados de risco
+      await refetchRisks();
       
       // Agora gerar o relatório
       const { data, error } = await supabase.functions.invoke('generate-planning-report');
@@ -148,7 +172,6 @@ export default function PlanningAssistant() {
       }
       
       await refetchReport();
-      await refetchRisks();
       
       if (data.warning) {
         toast.warning(data.warning);
@@ -157,7 +180,7 @@ export default function PlanningAssistant() {
       }
     } catch (error) {
       console.error('Error generating report:', error);
-      toast.error('Erro ao gerar novo relatório. Verifique o console para mais detalhes.');
+      toast.error(`Erro ao gerar novo relatório: ${(error as Error).message || 'Erro desconhecido'}`);
     } finally {
       setIsGeneratingReport(false);
     }

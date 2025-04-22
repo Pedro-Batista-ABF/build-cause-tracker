@@ -21,6 +21,10 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
     
+    if (!supabaseUrl || !supabaseServiceKey) {
+      throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables are required');
+    }
+    
     const supabase = createClient(
       supabaseUrl,
       supabaseServiceKey
@@ -47,6 +51,7 @@ Deno.serve(async (req) => {
       `);
 
     if (activitiesError) {
+      console.error("Erro ao buscar atividades:", activitiesError);
       throw activitiesError;
     }
 
@@ -65,13 +70,18 @@ Deno.serve(async (req) => {
         
         activity.daily_progress.forEach(progress => {
           if (progress.planned_qty && progress.actual_qty) {
-            activityPlanned += Number(progress.planned_qty);
-            activityActual += Number(progress.actual_qty);
-            totalPlanned += Number(progress.planned_qty);
-            totalActual += Number(progress.actual_qty);
+            // Garantir que os valores são numéricos
+            const plannedQty = Number(progress.planned_qty);
+            const actualQty = Number(progress.actual_qty);
+            
+            activityPlanned += plannedQty;
+            activityActual += actualQty;
+            totalPlanned += plannedQty;
+            totalActual += actualQty;
           }
         });
         
+        // Evitar divisão por zero ao calcular PPC
         const ppc = activityPlanned > 0 ? (activityActual / activityPlanned) * 100 : 100;
         
         progressData.push({
@@ -100,10 +110,30 @@ Deno.serve(async (req) => {
     const weekId = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
     // Consultar causas de atrasos mais comuns
-    const { data: causes } = await supabase.rpc('get_common_causes', { limit_count: 3 });
+    let causes = [];
+    try {
+      const { data: causesData, error: causesError } = await supabase.rpc('get_common_causes', { limit_count: 3 });
+      if (causesError) {
+        console.error("Erro ao buscar causas comuns:", causesError);
+      } else {
+        causes = causesData || [];
+      }
+    } catch (error) {
+      console.error("Erro ao processar causas comuns:", error);
+    }
     
     // Consultar disciplinas críticas
-    const { data: criticalDisciplines } = await supabase.rpc('get_critical_disciplines', { limit_count: 3 });
+    let criticalDisciplines = [];
+    try {
+      const { data: disciplinesData, error: disciplinesError } = await supabase.rpc('get_critical_disciplines', { limit_count: 3 });
+      if (disciplinesError) {
+        console.error("Erro ao buscar disciplinas críticas:", disciplinesError);
+      } else {
+        criticalDisciplines = disciplinesData || [];
+      }
+    } catch (error) {
+      console.error("Erro ao processar disciplinas críticas:", error);
+    }
 
     // Construir o prompt para o GPT
     const prompt = `
