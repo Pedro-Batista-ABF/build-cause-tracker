@@ -1,26 +1,11 @@
 
-export function calculateBusinessDays(startDate?: string | null, endDate?: string | null) {
-  if (!startDate || !endDate) return 0;
-  let count = 0;
-  let curr = new Date(startDate);
-  const end = new Date(endDate);
-
-  while (curr <= end) {
-    const day = curr.getDay();
-    if (day !== 0 && day !== 6) count++; // 0=Dom, 6=Sáb
-    curr.setDate(curr.getDate() + 1);
-  }
-  return count > 0 ? count : 1;
-}
-
-export function calculateDailyGoal(startDate?: string | null, endDate?: string | null, totalQty?: number) {
-  if (!startDate || !endDate || !totalQty || isNaN(totalQty)) return { qty: 0, percent: 0 };
-  try {
-    const businessDays = calculateBusinessDays(startDate, endDate);
-    const qtyGoal = Math.round(totalQty / businessDays);
-    const percentGoal = Number((100 / businessDays).toFixed(2));
-    return { qty: qtyGoal, percent: percentGoal };
-  } catch {
-    return { qty: 0, percent: 0 };
-  }
-}
+/**
+ * Generates a week label in the format YYYY-WW
+ */
+export const getWeekLabel = (date: Date): string => {
+  const startOfYear = new Date(date.getFullYear(), 0, 1);
+  const days = Math.floor((date.getTime() - startOfYear.getTime()) / (24 * 60 * 60 * 1000));
+  const weekNumber = Math.ceil((days + startOfYear.getDay() + 1) / 7);
+  
+  return `${date.getFullYear()}-${weekNumber.toString().padStart(2, '0')}`;
+};
