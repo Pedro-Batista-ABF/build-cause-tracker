@@ -136,7 +136,7 @@ export default function Indicators() {
   });
   
   // Calculate summary metrics using consistent method
-  const { data: metrics = { ppcAverage: 0, adherence: 0, activeActivities: 0, causesCount: 0 }, isLoading: isLoadingMetrics } = useQuery({
+  const { data: metrics = { ppcAverage: 0, adherence: 0, activeActivities: 0, causesCount: 0, delayedActivities: 0 }, isLoading: isLoadingMetrics } = useQuery({
     queryKey: ['indicator-metrics', period],
     queryFn: async () => {
       try {
@@ -181,6 +181,19 @@ export default function Indicators() {
         
         const causesCount = causesData?.length || 0;
         
+        // Obter contagem de atividades com alto risco de atraso
+        const { data: delayedActivitiesData, error: delayedActivitiesError } = await supabase
+          .from('risco_atraso')
+          .select('id')
+          .eq('classificacao', 'ALTO')
+          .order('created_at', { ascending: false });
+          
+        if (delayedActivitiesError) {
+          console.error("Error fetching delayed activities:", delayedActivitiesError);
+        }
+        
+        const delayedActivities = delayedActivitiesData?.length || 0;
+        
         // Calculate overall adherence consistently
         let compliantActivities = 0;
         let totalProgressItems = 0;
@@ -202,7 +215,8 @@ export default function Indicators() {
           ppcAverage,
           adherence,
           activeActivities,
-          causesCount
+          causesCount,
+          delayedActivities
         };
       } catch (err) {
         console.error("Error calculating metrics:", err);
@@ -211,7 +225,8 @@ export default function Indicators() {
           ppcAverage: 0, 
           adherence: 0, 
           activeActivities: 0, 
-          causesCount: 0 
+          causesCount: 0,
+          delayedActivities: 0
         };
       }
     }
@@ -354,11 +369,11 @@ export default function Indicators() {
           description="No período selecionado"
         />
         <DashboardCard
-          title="Causas"
-          value={isLoadingMetrics ? "Carregando..." : `${metrics.causesCount}`}
-          icon={<Clock className="h-4 w-4" />}
-          description="Registradas no período"
-          className="border-l-4 border-l-rust"
+          title="Atividades em Risco"
+          value={isLoadingMetrics ? "Carregando..." : `${metrics.delayedActivities}`}
+          icon={<AlertTriangle className="h-4 w-4" />}
+          description="Com alto risco de atraso"
+          className="border-l-4 border-l-accent-red"
         />
       </div>
 

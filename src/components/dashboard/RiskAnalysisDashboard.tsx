@@ -87,6 +87,29 @@ export function RiskAnalysisDashboard() {
       }
     },
   });
+  
+  // Nova query para buscar a contagem total de riscos altos
+  const { data: riskCount = 0 } = useQuery({
+    queryKey: ['dashboard-risk-count'],
+    queryFn: async () => {
+      try {
+        const { count, error } = await supabase
+          .from('risco_atraso')
+          .select('*', { count: 'exact', head: true })
+          .eq('classificacao', 'ALTO');
+          
+        if (error) {
+          console.error("Erro ao buscar contagem de riscos:", error);
+          return 0;
+        }
+        
+        return count || 0;
+      } catch (error) {
+        console.error('Error fetching risk count:', error);
+        return 0;
+      }
+    }
+  });
 
   const handleRefreshRiskAnalysis = async () => {
     try {
@@ -95,6 +118,7 @@ export function RiskAnalysisDashboard() {
       if (result.success) {
         refetch();
         queryClient.invalidateQueries({ queryKey: ['risk-analysis'] });
+        queryClient.invalidateQueries({ queryKey: ['dashboard-risk-count'] });
         toast.success("Análise de riscos atualizada com sucesso");
       } else {
         toast.error("Erro ao atualizar análise de riscos");
@@ -117,6 +141,11 @@ export function RiskAnalysisDashboard() {
         <CardTitle className="text-lg flex items-center gap-2">
           <AlertTriangle className="h-5 w-5 text-accent-red" />
           Risco de Atraso
+          {riskCount > 0 && (
+            <Badge variant="destructive" className="ml-2">
+              {riskCount}
+            </Badge>
+          )}
         </CardTitle>
         <Button 
           variant="ghost" 
@@ -175,6 +204,11 @@ export function RiskAnalysisDashboard() {
           <Button variant="ghost" size="sm" asChild className="flex items-center gap-1">
             <Link to="/planning">
               Ver todos os riscos
+              {riskCount > 0 && (
+                <Badge variant="outline" className="ml-1">
+                  {riskCount}
+                </Badge>
+              )}
               <ChevronRight className="h-4 w-4" />
             </Link>
           </Button>

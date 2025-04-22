@@ -32,13 +32,42 @@ export function RiskAnalysisCard({ risks, isLoading = false }: RiskAnalysisCardP
     }
   };
 
+  // Contagem de atividades por classificação de risco
+  const highRiskCount = risks.filter(risk => risk.classificacao === 'ALTO').length;
+  const mediumRiskCount = risks.filter(risk => risk.classificacao === 'MÉDIO').length;
+  const lowRiskCount = risks.filter(risk => risk.classificacao === 'BAIXO').length;
+
   return (
     <Card className="bg-card-bg border-border-subtle shadow-md">
       <CardHeader className="pb-2">
         <CardTitle className="text-lg flex items-center gap-2">
           <AlertTriangle className="h-5 w-5 text-accent-red" />
           Risco de Atraso
+          {risks.length > 0 && (
+            <Badge variant="destructive" className="ml-2">
+              {risks.length}
+            </Badge>
+          )}
         </CardTitle>
+        {risks.length > 0 && (
+          <div className="flex items-center gap-2 text-xs mt-1">
+            {highRiskCount > 0 && (
+              <Badge className="bg-accent-red text-white">
+                ALTO: {highRiskCount}
+              </Badge>
+            )}
+            {mediumRiskCount > 0 && (
+              <Badge className="bg-amber-500 text-white">
+                MÉDIO: {mediumRiskCount}
+              </Badge>
+            )}
+            {lowRiskCount > 0 && (
+              <Badge className="bg-accent-green text-white">
+                BAIXO: {lowRiskCount}
+              </Badge>
+            )}
+          </div>
+        )}
       </CardHeader>
       <CardContent>
         {isLoading ? (
