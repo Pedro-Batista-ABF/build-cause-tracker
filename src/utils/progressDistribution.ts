@@ -9,6 +9,7 @@ interface ProgressPoint {
   date: string;
   planned: number;
   cumulative: number;
+  dailyTarget: number; // New property for daily target
 }
 
 /**
@@ -64,11 +65,18 @@ const calculateSCurve = (
     
     // Ensure we don't exceed the total due to rounding
     const adjustedCumulative = Math.min(cumulativeProgress, totalQuantity);
+
+    // Calculate the daily target based on S-curve
+    // For the last day, we use the remaining quantity to ensure we reach exactly the total
+    const dailyTarget = i === totalDays ? 
+      Math.max(0, totalQuantity - (result[i-1]?.cumulative || 0)) : 
+      dailyPlanned;
     
     result.push({
       date: formatDate(currentDate),
       planned: Number(dailyPlanned.toFixed(2)),
-      cumulative: Number(adjustedCumulative.toFixed(2))
+      cumulative: Number(adjustedCumulative.toFixed(2)),
+      dailyTarget: Number(dailyTarget.toFixed(2))
     });
   }
   
@@ -103,7 +111,8 @@ const calculateLinear = (
     result.push({
       date: formatDate(currentDate),
       planned: Number(dailyPlanned.toFixed(2)),
-      cumulative: Number(cumulative.toFixed(2))
+      cumulative: Number(cumulative.toFixed(2)),
+      dailyTarget: Number(dailyPlanned.toFixed(2))
     });
   }
   
@@ -141,4 +150,37 @@ export const calculateDistribution = (
     default:
       return calculateLinear(startDate, endDate, totalQuantity, totalDays);
   }
+};
+
+/**
+ * Calculate a daily target goal based on the distribution type
+ */
+export const calculateDailyTarget = (
+  startDate: string,
+  endDate: string,
+  totalQuantity: number,
+  distributionType: DistributionType
+): number => {
+  if (!startDate || !endDate || !totalQuantity) {
+    return 0;
+  }
+  
+  const distribution = calculateDistribution(startDate, endDate, totalQuantity, distributionType);
+  
+  if (distribution.length <= 1) {
+    return totalQuantity; // If only one day, the target is the total
+  }
+  
+  // For linear, we return the constant daily target (excluding day 0)
+  if (distributionType === 'Linear') {
+    return distribution[1].dailyTarget;
+  }
+  
+  // For S-curve and custom, we calculate the average daily target
+  // This is a simplification - in a real app you might want to return the actual
+  // daily target for the current date or some other logic
+  const totalDailyTargets = distribution.reduce((sum, point) => sum + point.dailyTarget, 0);
+  const avgDailyTarget = totalDailyTargets / (distribution.length - 1); // Excluding day 0
+  
+  return Number(avgDailyTarget.toFixed(2));
 };

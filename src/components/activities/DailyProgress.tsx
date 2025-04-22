@@ -18,6 +18,7 @@ import { ActivityProgressChart } from "./ActivityProgressChart";
 import { Card, CardContent } from "@/components/ui/card";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
+import { calculateDailyTarget, DistributionType } from "@/utils/progressDistribution";
 
 interface DailyProgressProps {
   activityId: string;
@@ -25,6 +26,9 @@ interface DailyProgressProps {
   unit: string;
   totalQty: number;
   plannedProgress?: number;
+  startDate?: string;
+  endDate?: string;
+  distributionType?: DistributionType;
 }
 
 export function DailyProgress({ 
@@ -32,7 +36,10 @@ export function DailyProgress({
   activityName, 
   unit, 
   totalQty,
-  plannedProgress = 10,
+  plannedProgress,
+  startDate,
+  endDate,
+  distributionType = 'Linear',
 }: DailyProgressProps) {
   const { session } = useAuth();
   const [quantity, setQuantity] = useState("");
@@ -41,6 +48,11 @@ export function DailyProgress({
   const [showCauseDialog, setShowCauseDialog] = useState(false);
   
   const queryClient = useQueryClient();
+
+  // Calculate daily target
+  const dailyTarget = startDate && endDate 
+    ? calculateDailyTarget(startDate, endDate, totalQty, distributionType)
+    : (plannedProgress || 0);
 
   // Fetch progress data
   const { data: progressData = [], isLoading } = useQuery({
@@ -108,7 +120,7 @@ export function DailyProgress({
           .from('daily_progress')
           .update({
             actual_qty: Number(quantity),
-            planned_qty: plannedProgress,
+            planned_qty: dailyTarget,
             updated_at: new Date().toISOString()
           })
           .eq('id', existingProgressId)
@@ -129,7 +141,7 @@ export function DailyProgress({
             activity_id: activityId,
             date,
             actual_qty: Number(quantity),
-            planned_qty: plannedProgress,
+            planned_qty: dailyTarget,
             created_by: session.user.id
           }])
           .select('id')
@@ -191,7 +203,7 @@ export function DailyProgress({
     
     // Only show cause dialog when progress is less than planned
     // This fixes the issue where deviations were required for progress above plan
-    if (progress < plannedProgress) {
+    if (progress < dailyTarget) {
       setShowCauseDialog(true);
       return;
     }
@@ -234,7 +246,7 @@ export function DailyProgress({
             <div>
               <h3 className="font-semibold">{activityName}</h3>
               <p className="text-sm text-muted-foreground">
-                Meta: {plannedProgress} {unit}/dia
+                Meta: {dailyTarget} {unit}/dia {distributionType === 'Curva S' && "(Calculada por Curva S)"}
               </p>
             </div>
             <Dialog open={open} onOpenChange={setOpen}>
@@ -271,6 +283,7 @@ export function DailyProgress({
                       max={totalQty}
                       required
                     />
+                    <p className="text-xs text-muted-foreground">Meta diária: {dailyTarget} {unit}</p>
                   </div>
                   <div className="flex justify-end space-x-2">
                     <Button 

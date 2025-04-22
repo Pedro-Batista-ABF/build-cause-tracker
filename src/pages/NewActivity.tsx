@@ -209,7 +209,7 @@ export default function NewActivity() {
           name: values.name,
           discipline: values.discipline,
           responsible: values.responsible,
-          team: values.team, // Use team value directly
+          team: values.team,
           unit: values.unit,
           total_qty: Number(values.totalQty),
           created_by: session.user.id
@@ -220,6 +220,29 @@ export default function NewActivity() {
       if (activityError) {
         console.error("Activity creation error:", activityError);
         throw activityError;
+      }
+
+      // Save the planning data to activity_planning table
+      if (activity) {
+        const { error: planningError } = await supabase
+          .from('activity_planning')
+          .insert({
+            activity_id: activity.id,
+            project_id: values.projectId,
+            start_date: values.startDate,
+            end_date: values.endDate,
+            planning_type: values.planningType,
+            distribution_type: values.distributionType,
+            created_by: session.user.id,
+            daily_goal: values.dailyGoal ? Number(values.dailyGoal) : null,
+            weekly_goal: values.weeklyGoal ? Number(values.weeklyGoal) : null,
+            monthly_goal: values.monthlyGoal ? Number(values.monthlyGoal) : null
+          });
+
+        if (planningError) {
+          console.error("Planning data error:", planningError);
+          throw planningError;
+        }
       }
 
       if (values.scheduleTaskId && values.scheduleTaskId !== 'none' && activity) {
