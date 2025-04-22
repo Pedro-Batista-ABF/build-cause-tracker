@@ -17,8 +17,8 @@ interface Activity {
   id: string;
   name: string;
   discipline: string | null;
-  manager: string | null;
   responsible: string | null;
+  team: string | null;
   unit: string | null;
   total_qty: number | null;
   progress: number;
@@ -63,6 +63,7 @@ export function ProjectActivities({ projectId }: ProjectActivitiesProps) {
           progress: Math.round(progress),
           ppc: Math.round(ppc),
           adherence: Math.round(adherence),
+          team: activity.team || ""  // Ensure team is always a string
         };
       });
 
@@ -77,7 +78,6 @@ export function ProjectActivities({ projectId }: ProjectActivitiesProps) {
   const filteredActivities = activities.filter(activity => {
     const matchesSearch = filter === "" ||
       activity.name.toLowerCase().includes(filter.toLowerCase()) ||
-      activity.manager?.toLowerCase().includes(filter.toLowerCase()) ||
       activity.responsible?.toLowerCase().includes(filter.toLowerCase());
 
     const matchesDiscipline = disciplineFilter === "all" ||
@@ -138,8 +138,8 @@ export function ProjectActivities({ projectId }: ProjectActivitiesProps) {
                   id={activity.id}
                   name={activity.name}
                   discipline={activity.discipline || ''}
-                  manager={activity.manager || ''}
                   responsible={activity.responsible || ''}
+                  team={activity.team || ''}
                   unit={activity.unit || ''}
                   totalQty={activity.total_qty || 0}
                   progress={activity.progress}

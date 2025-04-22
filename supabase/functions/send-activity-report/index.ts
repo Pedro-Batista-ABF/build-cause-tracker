@@ -16,6 +16,8 @@ interface Activity {
   progress: number;
   unit: string | null;
   total_qty: number | null;
+  team: string | null; // Added team field
+  responsible: string | null; // Added responsible field
 }
 
 interface SendReportRequest {
@@ -38,6 +40,8 @@ const handler = async (req: Request): Promise<Response> => {
           `<li>
             ${activity.name} - ${activity.progress}% concluído
             ${activity.total_qty ? `(${activity.total_qty} ${activity.unit})` : ""}
+            ${activity.responsible ? `<br>Responsável: ${activity.responsible}` : ""}
+            ${activity.team ? `<br>Equipe: ${activity.team}` : ""}
           </li>`
       )
       .join("");

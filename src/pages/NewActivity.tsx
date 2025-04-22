@@ -164,10 +164,10 @@ export default function NewActivity() {
         percentual_real: task.percentual_real,
         nivel_hierarquia: task.nivel_hierarquia,
         atividade_lps_id: task.atividade_lps_id,
-        inicio_linha_base: null, // Set as null since it might not exist in the database yet
-        termino_linha_base: null, // Set as null since it might not exist in the database yet
+        inicio_linha_base: null,
+        termino_linha_base: null,
         predecessores: task.predecessores || null,
-        predecessor_id: null, // For backward compatibility
+        predecessor_id: null,
         created_at: task.created_at
       }));
       
@@ -201,7 +201,7 @@ export default function NewActivity() {
         return;
       }
 
-      // Create the activity - Storing correct field values
+      // Create the activity with the correct fields
       const { data: activity, error: activityError } = await supabase
         .from('activities')
         .insert({
@@ -209,7 +209,7 @@ export default function NewActivity() {
           name: values.name,
           discipline: values.discipline,
           responsible: values.responsible,
-          team: values.team,
+          team: values.team, // Use team value directly
           unit: values.unit,
           total_qty: Number(values.totalQty),
           created_by: session.user.id
@@ -222,7 +222,6 @@ export default function NewActivity() {
         throw activityError;
       }
 
-      // If a schedule task was selected, update the link
       if (values.scheduleTaskId && values.scheduleTaskId !== 'none' && activity) {
         const { error: linkError } = await supabase
           .from('cronograma_projeto')
@@ -279,7 +278,7 @@ export default function NewActivity() {
                         setSelectedProjectId(value);
                       }} 
                       defaultValue={field.value}
-                      disabled={!!projectId} // Disable if project ID is provided in URL
+                      disabled={!!projectId}
                     >
                       <FormControl>
                         <SelectTrigger>
