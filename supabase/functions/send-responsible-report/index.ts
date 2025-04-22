@@ -37,6 +37,19 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Utility function to calculate PPC consistently
+function calculatePPC(actualQty: number, plannedQty: number): number {
+  // Avoid division by zero or negative values
+  if (!plannedQty || plannedQty <= 0) return 0;
+  
+  // Ensure we don't have negative actual quantities
+  const normalizedActualQty = Math.max(0, actualQty || 0);
+  
+  // Calculate percentage and round to nearest integer
+  // Cap at 100% to avoid PPC values over 100%
+  return Math.min(100, Math.round((normalizedActualQty / plannedQty) * 100));
+}
+
 async function getStatusClass(ppc: number, startDate?: string): Promise<string> {
   // Verificar se a atividade já deveria ter começado
   const now = new Date();
@@ -77,7 +90,7 @@ async function fetchResponsibleActivities(
   const { data: activitiesData, error } = await activitiesQuery;
   if (error) throw error;
 
-  // Process activities data
+  // Process activities data using the same logic as in ProjectActivities.tsx
   const processedActivities = activitiesData.map((activity: any) => {
     const progressData = activity.daily_progress || [];
     let filteredProgressData = progressData;
@@ -100,16 +113,17 @@ async function fetchResponsibleActivities(
       0
     );
 
-    // Calcular o progresso usando a mesma lógica da página de atividades
+    // Calcular o progresso com base na quantidade total (EXATAMENTE igual à página de atividades)
     const progress = activity.total_qty
       ? (totalActual / activity.total_qty) * 100
       : 0;
       
+    // Usar a função utilitária para calcular o PPC (EXATAMENTE igual à página de atividades)
+    const ppc = calculatePPC(totalActual, totalPlanned);
+    
     const planned_progress = activity.total_qty && totalPlanned
       ? (totalPlanned / activity.total_qty) * 100
       : 0;
-      
-    const ppc = totalPlanned ? (totalActual / totalPlanned) * 100 : 0;
 
     return {
       ...activity,
