@@ -60,20 +60,22 @@ export function ProjectActivities({ projectId }: ProjectActivitiesProps) {
         const totalPlanned = progressData.reduce((sum: number, p: any) => sum + (p.planned_qty || 0), 0);
         
         // Calcular o progresso com base na quantidade total
-        const progress = activity.total_qty ? (totalActual / activity.total_qty) * 100 : 0;
+        const progress = activity.total_qty && Number(activity.total_qty) > 0 
+          ? Math.round((totalActual / Number(activity.total_qty)) * 100) 
+          : 0;
         
         // Usar a função utilitária para calcular o PPC
         const ppc = calculatePPC(totalActual, totalPlanned);
         
         // Cálculo de aderência (% de dias em que a meta foi cumprida)
-        const adherence = totalPlanned ? Math.min(100, (totalActual / totalPlanned) * 100) : 0;
+        const adherence = totalPlanned ? Math.min(100, Math.round((totalActual / totalPlanned) * 100)) : 0;
         const saldoAExecutar = Number(activity.total_qty || 0) - totalActual;
 
         return {
           ...activity,
-          progress: Math.round(progress),
-          ppc: Math.round(ppc),
-          adherence: Math.round(adherence),
+          progress,
+          ppc,
+          adherence,
           team: activity.team || "",
           saldoAExecutar,
         };

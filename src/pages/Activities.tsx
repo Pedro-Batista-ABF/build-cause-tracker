@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -114,16 +115,16 @@ export default function Activities() {
       0
     );
     
-    // Calcular o progresso com base na quantidade total
-    const progress = activity.total_qty
-      ? (totalActual / activity.total_qty) * 100
+    // CRITICAL: Use exact same calculation as the edge function and ProjectActivities
+    const progress = activity.total_qty && Number(activity.total_qty) > 0
+      ? Math.round((totalActual / Number(activity.total_qty)) * 100)
       : 0;
       
-    // Usar a função utilitária para calcular o PPC
+    // Use the utility function for PPC calculation
     const ppc = calculatePPC(totalActual, totalPlanned);
     
-    // Calcular aderência
-    const adherence = totalPlanned ? Math.min(100, (totalActual / totalPlanned) * 100) : 0;
+    // Calculate adherence
+    const adherence = totalPlanned ? Math.min(100, Math.round((totalActual / totalPlanned) * 100)) : 0;
     const saldoAExecutar = Number(activity.total_qty || 0) - totalActual;
 
     return {
@@ -244,9 +245,9 @@ export default function Activities() {
                     team={team || ''}
                     unit={unit || ''}
                     totalQty={total_qty || 0}
-                    progress={Math.round(progress)}
-                    ppc={Math.round(ppc)}
-                    adherence={Math.round(adherence)}
+                    progress={progress}
+                    ppc={ppc}
+                    adherence={adherence}
                     startDate={start_date}
                     endDate={end_date}
                     onEdit={(activityId) => navigate(`/activities/edit/${activityId}`)}

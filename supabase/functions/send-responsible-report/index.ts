@@ -90,6 +90,8 @@ async function fetchResponsibleActivities(
   const { data: activitiesData, error } = await activitiesQuery;
   if (error) throw error;
 
+  console.log(`Fetched ${activitiesData.length} activities for responsible ${responsibleName}`);
+
   // Process activities data using the same logic as in ProjectActivities.tsx
   const processedActivities = activitiesData.map((activity: any) => {
     const progressData = activity.daily_progress || [];
@@ -103,6 +105,8 @@ async function fetchResponsibleActivities(
       });
     }
 
+    console.log(`Activity: ${activity.name} - Progress data items: ${filteredProgressData.length}`);
+
     const totalActual = filteredProgressData.reduce(
       (sum: number, p: any) => sum + (p.actual_qty || 0),
       0
@@ -113,17 +117,21 @@ async function fetchResponsibleActivities(
       0
     );
 
-    // Calcular o progresso com base na quantidade total (EXATAMENTE igual à página de atividades)
-    const progress = activity.total_qty
-      ? Math.round((totalActual / activity.total_qty) * 100)
+    console.log(`${activity.name}: Total Actual: ${totalActual}, Total Planned: ${totalPlanned}, Total Qty: ${activity.total_qty}`);
+
+    // CRITICAL: Ensure we use the exact same calculation as in the UI for progress
+    const progress = activity.total_qty && activity.total_qty > 0
+      ? Math.round((totalActual / Number(activity.total_qty)) * 100)
       : 0;
       
-    // Usar a função utilitária para calcular o PPC (EXATAMENTE igual à página de atividades)
+    // Use utility function for PPC calculation
     const ppc = calculatePPC(totalActual, totalPlanned);
     
-    const planned_progress = activity.total_qty && totalPlanned
-      ? Math.round((totalPlanned / activity.total_qty) * 100)
+    const planned_progress = activity.total_qty && activity.total_qty > 0 && totalPlanned
+      ? Math.round((totalPlanned / Number(activity.total_qty)) * 100)
       : 0;
+
+    console.log(`${activity.name}: Progress: ${progress}%, PPC: ${ppc}%, Planned Progress: ${planned_progress}%`);
 
     return {
       ...activity,
@@ -191,6 +199,16 @@ async function generateAIAnalysis(activities: ActivityData[], responsible: strin
         mostDelayedActivity = activity;
       }
     });
+
+    console.log("Generating AI analysis with the following data:");
+    console.log(`Average Planned: ${averagePlanned.toFixed(1)}%`);
+    console.log(`Average Actual: ${averageActual.toFixed(1)}%`);
+    console.log(`Average PPC: ${averagePPC.toFixed(1)}%`);
+    console.log(`Variance: ${variance.toFixed(1)}%`);
+    console.log(`At Risk: ${atRisk}, Delayed: ${delayed}, Not Started: ${notStarted}`);
+    if (mostDelayedActivity) {
+      console.log(`Most Delayed Activity: ${mostDelayedActivity.name} (planned: ${mostDelayedActivity.planned_progress}%, real: ${mostDelayedActivity.progress}%)`);
+    }
 
     // Create the prompt for OpenAI
     const prompt = `
