@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ResponsibleReportController } from "@/components/reports/ResponsibleReportController";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Activity {
   id: string;
@@ -56,7 +58,12 @@ export default function Activities() {
   async function fetchProjects() {
     try {
       const { data, error } = await supabase.from("projects").select("id, name");
-      if (!error && data) {
+      if (error) {
+        console.error("Erro ao buscar projetos:", error);
+        return;
+      }
+      
+      if (data) {
         setProjects(data);
       }
     } catch (error) {
@@ -70,9 +77,12 @@ export default function Activities() {
         .from("activities")
         .select("*, daily_progress(actual_qty, planned_qty), start_date, end_date, project_id");
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching activities:", error);
+        return;
+      }
 
-      setActivities(data);
+      setActivities(data || []);
     } catch (error) {
       console.error("Error fetching activities:", error);
     }
