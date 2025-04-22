@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,6 +17,7 @@ import { ActivityProgressChart } from "./ActivityProgressChart";
 import { Card, CardContent } from "@/components/ui/card";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
+import { EditProgressDialog } from "./EditProgressDialog";
 
 // NOVO: Calcular meta diária automática (quantidade e percentual)
 function calculateDailyGoal(startDate?: string | null, endDate?: string | null, totalQty?: number) {
@@ -58,6 +58,8 @@ export function DailyProgress({
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [open, setOpen] = useState(false);
   const [showCauseDialog, setShowCauseDialog] = useState(false);
+  const [selectedProgress, setSelectedProgress] = useState<null | {id: string, date: string, actual: number, planned: number}>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   const queryClient = useQueryClient();
 
@@ -193,6 +195,37 @@ export function DailyProgress({
       toast.error(error instanceof Error ? error.message : "Erro ao registrar avanço");
       setOpen(false);
       setShowCauseDialog(false);
+    }
+  });
+
+  // Nova função: atualizar avanço já registrado
+  const editProgressMutation = useMutation({
+    mutationFn: async ({ progressId, newValue }: { progressId: string; newValue: number }) => {
+      if (!session?.user) throw new Error("Usuário não autenticado");
+
+      const { error } = await supabase
+        .from('daily_progress')
+        .update({
+          actual_qty: newValue,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', progressId);
+
+      if (error) {
+        console.error("Erro ao editar avanço:", error);
+        throw error;
+      }
+    },
+    onSuccess: () => {
+      toast.success("Avanço atualizado com sucesso!");
+      setEditDialogOpen(false);
+      setSelectedProgress(null);
+      queryClient.invalidateQueries({ queryKey: ['progress', activityId] });
+      queryClient.invalidateQueries({ queryKey: ['activities'] });
+    },
+    onError: error => {
+      console.error("Erro ao editar avanço:", error);
+      toast.error("Erro ao editar avanço");
     }
   });
 
@@ -356,6 +389,56 @@ export function DailyProgress({
                 </DialogContent>
               </Dialog>
             </div>
+          </div>
+          {/* NOVO: Botão de editar avanço registrado do dia */}
+          <div className="mt-4">
+            {progressData && progressData.length > 0 && (
+              <div className="overflow-x-auto">
+                <table className="min-w-full border text-xs bg-muted/40 rounded-lg">
+                  <thead>
+                    <tr>
+                      <th className="px-2 py-1 font-semibold">Data</th>
+                      <th className="px-2 py-1">Quantidade ({unit})</th>
+                      <th className="px-2 py-1">Previsto</th>
+                      <th className="px-2 py-1"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {progressData.map((p, idx) => (
+                      <tr key={p.date} className="border-t">
+                        <td className="px-2 py-1">{p.date}</td>
+                        <td className="px-2 py-1 text-center">{p.actual}</td>
+                        <td className="px-2 py-1 text-center">{p.planned}</td>
+                        <td className="px-2 py-1">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              setSelectedProgress({ id: p.id, date: p.date, actual: p.actual, planned: p.planned });
+                              setEditDialogOpen(true);
+                            }}
+                          >
+                            Editar
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {/* Diálogo de edição de avanço */}
+            <EditProgressDialog
+              open={editDialogOpen}
+              onOpenChange={setEditDialogOpen}
+              progress={selectedProgress}
+              unit={unit}
+              onSave={newValue => {
+                if (selectedProgress) {
+                  editProgressMutation.mutate({ progressId: selectedProgress.id, newValue });
+                }
+              }}
+            />
           </div>
         </CardContent>
       </Card>
