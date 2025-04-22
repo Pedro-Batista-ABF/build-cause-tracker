@@ -73,9 +73,10 @@ export default function Activities() {
 
   async function fetchActivities() {
     try {
+      // Remove start_date and end_date from the query since they don't exist in the table
       const { data, error } = await supabase
         .from("activities")
-        .select("*, daily_progress(actual_qty, planned_qty), start_date, end_date, project_id");
+        .select("*, daily_progress(actual_qty, planned_qty), project_id");
 
       if (error) {
         console.error("Error fetching activities:", error);
@@ -238,8 +239,8 @@ export default function Activities() {
                     progress={Math.round(progress)}
                     ppc={Math.round(ppc)}
                     adherence={Math.round(adherence)}
-                    startDate={start_date || undefined}
-                    endDate={end_date || undefined}
+                    startDate={start_date}
+                    endDate={end_date}
                     onEdit={(activityId) => navigate(`/activities/edit/${activityId}`)}
                   />
                 );

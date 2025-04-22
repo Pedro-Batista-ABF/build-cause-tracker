@@ -43,6 +43,7 @@ export function ProjectActivities({ projectId }: ProjectActivitiesProps) {
 
   async function fetchActivities() {
     try {
+      // Remove start_date and end_date from the query since they don't exist in the table
       const { data: activitiesData, error } = await supabase
         .from("activities")
         .select("*, daily_progress(actual_qty, planned_qty)")
