@@ -59,13 +59,15 @@ export function ProjectActivities({ projectId }: ProjectActivitiesProps) {
         const progress = activity.total_qty ? (totalActual / activity.total_qty) * 100 : 0;
         const ppc = totalPlanned ? (totalActual / totalPlanned) * 100 : 0;
         const adherence = totalPlanned ? Math.min(100, (totalActual / totalPlanned) * 100) : 0;
+        const saldoAExecutar = Number(activity.total_qty || 0) - totalActual;
 
         return {
           ...activity,
           progress: Math.round(progress),
           ppc: Math.round(ppc),
           adherence: Math.round(adherence),
-          team: activity.team || ""
+          team: activity.team || "",
+          saldoAExecutar,
         };
       });
 
@@ -149,6 +151,7 @@ export function ProjectActivities({ projectId }: ProjectActivitiesProps) {
                   adherence={activity.adherence}
                   startDate={activity.start_date}
                   endDate={activity.end_date}
+                  saldoAExecutar={activity.saldoAExecutar}
                 />
               ))}
             </div>

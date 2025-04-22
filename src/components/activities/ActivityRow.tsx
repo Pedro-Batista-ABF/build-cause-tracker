@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { DailyProgress } from "./DailyProgress";
@@ -21,6 +22,7 @@ interface ActivityRowProps {
   startDate?: string | null;
   endDate?: string | null;
   onEdit?: (activityId: string) => void;
+  saldoAExecutar?: number;  // <-- NEW PROP
 }
 
 export function ActivityRow({
@@ -37,6 +39,7 @@ export function ActivityRow({
   startDate,
   endDate,
   onEdit,
+  saldoAExecutar, // <-- NEW PROP
 }: ActivityRowProps) {
   const [showDetails, setShowDetails] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -110,7 +113,16 @@ export function ActivityRow({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 text-sm">
         <div>
           <span className="text-muted-foreground">Quantidade:</span>
-          <span className="ml-2">{totalQty} {unit}</span>
+          <span className="ml-2">
+            {totalQty} {unit}
+            {typeof saldoAExecutar === "number" && (
+              <span className="ml-4 text-muted-foreground">
+                Saldo: <span className={saldoAExecutar === 0 ? "text-green-600 font-bold" : saldoAExecutar < 0 ? "text-red-600 font-bold" : "font-semibold"}>
+                  {saldoAExecutar} {unit}
+                </span>
+              </span>
+            )}
+          </span>
         </div>
         <div>
           <span className="text-muted-foreground">PPC:</span>
@@ -148,3 +160,4 @@ export function ActivityRow({
     </div>
   );
 }
+

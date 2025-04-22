@@ -103,6 +103,7 @@ export default function Activities() {
   });
 
   // Calculate progress for each activity
+  // Add calculation for saldoAExecutar
   const activitiesWithProgress = filteredActivities.map((activity) => {
     const progressData = activity.daily_progress || [];
     const totalActual = progressData.reduce(
@@ -118,12 +119,14 @@ export default function Activities() {
       : 0;
     const ppc = totalPlanned ? (totalActual / totalPlanned) * 100 : 0;
     const adherence = totalPlanned ? Math.min(100, (totalActual / totalPlanned) * 100) : 0;
+    const saldoAExecutar = Number(activity.total_qty || 0) - totalActual;
 
     return {
       ...activity,
       progress,
       ppc,
       adherence,
+      saldoAExecutar, // Pass for display
     };
   });
 
@@ -223,6 +226,7 @@ export default function Activities() {
                   adherence,
                   start_date,
                   end_date,
+                  saldoAExecutar,
                 } = activity;
 
                 return (
@@ -241,6 +245,7 @@ export default function Activities() {
                     startDate={start_date}
                     endDate={end_date}
                     onEdit={(activityId) => navigate(`/activities/edit/${activityId}`)}
+                    saldoAExecutar={saldoAExecutar}
                   />
                 );
               })
