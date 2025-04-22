@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { DailyProgress } from "./DailyProgress";
@@ -160,4 +159,3 @@ export function ActivityRow({
     </div>
   );
 }
-

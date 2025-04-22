@@ -9,7 +9,12 @@ export function cn(...inputs: ClassValue[]) {
 export function formatDate(dateString: string): string {
   if (!dateString) return '';
   
-  const date = new Date(dateString);
+  // Create date with the correct timezone handling
+  // Parse the date parts to avoid timezone conversion issues
+  const [year, month, day] = dateString.split('-').map(Number);
+  const date = new Date(year, month - 1, day); // month is 0-indexed in JS Date
+  
+  // Format using locale-aware methods
   return date.toLocaleDateString('pt-BR');
 }
 

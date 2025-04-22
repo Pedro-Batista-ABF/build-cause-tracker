@@ -26,6 +26,7 @@ interface Activity {
   adherence: number;
   start_date?: string | null;
   end_date?: string | null;
+  saldoAExecutar?: number; // Add this property to fix the TypeScript error
 }
 
 interface ProjectActivitiesProps {
