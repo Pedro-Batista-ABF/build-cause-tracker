@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/select";
 import { ResponsibleReportController } from "@/components/reports/ResponsibleReportController";
 import { supabase } from "@/integrations/supabase/client";
+import { calculatePPC } from "@/utils/ppcCalculation";
 
 interface Activity {
   id: string;
@@ -72,10 +73,9 @@ export default function Activities() {
 
   async function fetchActivities() {
     try {
-      // Remove start_date and end_date from the query since they don't exist in the table
       const { data, error } = await supabase
         .from("activities")
-        .select("*, daily_progress(actual_qty, planned_qty), project_id, start_date, end_date");
+        .select("*, daily_progress(actual_qty, planned_qty, date), project_id, start_date, end_date");
 
       if (error) {
         console.error("Error fetching activities:", error);
@@ -102,8 +102,7 @@ export default function Activities() {
     return matchesFilter && matchesDiscipline && matchesProject;
   });
 
-  // Calculate progress for each activity
-  // Add calculation for saldoAExecutar
+  // Calculate progress for each activity using the same logic as in ProjectActivities
   const activitiesWithProgress = filteredActivities.map((activity) => {
     const progressData = activity.daily_progress || [];
     const totalActual = progressData.reduce(
@@ -114,10 +113,16 @@ export default function Activities() {
       (sum: number, p: any) => sum + (p.planned_qty || 0),
       0
     );
+    
+    // Calcular o progresso com base na quantidade total
     const progress = activity.total_qty
       ? (totalActual / activity.total_qty) * 100
       : 0;
-    const ppc = totalPlanned ? (totalActual / totalPlanned) * 100 : 0;
+      
+    // Usar a função utilitária para calcular o PPC
+    const ppc = calculatePPC(totalActual, totalPlanned);
+    
+    // Calcular aderência
     const adherence = totalPlanned ? Math.min(100, (totalActual / totalPlanned) * 100) : 0;
     const saldoAExecutar = Number(activity.total_qty || 0) - totalActual;
 
@@ -126,7 +131,7 @@ export default function Activities() {
       progress,
       ppc,
       adherence,
-      saldoAExecutar, // Pass for display
+      saldoAExecutar,
     };
   });
 

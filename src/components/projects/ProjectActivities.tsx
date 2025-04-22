@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ActivityRow } from "@/components/activities/ActivityRow";
@@ -12,6 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ResponsibleReportController } from "@/components/reports/ResponsibleReportController";
+import { calculatePPC } from "@/utils/ppcCalculation";
 
 interface Activity {
   id: string;
@@ -26,7 +28,7 @@ interface Activity {
   adherence: number;
   start_date?: string | null;
   end_date?: string | null;
-  saldoAExecutar?: number; // Add this property to fix the TypeScript error
+  saldoAExecutar?: number; 
 }
 
 interface ProjectActivitiesProps {
@@ -47,7 +49,7 @@ export function ProjectActivities({ projectId }: ProjectActivitiesProps) {
     try {
       const { data: activitiesData, error } = await supabase
         .from("activities")
-        .select("*, daily_progress(actual_qty, planned_qty), start_date, end_date")
+        .select("*, daily_progress(actual_qty, planned_qty, date), start_date, end_date")
         .eq("project_id", projectId);
 
       if (error) throw error;
@@ -57,8 +59,13 @@ export function ProjectActivities({ projectId }: ProjectActivitiesProps) {
         const totalActual = progressData.reduce((sum: number, p: any) => sum + (p.actual_qty || 0), 0);
         const totalPlanned = progressData.reduce((sum: number, p: any) => sum + (p.planned_qty || 0), 0);
         
+        // Calcular o progresso com base na quantidade total
         const progress = activity.total_qty ? (totalActual / activity.total_qty) * 100 : 0;
-        const ppc = totalPlanned ? (totalActual / totalPlanned) * 100 : 0;
+        
+        // Usar a função utilitária para calcular o PPC
+        const ppc = calculatePPC(totalActual, totalPlanned);
+        
+        // Cálculo de aderência (% de dias em que a meta foi cumprida)
         const adherence = totalPlanned ? Math.min(100, (totalActual / totalPlanned) * 100) : 0;
         const saldoAExecutar = Number(activity.total_qty || 0) - totalActual;
 

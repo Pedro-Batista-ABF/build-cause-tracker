@@ -100,6 +100,7 @@ async function fetchResponsibleActivities(
       0
     );
 
+    // Calcular o progresso usando a mesma lógica da página de atividades
     const progress = activity.total_qty
       ? (totalActual / activity.total_qty) * 100
       : 0;
