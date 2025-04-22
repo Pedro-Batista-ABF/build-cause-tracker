@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -7,7 +8,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { ActivityRow } from "@/components/activities/ActivityRow";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { PlusIcon } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Select,
   SelectContent,
@@ -15,33 +22,42 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Search } from "lucide-react";
-import { Link } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
-import { useQuery } from "@tanstack/react-query";
-import { ActivityRow } from "@/components/activities/ActivityRow";
+import { ResponsibleReportController } from "@/components/reports/ResponsibleReportController";
+
+interface Activity {
+  id: string;
+  name: string;
+  discipline: string | null;
+  responsible: string | null;
+  team: string | null;
+  unit: string | null;
+  total_qty: number | null;
+  daily_progress?: any[];
+}
 
 export default function Activities() {
+  const [activities, setActivities] = useState<Activity[]>([]);
   const [filter, setFilter] = useState("");
   const [disciplineFilter, setDisciplineFilter] = useState("all");
+  const navigate = useNavigate();
 
-  const { data: activities = [], isLoading } = useQuery({
-    queryKey: ['activities'],
-    queryFn: async () => {
+  useEffect(() => {
+    fetchActivities();
+  }, []);
+
+  async function fetchActivities() {
+    try {
       const { data, error } = await supabase
-        .from('activities')
-        .select('*, daily_progress(actual_qty, planned_qty)');
+        .from("activities")
+        .select("*, daily_progress(actual_qty, planned_qty)");
 
-      if (error) {
-        console.error('Error fetching activities:', error);
-        toast.error('Não foi possível carregar as atividades');
-        throw error;
-      }
+      if (error) throw error;
 
-      return data || [];
+      setActivities(data);
+    } catch (error) {
+      console.error("Error fetching activities:", error);
     }
-  });
+  }
 
   const filteredActivities = activities.filter((activity) => {
     const matchesFilter =
@@ -54,98 +70,133 @@ export default function Activities() {
     return matchesFilter && matchesDiscipline;
   });
 
-  const disciplines = Array.from(
-    new Set(activities.map((activity) => activity.discipline).filter(Boolean))
+  // Calculate progress for each activity
+  const activitiesWithProgress = filteredActivities.map((activity) => {
+    const progressData = activity.daily_progress || [];
+    const totalActual = progressData.reduce(
+      (sum: number, p: any) => sum + (p.actual_qty || 0),
+      0
+    );
+    const totalPlanned = progressData.reduce(
+      (sum: number, p: any) => sum + (p.planned_qty || 0),
+      0
+    );
+    const progress = activity.total_qty
+      ? (totalActual / activity.total_qty) * 100
+      : 0;
+    const ppc = totalPlanned ? (totalActual / totalPlanned) * 100 : 0;
+    const adherence = totalPlanned ? Math.min(100, (totalActual / totalPlanned) * 100) : 0;
+
+    return {
+      ...activity,
+      progress,
+      ppc,
+      adherence,
+    };
+  });
+
+  // Filter out null disciplines and ensure we have unique values
+  const uniqueDisciplines = Array.from(
+    new Set(activities.map(a => a.discipline).filter(Boolean))
   );
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold tracking-tight">Atividades</h1>
-        <Button asChild>
-          <Link to="/activities/new">
-            <Plus className="mr-2 h-4 w-4" /> Nova Atividade
-          </Link>
-        </Button>
+    <div className="container mx-auto py-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold">Atividades</h1>
+        <div className="flex gap-2">
+          <ResponsibleReportController />
+          <Button onClick={() => navigate("/atividades/nova")}>
+            <PlusIcon className="h-4 w-4 mr-2" />
+            Nova Atividade
+          </Button>
+        </div>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Filtrar Atividades</CardTitle>
+          <CardDescription>
+            Filtre as atividades por nome, responsável ou disciplina
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="search">Buscar</Label>
+              <Input
+                id="search"
+                placeholder="Buscar por nome ou responsável..."
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="discipline">Disciplina</Label>
+              <Select value={disciplineFilter} onValueChange={setDisciplineFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione uma disciplina" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as disciplinas</SelectItem>
+                  {uniqueDisciplines.map((discipline) => (
+                    <SelectItem key={discipline} value={discipline || ""}>
+                      {discipline}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
           <CardTitle>Lista de Atividades</CardTitle>
           <CardDescription>
-            Gerenciamento de atividades e apontamentos
+            Todas as atividades cadastradas no sistema
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col md:flex-row gap-4 mb-6">
-            <div className="relative flex-1">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar atividades..."
-                className="pl-8"
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-              />
-            </div>
-            <Select
-              value={disciplineFilter}
-              onValueChange={setDisciplineFilter}
-            >
-              <SelectTrigger className="w-full md:w-[180px]">
-                <SelectValue placeholder="Disciplina" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas</SelectItem>
-                {disciplines.map((discipline) => (
-                  <SelectItem key={discipline} value={discipline}>
-                    {discipline}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {isLoading ? (
-            <div className="text-center py-12">
-              <p className="text-muted-foreground">Carregando atividades...</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {filteredActivities.map((activity) => {
-                const progressData = activity.daily_progress || [];
-                const totalActual = progressData.reduce((sum: number, p: any) => sum + (p.actual_qty || 0), 0);
-                const totalPlanned = progressData.reduce((sum: number, p: any) => sum + (p.planned_qty || 0), 0);
-                
-                const progress = activity.total_qty ? (totalActual / activity.total_qty) * 100 : 0;
-                const ppc = totalPlanned ? (totalActual / totalPlanned) * 100 : 0;
-                const adherence = totalPlanned ? Math.min(100, (totalActual / totalPlanned) * 100) : 0;
+          <div className="space-y-4">
+            {activitiesWithProgress.length > 0 ? (
+              activitiesWithProgress.map((activity) => {
+                const {
+                  id,
+                  name,
+                  discipline,
+                  responsible,
+                  team,
+                  unit,
+                  total_qty,
+                  progress,
+                  ppc,
+                  adherence,
+                } = activity;
 
                 return (
-                  <ActivityRow 
-                    key={activity.id} 
-                    id={activity.id}
-                    name={activity.name}
-                    discipline={activity.discipline || ''}
-                    responsible={activity.responsible || ''}
-                    team={activity.team || ''}
-                    unit={activity.unit || ''}
-                    totalQty={activity.total_qty || 0}
+                  <ActivityRow
+                    key={id}
+                    id={id}
+                    name={name}
+                    discipline={discipline || ''}
+                    responsible={responsible || ''}
+                    team={team || ''}
+                    unit={unit || ''}
+                    totalQty={total_qty || 0}
                     progress={Math.round(progress)}
                     ppc={Math.round(ppc)}
                     adherence={Math.round(adherence)}
                   />
                 );
-              })}
-
-              {filteredActivities.length === 0 && !isLoading && (
-                <div className="text-center py-12">
-                  <p className="text-muted-foreground">
-                    Nenhuma atividade encontrada com os filtros aplicados.
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
+              })
+            ) : (
+              <p className="text-center text-muted-foreground py-8">
+                Nenhuma atividade encontrada.
+              </p>
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>

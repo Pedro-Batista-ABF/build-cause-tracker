@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ResponsibleReportController } from "@/components/reports/ResponsibleReportController";
 
 interface Activity {
   id: string;
@@ -97,8 +98,9 @@ export function ProjectActivities({ projectId }: ProjectActivitiesProps) {
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Atividades do Projeto</CardTitle>
+        <ResponsibleReportController projectId={projectId} />
       </CardHeader>
       <CardContent>
         <div className="space-y-4">

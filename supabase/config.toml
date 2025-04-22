@@ -8,3 +8,7 @@ verify_jwt = true
 verify_jwt = true
 [functions.import-ms-project]
 verify_jwt = true
+[functions.send-activity-report]
+verify_jwt = true
+[functions.send-responsible-report]
+verify_jwt = true
