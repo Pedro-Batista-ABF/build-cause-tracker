@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "npm:resend@2.0.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.0";
@@ -353,10 +354,12 @@ const handler = async (req: Request): Promise<Response> => {
     }
     
     try {
+      // MODIFICAÇÃO AQUI: Alteração no endereço de e-mail "from"
+      // Usamos o e-mail verificado no Resend como remetente
       const emailResponse = await resend.emails.send({
-        from: "Relatório de Atividades <onboarding@resend.dev>",
+        from: "Pedro Batista <pedro.batista@abfeng.com.br>",
         to: [recipientEmail],
-        cc: ["Pedro.batista@abfeng.com.br"], // Adding CC recipient
+        cc: ["pedro.batista@abfeng.com.br"], 
         subject: `Relatório Semanal de Atividades - ${responsibleName}`,
         html: emailHtml,
       });

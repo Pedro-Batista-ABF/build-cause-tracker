@@ -54,10 +54,12 @@ const handler = async (req: Request): Promise<Response> => {
       .join("");
 
     try {
+      // MODIFICAÇÃO AQUI: Alteração no endereço de e-mail "from"
+      // Usamos o e-mail verificado no Resend como remetente
       const emailResponse = await resend.emails.send({
-        from: "Relatório de Atividades <onboarding@resend.dev>",
+        from: "Pedro Batista <pedro.batista@abfeng.com.br>",
         to: [recipientEmail],
-        cc: ["Pedro.batista@abfeng.com.br"],
+        cc: ["pedro.batista@abfeng.com.br"],
         subject: "Relatório de Acompanhamento de Atividades",
         html: `
           <h1>Olá ${recipientName},</h1>
