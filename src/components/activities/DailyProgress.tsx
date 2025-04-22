@@ -20,14 +20,27 @@ import { useAuth } from "@/lib/auth";
 import { EditProgressDialog } from "./EditProgressDialog";
 
 // NOVO: Calcular meta diária automática (quantidade e percentual)
+// Atualizar função para pegar só dias úteis:
+function calculateBusinessDays(startDate?: string | null, endDate?: string | null) {
+  if (!startDate || !endDate) return 0;
+  let count = 0;
+  let curr = new Date(startDate);
+  const end = new Date(endDate);
+
+  while (curr <= end) {
+    const day = curr.getDay();
+    if (day !== 0 && day !== 6) count++; // 0=Dom, 6=Sáb
+    curr.setDate(curr.getDate() + 1);
+  }
+  return count > 0 ? count : 1;
+}
+
 function calculateDailyGoal(startDate?: string | null, endDate?: string | null, totalQty?: number) {
   if (!startDate || !endDate || !totalQty || isNaN(totalQty)) return {qty: 0, percent: 0};
   try {
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    const duration = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1);
-    const qtyGoal = Math.round(totalQty / duration);
-    const percentGoal = Number((100 / duration).toFixed(2));
+    const businessDays = calculateBusinessDays(startDate, endDate);
+    const qtyGoal = Math.round(totalQty / businessDays);
+    const percentGoal = Number((100 / businessDays).toFixed(2));
     return {qty: qtyGoal, percent: percentGoal};
   } catch {
     return {qty: 0, percent: 0};
@@ -73,7 +86,7 @@ export function DailyProgress({
 
       const { data, error } = await supabase
         .from('daily_progress')
-        .select('*')
+        .select('id, date, actual_qty, planned_qty') // Corrigido: agora traz o campo id
         .eq('activity_id', activityId)
         .order('date');
 
@@ -84,6 +97,7 @@ export function DailyProgress({
       }
 
       return data?.map(item => ({
+        id: item.id,
         date: item.date,
         actual: Number(item.actual_qty),
         planned: Number(item.planned_qty)
