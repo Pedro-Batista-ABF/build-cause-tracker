@@ -12,6 +12,7 @@ import Projects from "./pages/Projects";
 import NewProject from "./pages/NewProject";
 import Activities from "./pages/Activities";
 import NewActivity from "./pages/NewActivity";
+import EditActivity from "./pages/EditActivity";
 import Indicators from "./pages/Indicators";
 import Causes from "./pages/Causes";
 import Settings from "./pages/Settings";
@@ -39,6 +40,7 @@ const App = () => {
                 <Route path="/projects/new" element={<NewProject />} />
                 <Route path="/activities" element={<Activities />} />
                 <Route path="/activities/new" element={<NewActivity />} />
+                <Route path="/activities/edit/:id" element={<EditActivity />} />
                 <Route path="/indicators" element={<Indicators />} />
                 <Route path="/causes" element={<Causes />} />
                 <Route path="/planning" element={<PlanningAssistant />} />
