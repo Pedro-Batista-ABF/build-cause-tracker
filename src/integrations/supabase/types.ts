@@ -341,6 +341,36 @@ export type Database = {
         }
         Relationships: []
       }
+      responsible_contacts: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          discipline: string | null
+          email: string
+          id: string
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          discipline?: string | null
+          email: string
+          id?: string
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          discipline?: string | null
+          email?: string
+          id?: string
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       risco_atraso: {
         Row: {
           atividade_id: string | null
