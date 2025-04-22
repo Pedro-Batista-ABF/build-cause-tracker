@@ -41,7 +41,7 @@ const formSchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
   discipline: z.string().min(1, "Selecione uma disciplina"),
   manager: z.string().min(2, "Responsável deve ter pelo menos 2 caracteres"),
-  responsible: z.string().min(2, "Equipe deve ter pelo menos 2 caracteres"),
+  responsible: z.string().min(1, "Selecione um responsável"),
   unit: z.string().min(1, "Selecione uma unidade"),
   totalQty: z.string().min(1, "Quantidade é obrigatória"),
   description: z.string().optional(),
@@ -91,6 +91,7 @@ export default function NewActivity() {
   const [loading, setLoading] = useState(false);
   const [scheduleTasks, setScheduleTasks] = useState<ScheduleTask[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>(projectId || "");
+  const [responsibleContacts, setResponsibleContacts] = useState<Array<{ id: string; name: string; email: string; discipline: string | null }>>([]);
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -116,6 +117,7 @@ export default function NewActivity() {
 
   useEffect(() => {
     fetchProjects();
+    fetchResponsibleContacts();
   }, []);
 
   useEffect(() => {
@@ -170,6 +172,21 @@ export default function NewActivity() {
       }));
       
       setScheduleTasks(mappedTasks);
+    }
+  }
+
+  async function fetchResponsibleContacts() {
+    try {
+      const { data, error } = await supabase
+        .from('responsible_contacts')
+        .select('*')
+        .order('name');
+
+      if (error) throw error;
+      setResponsibleContacts(data || []);
+    } catch (error) {
+      console.error("Error fetching responsible contacts:", error);
+      toast.error("Erro ao carregar lista de responsáveis");
     }
   }
 
@@ -336,6 +353,31 @@ export default function NewActivity() {
                   )}
                 />
               </div>
+
+              <FormField
+                control={form.control}
+                name="responsible"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Responsável</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione um responsável" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {responsibleContacts.map((contact) => (
+                          <SelectItem key={contact.id} value={contact.name}>
+                            {contact.name} {contact.discipline ? `(${contact.discipline})` : ''}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FormField
