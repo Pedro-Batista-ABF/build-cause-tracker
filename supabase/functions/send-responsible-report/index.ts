@@ -146,15 +146,30 @@ async function generateAIAnalysis(activities: ActivityData[], responsible: strin
     const averagePPC = activities.reduce((sum, activity) => sum + activity.ppc, 0) / totalActivities;
     const variance = averageActual - averagePlanned;
     
-    // Count activities by status
-    const atRisk = activities.filter(a => a.ppc < 90 && a.ppc >= 70).length;
-    const delayed = activities.filter(a => a.ppc < 70).length;
+    // Count activities by status (respeitando data de início)
+    const now = new Date();
+    const atRisk = activities.filter(a => {
+      const hasStarted = a.start_date ? new Date(a.start_date) <= now : true;
+      return hasStarted && a.ppc < 90 && a.ppc >= 70;
+    }).length;
+    
+    const delayed = activities.filter(a => {
+      const hasStarted = a.start_date ? new Date(a.start_date) <= now : true;
+      return hasStarted && a.ppc < 70;
+    }).length;
+    
+    const notStarted = activities.filter(a => {
+      return a.start_date && new Date(a.start_date) > now;
+    }).length;
     
     // Most delayed activity
-    let mostDelayedActivity = activities[0];
+    let mostDelayedActivity = null;
     let biggestVariance = 0;
     
     activities.forEach(activity => {
+      const hasStarted = activity.start_date ? new Date(activity.start_date) <= now : true;
+      if (!hasStarted) return; // Ignorar atividades não iniciadas
+      
       const activityVariance = (activity.planned_progress || 0) - activity.progress;
       if (activityVariance > biggestVariance) {
         biggestVariance = activityVariance;
@@ -167,6 +182,7 @@ async function generateAIAnalysis(activities: ActivityData[], responsible: strin
 Você é um analista de planejamento. Abaixo estão as atividades atribuídas ao responsável ${responsible}, com seus respectivos avanços e status:
 
 - Total de atividades: ${totalActivities}
+- Atividades ainda não iniciadas: ${notStarted}
 - Avanço médio planejado: ${averagePlanned.toFixed(1)}%
 - Avanço médio real: ${averageActual.toFixed(1)}%
 - PPC médio: ${averagePPC.toFixed(1)}%
@@ -175,7 +191,7 @@ Você é um analista de planejamento. Abaixo estão as atividades atribuídas ao
 - Atividades atrasadas: ${delayed}
 ${mostDelayedActivity ? `- Atividade mais atrasada: ${mostDelayedActivity.name} (planejado: ${mostDelayedActivity.planned_progress}%, real: ${mostDelayedActivity.progress}%)` : ''}
 
-Escreva um resumo profissional dirigido ao ${responsible}, com observações sobre o desempenho e recomendações de ação. Use tom profissional, objetivo e orientado a resultados. Máximo 4 frases.
+Escreva um resumo profissional dirigido ao ${responsible}, com observações sobre o desempenho e recomendações de ação. Use tom profissional, objetivo e orientado a resultados. Máximo 4 frases. Não assine o texto ou coloque "Atenciosamente" ou qualquer tipo de fechamento.
 `;
 
     // Call OpenAI API
@@ -190,7 +206,7 @@ Escreva um resumo profissional dirigido ao ${responsible}, com observações sob
         messages: [
           {
             role: "system",
-            content: "Você é um analista de planejamento profissional que fornece análises concisas e orientações práticas.",
+            content: "Você é um analista de planejamento profissional que fornece análises concisas e orientações práticas. Não assine o texto ou coloque saudações de fechamento.",
           },
           { role: "user", content: prompt },
         ],
