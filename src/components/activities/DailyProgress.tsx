@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,6 +18,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { EditProgressDialog } from "./EditProgressDialog";
+import { DeleteProgressDialog } from "./DeleteProgressDialog";
 
 // NOVO: Calcular meta diária automática (quantidade e percentual)
 // Atualizar função para pegar só dias úteis:
@@ -74,6 +74,9 @@ export function DailyProgress({
   const [showCauseDialog, setShowCauseDialog] = useState(false);
   const [selectedProgress, setSelectedProgress] = useState<null | {id: string, date: string, actual: number, planned: number}>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [progressToDelete, setProgressToDelete] = useState<null | string>(null);
 
   const queryClient = useQueryClient();
 
@@ -405,7 +408,6 @@ export function DailyProgress({
               </Dialog>
             </div>
           </div>
-          {/* NOVO: Botão de editar avanço registrado do dia */}
           <div className="mt-4">
             {progressData && progressData.length > 0 && (
               <div className="overflow-x-auto">
@@ -415,14 +417,12 @@ export function DailyProgress({
                       <th className="px-2 py-1 font-semibold">Data</th>
                       <th className="px-2 py-1">Quantidade ({unit})</th>
                       <th className="px-2 py-1">Meta Diária</th>
-                      <th className="px-2 py-1"></th>
+                      <th className="px-2 py-1 text-center" colSpan={2}></th>
                     </tr>
                   </thead>
                   <tbody>
                     {progressData.map((p, idx) => {
-                      // Calcular a meta diária para esta data específica
                       const dailyGoal = calculateDailyGoal(startDate, endDate, totalQty);
-                      
                       return (
                         <tr key={p.date} className="border-t">
                           <td className="px-2 py-1">{p.date}</td>
@@ -440,6 +440,18 @@ export function DailyProgress({
                               Editar
                             </Button>
                           </td>
+                          <td className="px-2 py-1">
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => {
+                                setProgressToDelete(p.id);
+                                setDeleteDialogOpen(true);
+                              }}
+                            >
+                              Apagar
+                            </Button>
+                          </td>
                         </tr>
                       );
                     })}
@@ -447,7 +459,7 @@ export function DailyProgress({
                 </table>
               </div>
             )}
-            {/* Diálogo de edição de avanço */}
+
             <EditProgressDialog
               open={editDialogOpen}
               onOpenChange={setEditDialogOpen}
@@ -457,6 +469,16 @@ export function DailyProgress({
                 if (selectedProgress) {
                   editProgressMutation.mutate({ progressId: selectedProgress.id, newValue });
                 }
+              }}
+            />
+
+            <DeleteProgressDialog
+              open={deleteDialogOpen}
+              onOpenChange={setDeleteDialogOpen}
+              progressId={progressToDelete}
+              onDeleted={() => {
+                queryClient.invalidateQueries({ queryKey: ['progress', activityId] });
+                setProgressToDelete(null);
               }}
             />
           </div>
