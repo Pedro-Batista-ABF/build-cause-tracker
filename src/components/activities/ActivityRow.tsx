@@ -44,8 +44,8 @@ export function ActivityRow({
         </div>
         
         <div className="flex-1">
-          <p className="text-sm">Responsável: {manager}</p>
-          <p className="text-sm text-muted-foreground">Equipe: {responsible}</p>
+          <p className="text-sm">Responsável: {responsible}</p>
+          <p className="text-sm text-muted-foreground">Gerente: {manager}</p>
         </div>
         
         <div className="w-full md:w-64">

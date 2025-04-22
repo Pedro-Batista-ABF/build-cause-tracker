@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
@@ -203,7 +204,7 @@ export default function NewActivity() {
         return;
       }
 
-      // Create the activity - Removing the description field since it doesn't exist in the DB
+      // Create the activity - Storing correct field values
       const { data: activity, error: activityError } = await supabase
         .from('activities')
         .insert({
@@ -356,32 +357,32 @@ export default function NewActivity() {
                 />
               </div>
 
-              <FormField
-                control={form.control}
-                name="responsible"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Responsável</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione um responsável" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {responsibleContacts.map((contact) => (
-                          <SelectItem key={contact.id} value={contact.name}>
-                            {contact.name} {contact.discipline ? `(${contact.discipline})` : ''}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FormField
+                  control={form.control}
+                  name="responsible"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Responsável</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione um responsável" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {responsibleContacts.map((contact) => (
+                            <SelectItem key={contact.id} value={contact.name}>
+                              {contact.name} {contact.discipline ? `(${contact.discipline})` : ''}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
                 <FormField
                   control={form.control}
                   name="team"
@@ -395,7 +396,9 @@ export default function NewActivity() {
                     </FormItem>
                   )}
                 />
+              </div>
 
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
