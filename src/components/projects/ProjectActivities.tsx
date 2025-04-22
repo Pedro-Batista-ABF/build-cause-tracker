@@ -63,7 +63,7 @@ export function ProjectActivities({ projectId }: ProjectActivitiesProps) {
           progress: Math.round(progress),
           ppc: Math.round(ppc),
           adherence: Math.round(adherence),
-          team: activity.team || ""  // Ensure team is always a string
+          team: activity.team || ""
         };
       });
 

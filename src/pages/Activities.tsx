@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -47,7 +46,6 @@ export default function Activities() {
   const filteredActivities = activities.filter((activity) => {
     const matchesFilter =
       activity.name.toLowerCase().includes(filter.toLowerCase()) ||
-      (activity.manager || '').toLowerCase().includes(filter.toLowerCase()) ||
       (activity.responsible || '').toLowerCase().includes(filter.toLowerCase());
 
     const matchesDiscipline =
@@ -128,8 +126,8 @@ export default function Activities() {
                     id={activity.id}
                     name={activity.name}
                     discipline={activity.discipline || ''}
-                    manager={activity.manager || ''}
                     responsible={activity.responsible || ''}
+                    team={activity.team || ''}
                     unit={activity.unit || ''}
                     totalQty={activity.total_qty || 0}
                     progress={Math.round(progress)}
