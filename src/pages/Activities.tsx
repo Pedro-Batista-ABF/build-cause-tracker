@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -76,7 +75,7 @@ export default function Activities() {
       // Remove start_date and end_date from the query since they don't exist in the table
       const { data, error } = await supabase
         .from("activities")
-        .select("*, daily_progress(actual_qty, planned_qty), project_id");
+        .select("*, daily_progress(actual_qty, planned_qty), project_id, start_date, end_date");
 
       if (error) {
         console.error("Error fetching activities:", error);

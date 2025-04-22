@@ -14,11 +14,13 @@ export type Database = {
           created_at: string | null
           created_by: string | null
           discipline: string | null
+          end_date: string | null
           id: string
           manager: string | null
           name: string
           project_id: string | null
           responsible: string | null
+          start_date: string | null
           team: string | null
           total_qty: number | null
           unit: string | null
@@ -28,11 +30,13 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           discipline?: string | null
+          end_date?: string | null
           id?: string
           manager?: string | null
           name: string
           project_id?: string | null
           responsible?: string | null
+          start_date?: string | null
           team?: string | null
           total_qty?: number | null
           unit?: string | null
@@ -42,11 +46,13 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           discipline?: string | null
+          end_date?: string | null
           id?: string
           manager?: string | null
           name?: string
           project_id?: string | null
           responsible?: string | null
+          start_date?: string | null
           team?: string | null
           total_qty?: number | null
           unit?: string | null

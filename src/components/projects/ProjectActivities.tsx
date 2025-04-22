@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ActivityRow } from "@/components/activities/ActivityRow";
@@ -25,6 +24,8 @@ interface Activity {
   progress: number;
   ppc: number;
   adherence: number;
+  start_date?: string | null;
+  end_date?: string | null;
 }
 
 interface ProjectActivitiesProps {
@@ -43,10 +44,9 @@ export function ProjectActivities({ projectId }: ProjectActivitiesProps) {
 
   async function fetchActivities() {
     try {
-      // Remove start_date and end_date from the query since they don't exist in the table
       const { data: activitiesData, error } = await supabase
         .from("activities")
-        .select("*, daily_progress(actual_qty, planned_qty)")
+        .select("*, daily_progress(actual_qty, planned_qty), start_date, end_date")
         .eq("project_id", projectId);
 
       if (error) throw error;
@@ -88,7 +88,6 @@ export function ProjectActivities({ projectId }: ProjectActivitiesProps) {
     return matchesSearch && matchesDiscipline;
   });
 
-  // Filter out null disciplines and ensure we have unique, non-empty values
   const uniqueDisciplines = Array.from(
     new Set(activities.map(a => a.discipline).filter(Boolean))
   );
@@ -148,6 +147,8 @@ export function ProjectActivities({ projectId }: ProjectActivitiesProps) {
                   progress={activity.progress}
                   ppc={activity.ppc}
                   adherence={activity.adherence}
+                  startDate={activity.start_date}
+                  endDate={activity.end_date}
                 />
               ))}
             </div>

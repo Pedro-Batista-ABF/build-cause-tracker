@@ -201,7 +201,7 @@ export default function NewActivity() {
         return;
       }
 
-      // Create the activity with the correct fields
+      // Create the activity with the correct fields, including start and end dates
       const { data: activity, error: activityError } = await supabase
         .from('activities')
         .insert({
@@ -212,7 +212,9 @@ export default function NewActivity() {
           team: values.team, // Use team value directly
           unit: values.unit,
           total_qty: Number(values.totalQty),
-          created_by: session.user.id
+          created_by: session.user.id,
+          start_date: values.startDate,
+          end_date: values.endDate
         })
         .select()
         .single();
