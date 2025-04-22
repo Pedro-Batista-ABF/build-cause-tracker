@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -14,6 +15,34 @@ import { formatDate } from "@/lib/utils";
 import { formatLocalDate } from "@/utils/dateUtils";
 import { useQuery } from "@tanstack/react-query";
 
+// Helper function to calculate business days (similar to the one in DailyProgress)
+function calculateBusinessDays(startDate?: string | null, endDate?: string | null) {
+  if (!startDate || !endDate) return 0;
+  let count = 0;
+  let curr = new Date(startDate);
+  const end = new Date(endDate);
+
+  while (curr <= end) {
+    const day = curr.getDay();
+    if (day !== 0 && day !== 6) count++; // 0=Dom, 6=Sáb
+    curr.setDate(curr.getDate() + 1);
+  }
+  return count > 0 ? count : 1;
+}
+
+// Helper function to calculate daily goal (similar to the one in DailyProgress)
+function calculateDailyGoal(startDate?: string | null, endDate?: string | null, totalQty?: number) {
+  if (!startDate || !endDate || !totalQty || isNaN(totalQty)) return {qty: 0, percent: 0};
+  try {
+    const businessDays = calculateBusinessDays(startDate, endDate);
+    const qtyGoal = Math.round(totalQty / businessDays);
+    const percentGoal = Number((100 / businessDays).toFixed(2));
+    return {qty: qtyGoal, percent: percentGoal};
+  } catch {
+    return {qty: 0, percent: 0};
+  }
+}
+
 interface ActivityDetailsProps {
   activityId: string;
 }
@@ -22,6 +51,17 @@ export function ActivityDetails({ activityId }: ActivityDetailsProps) {
   const { data: progressData = [], isLoading } = useQuery({
     queryKey: ['activity-details', activityId],
     queryFn: async () => {
+      const { data: activityData, error: activityError } = await supabase
+        .from("activities")
+        .select("total_qty, start_date, end_date")
+        .eq("id", activityId)
+        .single();
+
+      if (activityError) {
+        console.error("Error fetching activity details:", activityError);
+        throw activityError;
+      }
+
       const { data, error } = await supabase
         .from('daily_progress')
         .select(`
@@ -47,7 +87,11 @@ export function ActivityDetails({ activityId }: ActivityDetailsProps) {
         throw error;
       }
 
-      return data || [];
+      // Attach activity data to each progress entry for daily goal calculation
+      return (data || []).map(item => ({
+        ...item,
+        activity: activityData
+      }));
     }
   });
 
@@ -81,14 +125,22 @@ export function ActivityDetails({ activityId }: ActivityDetailsProps) {
                 <TableBody>
                   {progressData.length > 0 ? (
                     progressData.map((item) => {
-                      const deviation = item.actual_qty !== null && item.planned_qty !== null
-                        ? ((item.actual_qty - item.planned_qty) / item.planned_qty) * 100
+                      // Calculate daily goal based on activity data
+                      const dailyGoal = calculateDailyGoal(
+                        item.activity?.start_date, 
+                        item.activity?.end_date, 
+                        item.activity?.total_qty
+                      );
+                      
+                      const plannedQty = dailyGoal.qty;
+                      const deviation = item.actual_qty !== null && plannedQty !== null
+                        ? ((item.actual_qty - plannedQty) / plannedQty) * 100
                         : 0;
                       
                       return (
                         <TableRow key={item.id}>
                           <TableCell>{formatLocalDate(item.date)}</TableCell>
-                          <TableCell>{item.planned_qty}</TableCell>
+                          <TableCell>{plannedQty}</TableCell>
                           <TableCell>{item.actual_qty}</TableCell>
                           <TableCell>
                             <span className={deviation < 0 ? "text-red-500" : "text-green-500"}>
