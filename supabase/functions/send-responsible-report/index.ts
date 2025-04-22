@@ -115,21 +115,21 @@ async function fetchResponsibleActivities(
 
     // Calcular o progresso com base na quantidade total (EXATAMENTE igual à página de atividades)
     const progress = activity.total_qty
-      ? (totalActual / activity.total_qty) * 100
+      ? Math.round((totalActual / activity.total_qty) * 100)
       : 0;
       
     // Usar a função utilitária para calcular o PPC (EXATAMENTE igual à página de atividades)
     const ppc = calculatePPC(totalActual, totalPlanned);
     
     const planned_progress = activity.total_qty && totalPlanned
-      ? (totalPlanned / activity.total_qty) * 100
+      ? Math.round((totalPlanned / activity.total_qty) * 100)
       : 0;
 
     return {
       ...activity,
-      progress: Math.round(progress),
-      planned_progress: Math.round(planned_progress),
-      ppc: Math.round(ppc),
+      progress,
+      planned_progress,
+      ppc,
     };
   });
 
@@ -327,6 +327,7 @@ const handler = async (req: Request): Promise<Response> => {
     );
     
     console.log(`Found ${activities.length} activities for ${responsibleName}`);
+    console.log("Progress values:", activities.map(a => ({ name: a.name, progress: a.progress, totalQty: a.total_qty })));
     
     if (activities.length === 0) {
       return new Response(
