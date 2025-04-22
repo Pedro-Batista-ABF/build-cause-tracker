@@ -106,7 +106,7 @@ export default function Activities() {
         <h1 className="text-3xl font-bold">Atividades</h1>
         <div className="flex gap-2">
           <ResponsibleReportController />
-          <Button onClick={() => navigate("/atividades/nova")}>
+          <Button onClick={() => navigate("/activities/new")}>
             <PlusIcon className="h-4 w-4 mr-2" />
             Nova Atividade
           </Button>
