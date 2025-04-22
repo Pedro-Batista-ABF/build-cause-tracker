@@ -409,57 +409,6 @@ export function DailyProgress({
             </div>
           </div>
           <div className="mt-4">
-            {progressData && progressData.length > 0 && (
-              <div className="overflow-x-auto">
-                <table className="min-w-full border text-xs bg-muted/40 rounded-lg">
-                  <thead>
-                    <tr>
-                      <th className="px-2 py-1 font-semibold">Data</th>
-                      <th className="px-2 py-1">Quantidade ({unit})</th>
-                      <th className="px-2 py-1">Meta Diária</th>
-                      <th className="px-2 py-1 text-center" colSpan={2}></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {progressData.map((p, idx) => {
-                      const dailyGoal = calculateDailyGoal(startDate, endDate, totalQty);
-                      return (
-                        <tr key={p.date} className="border-t">
-                          <td className="px-2 py-1">{p.date}</td>
-                          <td className="px-2 py-1 text-center">{p.actual}</td>
-                          <td className="px-2 py-1 text-center">{dailyGoal.qty} {unit}</td>
-                          <td className="px-2 py-1">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => {
-                                setSelectedProgress({ id: p.id, date: p.date, actual: p.actual, planned: dailyGoal.qty });
-                                setEditDialogOpen(true);
-                              }}
-                            >
-                              Editar
-                            </Button>
-                          </td>
-                          <td className="px-2 py-1">
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => {
-                                setProgressToDelete(p.id);
-                                setDeleteDialogOpen(true);
-                              }}
-                            >
-                              Apagar
-                            </Button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
             <EditProgressDialog
               open={editDialogOpen}
               onOpenChange={setEditDialogOpen}
