@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -413,30 +414,35 @@ export function DailyProgress({
                     <tr>
                       <th className="px-2 py-1 font-semibold">Data</th>
                       <th className="px-2 py-1">Quantidade ({unit})</th>
-                      <th className="px-2 py-1">Previsto</th>
+                      <th className="px-2 py-1">Meta Diária</th>
                       <th className="px-2 py-1"></th>
                     </tr>
                   </thead>
                   <tbody>
-                    {progressData.map((p, idx) => (
-                      <tr key={p.date} className="border-t">
-                        <td className="px-2 py-1">{p.date}</td>
-                        <td className="px-2 py-1 text-center">{p.actual}</td>
-                        <td className="px-2 py-1 text-center">{p.planned}</td>
-                        <td className="px-2 py-1">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => {
-                              setSelectedProgress({ id: p.id, date: p.date, actual: p.actual, planned: p.planned });
-                              setEditDialogOpen(true);
-                            }}
-                          >
-                            Editar
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
+                    {progressData.map((p, idx) => {
+                      // Calcular a meta diária para esta data específica
+                      const dailyGoal = calculateDailyGoal(startDate, endDate, totalQty);
+                      
+                      return (
+                        <tr key={p.date} className="border-t">
+                          <td className="px-2 py-1">{p.date}</td>
+                          <td className="px-2 py-1 text-center">{p.actual}</td>
+                          <td className="px-2 py-1 text-center">{dailyGoal.qty} {unit}</td>
+                          <td className="px-2 py-1">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                setSelectedProgress({ id: p.id, date: p.date, actual: p.actual, planned: dailyGoal.qty });
+                                setEditDialogOpen(true);
+                              }}
+                            >
+                              Editar
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
