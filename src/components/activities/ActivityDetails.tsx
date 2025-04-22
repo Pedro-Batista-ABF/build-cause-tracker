@@ -12,6 +12,7 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { formatDate } from "@/lib/utils";
+import { formatLocalDate } from "@/utils/dateUtils";
 import { useQuery } from "@tanstack/react-query";
 
 interface ActivityDetailsProps {
@@ -87,7 +88,7 @@ export function ActivityDetails({ activityId }: ActivityDetailsProps) {
                       
                       return (
                         <TableRow key={item.id}>
-                          <TableCell>{formatDate(item.date)}</TableCell>
+                          <TableCell>{formatLocalDate(item.date)}</TableCell>
                           <TableCell>{item.planned_qty}</TableCell>
                           <TableCell>{item.actual_qty}</TableCell>
                           <TableCell>
@@ -127,7 +128,7 @@ export function ActivityDetails({ activityId }: ActivityDetailsProps) {
                       .map((item) => (
                         item.progress_causes.map(cause => (
                           <TableRow key={cause.id}>
-                            <TableCell>{formatDate(item.date)}</TableCell>
+                            <TableCell>{formatLocalDate(item.date)}</TableCell>
                             <TableCell>{cause.causes?.name || 'Não especificada'}</TableCell>
                             <TableCell>{cause.causes?.category || 'Não especificada'}</TableCell>
                             <TableCell>{cause.notes || '-'}</TableCell>

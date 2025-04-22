@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,6 +20,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { EditProgressDialog } from "./EditProgressDialog";
 import { DeleteProgressDialog } from "./DeleteProgressDialog";
+import { formatLocalDate } from "@/utils/dateUtils";
 
 // NOVO: Calcular meta diária automática (quantidade e percentual)
 // Atualizar função para pegar só dias úteis:
@@ -425,7 +427,7 @@ export function DailyProgress({
                       const dailyGoal = calculateDailyGoal(startDate, endDate, totalQty);
                       return (
                         <tr key={p.date} className="border-t">
-                          <td className="px-2 py-1">{p.date}</td>
+                          <td className="px-2 py-1">{formatLocalDate(p.date)}</td>
                           <td className="px-2 py-1 text-center">{p.actual}</td>
                           <td className="px-2 py-1 text-center">{dailyGoal.qty} {unit}</td>
                           <td className="px-2 py-1">

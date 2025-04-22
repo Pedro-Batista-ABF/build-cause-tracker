@@ -10,6 +10,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { formatLocalDate } from "@/utils/dateUtils";
 
 interface EditProgressDialogProps {
   open: boolean;
@@ -45,7 +46,7 @@ export function EditProgressDialog({
         <DialogHeader>
           <DialogTitle>Editar Avanço</DialogTitle>
           <DialogDescription>
-            Editar avanço do dia {progress?.date}
+            Editar avanço do dia {progress ? formatLocalDate(progress.date) : ''}
           </DialogDescription>
         </DialogHeader>
         <form
