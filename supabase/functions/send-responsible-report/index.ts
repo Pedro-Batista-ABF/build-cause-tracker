@@ -51,8 +51,6 @@ async function fetchResponsibleActivities(
   fromDate?: string,
   toDate?: string
 ): Promise<{activities: ActivityData[], contacts: any}> {
-  console.log(`Fetching activities for responsible: ${responsibleName}, project: ${projectId || 'any'}, date range: ${fromDate || 'none'} to ${toDate || 'none'}`);
-  
   // Query to get activities for the specific responsible
   let activitiesQuery = supabase
     .from("activities")
@@ -68,12 +66,7 @@ async function fetchResponsibleActivities(
 
   // Get activities data
   const { data: activitiesData, error } = await activitiesQuery;
-  if (error) {
-    console.error("Error fetching activities:", error);
-    throw error;
-  }
-
-  console.log(`Found ${activitiesData.length} activities for ${responsibleName}`);
+  if (error) throw error;
 
   // Process activities data
   const processedActivities = activitiesData.map((activity: any) => {
@@ -117,17 +110,11 @@ async function fetchResponsibleActivities(
   });
 
   // Get responsible contact information
-  const { data: contacts, error: contactsError } = await supabase
+  const { data: contacts } = await supabase
     .from("responsible_contacts")
     .select("*")
     .eq("name", responsibleName || "")
     .maybeSingle();
-
-  if (contactsError) {
-    console.error("Error fetching contact:", contactsError);
-  }
-
-  console.log(`Contact info for ${responsibleName}:`, contacts);
 
   return { activities: processedActivities, contacts };
 }
@@ -136,7 +123,6 @@ async function generateAIAnalysis(activities: ActivityData[], responsible: strin
   try {
     // Check if OPENAI_API_KEY is available
     if (!OPENAI_API_KEY) {
-      console.log("OpenAI API key not configured");
       return "Análise não disponível (API key não configurada)";
     }
 
@@ -167,16 +153,6 @@ async function generateAIAnalysis(activities: ActivityData[], responsible: strin
       }
     });
 
-    console.log("Generating AI analysis with metrics:", {
-      totalActivities,
-      averagePlanned,
-      averageActual,
-      averagePPC,
-      variance,
-      atRisk,
-      delayed
-    });
-
     // Create the prompt for OpenAI
     const prompt = `
 Você é um analista de planejamento. Abaixo estão as atividades atribuídas ao responsável ${responsible}, com seus respectivos avanços e status:
@@ -192,8 +168,6 @@ ${mostDelayedActivity ? `- Atividade mais atrasada: ${mostDelayedActivity.name} 
 
 Escreva um resumo profissional dirigido ao ${responsible}, com observações sobre o desempenho e recomendações de ação. Use tom profissional, objetivo e orientado a resultados. Máximo 4 frases.
 `;
-
-    console.log("Calling OpenAI with prompt");
 
     // Call OpenAI API
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -222,7 +196,6 @@ Escreva um resumo profissional dirigido ao ${responsible}, com observações sob
       return "Erro na geração da análise: " + data.error.message;
     }
 
-    console.log("OpenAI response received");
     return data.choices[0].message.content.trim();
   } catch (error) {
     console.error("Error generating AI analysis:", error);
@@ -298,8 +271,6 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    console.log("Starting send-responsible-report function");
-    
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     
     const { week, responsibleName, fromDate, toDate, projectId } = await req.json() as ReportRequest;
@@ -382,8 +353,6 @@ const handler = async (req: Request): Promise<Response> => {
         }
       );
     }
-    
-    console.log(`Sending email to ${recipientEmail}`);
     
     const emailResponse = await resend.emails.send({
       from: "Relatório de Atividades <onboarding@resend.dev>",

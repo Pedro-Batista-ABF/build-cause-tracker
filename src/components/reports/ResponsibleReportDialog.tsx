@@ -66,10 +66,7 @@ export function ResponsibleReportDialog({
 
       if (contactsError) throw contactsError;
 
-      setResponsibles(contacts || []);
-      
-      // Log for debugging
-      console.log("Fetched responsibles:", contacts);
+      setResponsibles(contacts);
     } catch (error) {
       console.error("Error fetching responsibles:", error);
       toast.error("Erro ao carregar responsáveis");
@@ -90,14 +87,6 @@ export function ResponsibleReportDialog({
     setIsSending(true);
 
     try {
-      console.log("Sending report with params:", {
-        responsibleName: selectedResponsible,
-        fromDate: dateRange.from ? format(dateRange.from, "yyyy-MM-dd") : undefined,
-        toDate: dateRange.to ? format(dateRange.to, "yyyy-MM-dd") : undefined,
-        projectId: projectId,
-        week: `Semana ${getCurrentWeekNumber()} - ${new Date().getFullYear()}`,
-      });
-      
       const response = await supabase.functions.invoke("send-responsible-report", {
         body: {
           responsibleName: selectedResponsible,
@@ -107,8 +96,6 @@ export function ResponsibleReportDialog({
           week: `Semana ${getCurrentWeekNumber()} - ${new Date().getFullYear()}`,
         },
       });
-
-      console.log("Report response:", response);
 
       if (response.error) {
         throw new Error(response.error.message || "Erro ao enviar relatório");
@@ -146,18 +133,12 @@ export function ResponsibleReportDialog({
                 <SelectValue placeholder="Selecione um responsável" />
               </SelectTrigger>
               <SelectContent>
-                {responsibles.length > 0 ? (
-                  responsibles.map((responsible) => (
-                    <SelectItem key={responsible.id} value={responsible.name}>
-                      {responsible.name}{" "}
-                      {responsible.discipline ? `(${responsible.discipline})` : ""}
-                    </SelectItem>
-                  ))
-                ) : (
-                  <SelectItem value="" disabled>
-                    Nenhum responsável encontrado
+                {responsibles.map((responsible) => (
+                  <SelectItem key={responsible.id} value={responsible.name}>
+                    {responsible.name}{" "}
+                    {responsible.discipline ? `(${responsible.discipline})` : ""}
                   </SelectItem>
-                )}
+                ))}
               </SelectContent>
             </Select>
           </div>

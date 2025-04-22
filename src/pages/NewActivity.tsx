@@ -31,6 +31,7 @@ import { useNavigate, useParams } from "react-router-dom"
 import { toast } from "sonner"
 import { ScheduleTask } from "@/types/schedule"
 import { supabase } from "@/integrations/supabase/client"
+import { Slider } from "@/components/ui/slider"
 import { ProgressDistributionChart } from "@/components/activities/ProgressDistributionChart";
 import { DistributionType } from "@/utils/progressDistribution";
 import { Tables } from "@/integrations/supabase/types";
@@ -83,13 +84,6 @@ const distributionTypes = [
   "Curva S",
 ]
 
-interface ResponsibleContact {
-  id: string;
-  name: string;
-  email: string;
-  discipline: string | null;
-}
-
 export default function NewActivity() {
   const navigate = useNavigate();
   const { projectId } = useParams();
@@ -97,7 +91,7 @@ export default function NewActivity() {
   const [loading, setLoading] = useState(false);
   const [scheduleTasks, setScheduleTasks] = useState<ScheduleTask[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>(projectId || "");
-  const [responsibleContacts, setResponsibleContacts] = useState<ResponsibleContact[]>([]);
+  const [responsibleContacts, setResponsibleContacts] = useState<Array<{ id: string; name: string; email: string; discipline: string | null }>>([]);
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -183,21 +177,15 @@ export default function NewActivity() {
 
   async function fetchResponsibleContacts() {
     try {
-      console.log("Fetching responsible contacts");
       const { data, error } = await supabase
         .from('responsible_contacts')
         .select('*')
         .order('name');
 
-      if (error) {
-        console.error("Error fetching responsible contacts:", error);
-        throw error;
-      }
-      
-      console.log("Responsible contacts fetched:", data);
+      if (error) throw error;
       setResponsibleContacts(data || []);
     } catch (error) {
-      console.error("Error in fetchResponsibleContacts:", error);
+      console.error("Error fetching responsible contacts:", error);
       toast.error("Erro ao carregar lista de responsáveis");
     }
   }
@@ -221,7 +209,7 @@ export default function NewActivity() {
           name: values.name,
           discipline: values.discipline,
           responsible: values.responsible,
-          team: values.team,
+          team: values.team, // Use team value directly
           unit: values.unit,
           total_qty: Number(values.totalQty),
           created_by: session.user.id
@@ -232,27 +220,6 @@ export default function NewActivity() {
       if (activityError) {
         console.error("Activity creation error:", activityError);
         throw activityError;
-      }
-
-      // Save the planning data using the rpc function instead of direct table access
-      if (activity) {
-        const { error: planningError } = await supabase
-          .rpc('insert_activity_planning', {
-            activity_id_param: activity.id,
-            project_id_param: values.projectId,
-            start_date_param: values.startDate,
-            end_date_param: values.endDate,
-            planning_type_param: values.planningType,
-            distribution_type_param: values.distributionType,
-            daily_goal_param: values.dailyGoal ? Number(values.dailyGoal) : null,
-            weekly_goal_param: values.weeklyGoal ? Number(values.weeklyGoal) : null,
-            monthly_goal_param: values.monthlyGoal ? Number(values.monthlyGoal) : null
-          });
-
-        if (planningError) {
-          console.error("Planning data error:", planningError);
-          throw planningError;
-        }
       }
 
       if (values.scheduleTaskId && values.scheduleTaskId !== 'none' && activity) {
@@ -384,17 +351,11 @@ export default function NewActivity() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {responsibleContacts.length > 0 ? (
-                            responsibleContacts.map((contact) => (
-                              <SelectItem key={contact.id} value={contact.name}>
-                                {contact.name} {contact.discipline ? `(${contact.discipline})` : ''}
-                              </SelectItem>
-                            ))
-                          ) : (
-                            <SelectItem value="no-options" disabled>
-                              Nenhum responsável cadastrado
+                          {responsibleContacts.map((contact) => (
+                            <SelectItem key={contact.id} value={contact.name}>
+                              {contact.name} {contact.discipline ? `(${contact.discipline})` : ''}
                             </SelectItem>
-                          )}
+                          ))}
                         </SelectContent>
                       </Select>
                       <FormMessage />

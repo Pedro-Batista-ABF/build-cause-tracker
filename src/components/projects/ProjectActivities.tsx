@@ -13,7 +13,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ResponsibleReportController } from "@/components/reports/ResponsibleReportController";
-import { DistributionType } from "@/utils/progressDistribution";
 
 interface Activity {
   id: string;
@@ -26,9 +25,6 @@ interface Activity {
   progress: number;
   ppc: number;
   adherence: number;
-  start_date?: string;
-  end_date?: string;
-  distribution_type?: DistributionType;
 }
 
 interface ProjectActivitiesProps {
@@ -54,22 +50,6 @@ export function ProjectActivities({ projectId }: ProjectActivitiesProps) {
 
       if (error) throw error;
 
-      // Fetch planning data directly with SQL query to avoid type issues
-      const { data: planningData, error: planningError } = await supabase
-        .rpc('get_activity_planning_by_project', { project_id_param: projectId });
-
-      if (planningError) {
-        console.error("Error fetching planning data:", planningError);
-      }
-
-      // Create a map for quick lookup of planning data
-      const planningMap = new Map();
-      if (planningData) {
-        planningData.forEach((plan: any) => {
-          planningMap.set(plan.activity_id, plan);
-        });
-      }
-
       const processedActivities = activitiesData.map(activity => {
         const progressData = activity.daily_progress || [];
         const totalActual = progressData.reduce((sum: number, p: any) => sum + (p.actual_qty || 0), 0);
@@ -79,18 +59,12 @@ export function ProjectActivities({ projectId }: ProjectActivitiesProps) {
         const ppc = totalPlanned ? (totalActual / totalPlanned) * 100 : 0;
         const adherence = totalPlanned ? Math.min(100, (totalActual / totalPlanned) * 100) : 0;
 
-        // Get planning data for this activity
-        const planning = planningMap.get(activity.id);
-
         return {
           ...activity,
           progress: Math.round(progress),
           ppc: Math.round(ppc),
           adherence: Math.round(adherence),
-          team: activity.team || "",
-          start_date: planning?.start_date,
-          end_date: planning?.end_date,
-          distribution_type: planning?.distribution_type as DistributionType || "Linear"
+          team: activity.team || ""
         };
       });
 
@@ -173,9 +147,6 @@ export function ProjectActivities({ projectId }: ProjectActivitiesProps) {
                   progress={activity.progress}
                   ppc={activity.ppc}
                   adherence={activity.adherence}
-                  startDate={activity.start_date}
-                  endDate={activity.end_date}
-                  distributionType={activity.distribution_type}
                 />
               ))}
             </div>
