@@ -1,11 +1,11 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { DailyProgress } from "./DailyProgress";
 import { Progress } from "@/components/ui/progress";
 import { ActivityDetails } from "./ActivityDetails";
-import { Trash2, Edit } from "lucide-react";
+import { Trash2, Edit, Calendar, Clock } from "lucide-react";
 import { DeleteActivityDialog } from "./DeleteActivityDialog";
+import { formatDate } from "@/lib/utils";
 
 interface ActivityRowProps {
   id: string;
@@ -48,13 +48,19 @@ export function ActivityRow({
           <h3 className="font-medium">{name}</h3>
           <p className="text-sm text-muted-foreground">{discipline}</p>
           {(startDate || endDate) && (
-            <div className="text-xs text-muted-foreground mt-1">
+            <div className="text-xs text-muted-foreground mt-1 flex items-center space-x-2">
               {startDate && (
-                <span>Início: {startDate}</span>
+                <div className="flex items-center space-x-1 bg-soft-purple/30 px-2 py-1 rounded">
+                  <Calendar className="h-3 w-3 text-primary-purple" />
+                  <span>Início: {formatDate(startDate)}</span>
+                </div>
               )}
-              {startDate && endDate && <span className="mx-1">|</span>}
+              {startDate && endDate && <span className="mx-1 text-muted-foreground">|</span>}
               {endDate && (
-                <span>Fim: {endDate}</span>
+                <div className="flex items-center space-x-1 bg-soft-green/30 px-2 py-1 rounded">
+                  <Clock className="h-3 w-3 text-soft-green" />
+                  <span>Fim: {formatDate(endDate)}</span>
+                </div>
               )}
             </div>
           )}
