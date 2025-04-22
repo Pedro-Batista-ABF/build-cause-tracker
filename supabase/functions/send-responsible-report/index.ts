@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "npm:resend@2.0.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.0";
@@ -358,10 +357,23 @@ const handler = async (req: Request): Promise<Response> => {
       // Usamos o e-mail verificado no Resend como remetente
       const emailResponse = await resend.emails.send({
         from: "Pedro Batista <pedro.batista@abfeng.com.br>",
-        to: [recipientEmail],
-        cc: ["pedro.batista@abfeng.com.br"], 
+        to: ["pedro.batista@abfeng.com.br"],
         subject: `Relatório Semanal de Atividades - ${responsibleName}`,
-        html: emailHtml,
+        html: `
+        <h1>Olá Pedro,</h1>
+        <p>Relatório Semanal de Atividades para ${responsibleName}</p>
+        
+        ${activitiesTable}
+        
+        <div class="analysis">
+          <h3>Análise de Desempenho</h3>
+          <p>${aiAnalysis}</p>
+        </div>
+        
+        <div class="footer">
+          <p>Enviado automaticamente pela plataforma ABF Engenharia</p>
+        </div>
+      `,
       });
       
       // Log detailed email response for debugging

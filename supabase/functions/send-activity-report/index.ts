@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "npm:resend@2.0.0";
 
@@ -54,19 +53,17 @@ const handler = async (req: Request): Promise<Response> => {
       .join("");
 
     try {
-      // MODIFICAÇÃO AQUI: Alteração no endereço de e-mail "from"
-      // Usamos o e-mail verificado no Resend como remetente
       const emailResponse = await resend.emails.send({
         from: "Pedro Batista <pedro.batista@abfeng.com.br>",
-        to: [recipientEmail],
-        cc: ["pedro.batista@abfeng.com.br"],
+        to: ["pedro.batista@abfeng.com.br"],
         subject: "Relatório de Acompanhamento de Atividades",
         html: `
-          <h1>Olá ${recipientName},</h1>
-          <p>Segue o relatório das suas atividades em andamento:</p>
+          <h1>Olá Pedro,</h1>
+          <p>Relatório de atividades para ${recipientName}:</p>
           <ul>
             ${activitiesList}
           </ul>
+          <p>Detalhes do responsável: ${recipientName}</p>
           <p>Por favor, mantenha as informações de progresso atualizadas.</p>
           <p>Atenciosamente,<br>Sistema de Gestão de Atividades</p>
         `,
