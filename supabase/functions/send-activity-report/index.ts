@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "npm:resend@2.0.0";
 
@@ -54,7 +55,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     try {
       const emailResponse = await resend.emails.send({
-        from: "Pedro Batista <pedro.batista@abfeng.com.br>",
+        from: "Plataforma ABF <onboarding@resend.dev>",
         to: ["pedro.batista@abfeng.com.br"],
         subject: "Relatório de Acompanhamento de Atividades",
         html: `
