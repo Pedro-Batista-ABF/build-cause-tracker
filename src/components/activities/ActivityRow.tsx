@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { DailyProgress } from "./DailyProgress";
@@ -11,8 +10,8 @@ interface ActivityRowProps {
   id: string;
   name: string;
   discipline: string;
-  manager: string;
   responsible: string;
+  team: string;
   unit: string;
   totalQty: number;
   progress: number;
@@ -24,8 +23,8 @@ export function ActivityRow({
   id,
   name,
   discipline,
-  manager,
   responsible,
+  team,
   unit,
   totalQty,
   progress,
@@ -45,7 +44,7 @@ export function ActivityRow({
         
         <div className="flex-1">
           <p className="text-sm">Responsável: {responsible}</p>
-          <p className="text-sm text-muted-foreground">Gerente: {manager}</p>
+          <p className="text-sm text-muted-foreground">Equipe: {team}</p>
         </div>
         
         <div className="w-full md:w-64">

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
@@ -41,7 +40,6 @@ const formSchema = z.object({
   projectId: z.string().min(1, "Selecione um projeto"),
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
   discipline: z.string().min(1, "Selecione uma disciplina"),
-  manager: z.string().min(2, "Gerente deve ter pelo menos 2 caracteres"),
   responsible: z.string().min(1, "Selecione um responsável"),
   team: z.string().min(2, "Equipe deve ter pelo menos 2 caracteres"),
   unit: z.string().min(1, "Selecione uma unidade"),
@@ -101,7 +99,6 @@ export default function NewActivity() {
       projectId: projectId || "",
       name: "",
       discipline: "",
-      manager: "",
       responsible: "",
       team: "",
       unit: "",
@@ -211,8 +208,8 @@ export default function NewActivity() {
           project_id: values.projectId,
           name: values.name,
           discipline: values.discipline,
-          manager: values.manager,
           responsible: values.responsible,
+          team: values.team,
           unit: values.unit,
           total_qty: Number(values.totalQty),
           created_by: session.user.id
@@ -344,22 +341,6 @@ export default function NewActivity() {
 
                 <FormField
                   control={form.control}
-                  name="manager"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Gerente</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Nome do gerente" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormField
-                  control={form.control}
                   name="responsible"
                   render={({ field }) => (
                     <FormItem>
@@ -382,7 +363,9 @@ export default function NewActivity() {
                     </FormItem>
                   )}
                 />
+              </div>
 
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FormField
                   control={form.control}
                   name="team"
