@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,16 +19,18 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 
-// NOVO: Calcular meta diária automática
+// NOVO: Calcular meta diária automática (quantidade e percentual)
 function calculateDailyGoal(startDate?: string | null, endDate?: string | null, totalQty?: number) {
-  if (!startDate || !endDate || !totalQty || isNaN(totalQty)) return 0;
+  if (!startDate || !endDate || !totalQty || isNaN(totalQty)) return {qty: 0, percent: 0};
   try {
     const start = new Date(startDate);
     const end = new Date(endDate);
     const duration = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1);
-    return Math.round(totalQty / duration);
+    const qtyGoal = Math.round(totalQty / duration);
+    const percentGoal = Number((100 / duration).toFixed(2));
+    return {qty: qtyGoal, percent: percentGoal};
   } catch {
-    return 0;
+    return {qty: 0, percent: 0};
   }
 }
 
@@ -50,6 +53,8 @@ export function DailyProgress({
 }: DailyProgressProps) {
   const { session } = useAuth();
   const [quantity, setQuantity] = useState("");
+  const [percent, setPercent] = useState("");
+  const [registerAsPercent, setRegisterAsPercent] = useState(false); // Novo: toggle opção de avanço por percentual
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [open, setOpen] = useState(false);
   const [showCauseDialog, setShowCauseDialog] = useState(false);
@@ -57,7 +62,7 @@ export function DailyProgress({
   const queryClient = useQueryClient();
 
   // Meta diária automática
-  const plannedProgress = calculateDailyGoal(startDate, endDate, totalQty);
+  const {qty: plannedQty, percent: plannedPercent} = calculateDailyGoal(startDate, endDate, totalQty);
 
   const { data: progressData = [], isLoading } = useQuery({
     queryKey: ['progress', activityId],
@@ -100,21 +105,34 @@ export function DailyProgress({
   };
 
   const submitProgressMutation = useMutation({
-    mutationFn: async ({ quantity, date, cause }: { 
-      quantity: number, 
+    mutationFn: async ({ quantity, percent, date, cause }: { 
+      quantity?: number, 
+      percent?: number,
       date: string, 
       cause?: { type: string; description: string } 
     }) => {
       if (!session?.user) throw new Error("Usuário não autenticado");
       const existingProgressId = await checkExistingProgress(activityId, date);
 
+      let qtyValue: number;
+      let plannedValue: number;
+
+      if (registerAsPercent) {
+        // Avanço por percentual. Calcula quantidade com base no percentual.
+        qtyValue = totalQty * (Number(percent) / 100);
+        plannedValue = totalQty * (plannedPercent / 100);
+      } else {
+        qtyValue = Number(quantity);
+        plannedValue = plannedQty;
+      }
+
       let progressData;
       if (existingProgressId) {
         const { data, error: updateError } = await supabase
           .from('daily_progress')
           .update({
-            actual_qty: Number(quantity),
-            planned_qty: plannedProgress,
+            actual_qty: qtyValue,
+            planned_qty: plannedValue,
             updated_at: new Date().toISOString()
           })
           .eq('id', existingProgressId)
@@ -131,8 +149,8 @@ export function DailyProgress({
           .insert([{
             activity_id: activityId,
             date,
-            actual_qty: Number(quantity),
-            planned_qty: plannedProgress,
+            actual_qty: qtyValue,
+            planned_qty: plannedValue,
             created_by: session.user.id
           }])
           .select('id')
@@ -165,6 +183,7 @@ export function DailyProgress({
       toast.success("Avanço registrado com sucesso!");
       setOpen(false);
       setQuantity("");
+      setPercent("");
       setShowCauseDialog(false);
       queryClient.invalidateQueries({ queryKey: ['progress', activityId] });
       queryClient.invalidateQueries({ queryKey: ['activities'] });
@@ -179,26 +198,44 @@ export function DailyProgress({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const progress = Number(quantity);
-    if (progress < plannedProgress) {
-      setShowCauseDialog(true);
-      return;
+    if (registerAsPercent) {
+      const percentValue = Number(percent);
+      if (percentValue < plannedPercent) {
+        setShowCauseDialog(true);
+        return;
+      }
+      submitProgressMutation.mutate({ percent: percentValue, date });
+    } else {
+      const progress = Number(quantity);
+      if (progress < plannedQty) {
+        setShowCauseDialog(true);
+        return;
+      }
+      submitProgressMutation.mutate({ quantity: Number(quantity), date });
     }
-    submitProgressMutation.mutate({ quantity: Number(quantity), date });
   };
 
   const handleCauseSubmit = (cause: { type: string; description: string }) => {
-    submitProgressMutation.mutate({ 
-      quantity: Number(quantity), 
-      date, 
-      cause 
-    });
+    if (registerAsPercent) {
+      submitProgressMutation.mutate({ 
+        percent: Number(percent), 
+        date, 
+        cause 
+      });
+    } else {
+      submitProgressMutation.mutate({ 
+        quantity: Number(quantity), 
+        date, 
+        cause 
+      });
+    }
   };
 
   const handleDialogCancel = () => {
     setOpen(false);
     setShowCauseDialog(false);
     setQuantity("");
+    setPercent("");
   };
 
   if (!session?.user) {
@@ -217,67 +254,108 @@ export function DailyProgress({
     <div className="space-y-4">
       <Card>
         <CardContent className="p-6">
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
             <div>
               <h3 className="font-semibold">{activityName}</h3>
-              <p className="text-sm text-muted-foreground">
-                Meta diária automática: {plannedProgress} {unit}/dia
+              <p className="text-sm text-muted-foreground mb-1">
+                Meta diária:
+                <span className="ml-1 font-medium">{plannedQty} {unit}/dia</span>
+                <span> | </span>
+                <span className="font-medium">{plannedPercent}%/dia</span>
               </p>
             </div>
-            <Dialog open={open} onOpenChange={setOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline">
-                  Registrar Avanço
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Registrar Avanço Diário</DialogTitle>
-                  <DialogDescription>{activityName}</DialogDescription>
-                </DialogHeader>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="date">Data</Label>
-                    <Input
-                      id="date"
-                      type="date"
-                      value={date}
-                      onChange={(e) => setDate(e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="quantity">Quantidade ({unit})</Label>
-                    <Input
-                      id="quantity"
-                      type="number"
-                      placeholder={`0 ${unit}`}
-                      value={quantity}
-                      onChange={(e) => setQuantity(e.target.value)}
-                      min="0"
-                      max={totalQty}
-                      required
-                    />
-                  </div>
-                  <div className="flex justify-end space-x-2">
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      onClick={handleDialogCancel}
-                      disabled={submitProgressMutation.isPending}
-                    >
-                      Cancelar
-                    </Button>
-                    <Button 
-                      type="submit"
-                      disabled={submitProgressMutation.isPending}
-                    >
-                      {submitProgressMutation.isPending ? "Salvando..." : "Salvar"}
-                    </Button>
-                  </div>
-                </form>
-              </DialogContent>
-            </Dialog>
+            <div className="flex flex-col md:flex-row gap-2 md:items-center">
+              <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="accent-primary"
+                  checked={registerAsPercent}
+                  onChange={() => {
+                    setRegisterAsPercent((v) => !v);
+                    setQuantity("");
+                    setPercent("");
+                  }}
+                />
+                Avançar por percentual
+              </label>
+              <Dialog open={open} onOpenChange={setOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline">
+                    Registrar Avanço
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Registrar Avanço Diário</DialogTitle>
+                    <DialogDescription>{activityName}</DialogDescription>
+                  </DialogHeader>
+                  <form onSubmit={handleSubmit} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="date">Data</Label>
+                      <Input
+                        id="date"
+                        type="date"
+                        value={date}
+                        onChange={(e) => setDate(e.target.value)}
+                        required
+                      />
+                    </div>
+                    {!registerAsPercent ? (
+                      <div className="space-y-2">
+                        <Label htmlFor="quantity">Quantidade ({unit})</Label>
+                        <Input
+                          id="quantity"
+                          type="number"
+                          placeholder={`0 ${unit}`}
+                          value={quantity}
+                          onChange={(e) => setQuantity(e.target.value)}
+                          min="0"
+                          max={totalQty}
+                          required
+                        />
+                        <div className="text-xs text-muted-foreground">
+                          Meta diária: {plannedQty} {unit}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <Label htmlFor="percent">Percentual (%)</Label>
+                        <Input
+                          id="percent"
+                          type="number"
+                          placeholder="0%"
+                          min="0"
+                          max="100"
+                          step="0.01"
+                          value={percent}
+                          onChange={(e) => setPercent(e.target.value)}
+                          required
+                        />
+                        <div className="text-xs text-muted-foreground">
+                          Meta diária: {plannedPercent}%
+                        </div>
+                      </div>
+                    )}
+                    <div className="flex justify-end space-x-2">
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        onClick={handleDialogCancel}
+                        disabled={submitProgressMutation.isPending}
+                      >
+                        Cancelar
+                      </Button>
+                      <Button 
+                        type="submit"
+                        disabled={submitProgressMutation.isPending}
+                      >
+                        {submitProgressMutation.isPending ? "Salvando..." : "Salvar"}
+                      </Button>
+                    </div>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            </div>
           </div>
         </CardContent>
       </Card>
