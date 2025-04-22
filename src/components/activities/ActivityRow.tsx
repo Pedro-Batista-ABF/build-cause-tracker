@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { DailyProgress } from "./DailyProgress";
 import { Progress } from "@/components/ui/progress";
 import { ActivityDetails } from "./ActivityDetails";
-import { Trash2 } from "lucide-react";
+import { Trash2, Edit } from "lucide-react";
 import { DeleteActivityDialog } from "./DeleteActivityDialog";
 
 interface ActivityRowProps {
@@ -18,6 +18,9 @@ interface ActivityRowProps {
   progress: number;
   ppc: number;
   adherence: number;
+  startDate?: string | null;
+  endDate?: string | null;
+  onEdit?: (activityId: string) => void;
 }
 
 export function ActivityRow({
@@ -31,6 +34,9 @@ export function ActivityRow({
   progress,
   ppc,
   adherence,
+  startDate,
+  endDate,
+  onEdit,
 }: ActivityRowProps) {
   const [showDetails, setShowDetails] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -41,6 +47,17 @@ export function ActivityRow({
         <div className="flex-1">
           <h3 className="font-medium">{name}</h3>
           <p className="text-sm text-muted-foreground">{discipline}</p>
+          {(startDate || endDate) && (
+            <div className="text-xs text-muted-foreground mt-1">
+              {startDate && (
+                <span>Início: {startDate}</span>
+              )}
+              {startDate && endDate && <span className="mx-1">|</span>}
+              {endDate && (
+                <span>Fim: {endDate}</span>
+              )}
+            </div>
+          )}
         </div>
         
         <div className="flex-1">
@@ -64,6 +81,16 @@ export function ActivityRow({
           >
             {showDetails ? "Ocultar Detalhes" : "Ver Detalhes"}
           </Button>
+          {onEdit && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onEdit(id)}
+              aria-label="Editar atividade"
+            >
+              <Edit className="h-4 w-4 text-primary" />
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="sm"
@@ -97,6 +124,7 @@ export function ActivityRow({
             activityName={name}
             unit={unit}
             totalQty={totalQty}
+            // A meta diária será calculada corretamente pela lógica do componente
           />
         </div>
       )}

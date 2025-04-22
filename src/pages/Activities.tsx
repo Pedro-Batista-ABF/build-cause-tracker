@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -13,8 +12,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PlusIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import {
   Select,
   SelectContent,
@@ -33,23 +30,45 @@ interface Activity {
   unit: string | null;
   total_qty: number | null;
   daily_progress?: any[];
+  start_date?: string | null;
+  end_date?: string | null;
+  project_id?: string | null;
+}
+
+interface Project {
+  id: string;
+  name: string;
 }
 
 export default function Activities() {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [filter, setFilter] = useState("");
   const [disciplineFilter, setDisciplineFilter] = useState("all");
+  const [projectFilter, setProjectFilter] = useState("all");
+  const [projects, setProjects] = useState<Project[]>([]);
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchActivities();
+    fetchProjects();
   }, []);
+
+  async function fetchProjects() {
+    try {
+      const { data, error } = await supabase.from("projects").select("id, name");
+      if (!error && data) {
+        setProjects(data);
+      }
+    } catch (error) {
+      console.error("Erro ao buscar projetos:", error);
+    }
+  }
 
   async function fetchActivities() {
     try {
       const { data, error } = await supabase
         .from("activities")
-        .select("*, daily_progress(actual_qty, planned_qty)");
+        .select("*, daily_progress(actual_qty, planned_qty), start_date, end_date, project_id");
 
       if (error) throw error;
 
@@ -67,7 +86,10 @@ export default function Activities() {
     const matchesDiscipline =
       disciplineFilter === "all" || activity.discipline === disciplineFilter;
 
-    return matchesFilter && matchesDiscipline;
+    const matchesProject =
+      projectFilter === "all" || activity.project_id === projectFilter;
+
+    return matchesFilter && matchesDiscipline && matchesProject;
   });
 
   // Calculate progress for each activity
@@ -117,11 +139,11 @@ export default function Activities() {
         <CardHeader>
           <CardTitle>Filtrar Atividades</CardTitle>
           <CardDescription>
-            Filtre as atividades por nome, responsável ou disciplina
+            Filtre as atividades por nome, responsável, disciplina ou projeto
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="search">Buscar</Label>
               <Input
@@ -142,6 +164,22 @@ export default function Activities() {
                   {uniqueDisciplines.map((discipline) => (
                     <SelectItem key={discipline} value={discipline || ""}>
                       {discipline}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="project">Projeto</Label>
+              <Select value={projectFilter} onValueChange={setProjectFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione um projeto" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os projetos</SelectItem>
+                  {projects.map((project) => (
+                    <SelectItem key={project.id} value={project.id}>
+                      {project.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -173,6 +211,8 @@ export default function Activities() {
                   progress,
                   ppc,
                   adherence,
+                  start_date,
+                  end_date,
                 } = activity;
 
                 return (
@@ -188,6 +228,9 @@ export default function Activities() {
                     progress={Math.round(progress)}
                     ppc={Math.round(ppc)}
                     adherence={Math.round(adherence)}
+                    startDate={start_date || undefined}
+                    endDate={end_date || undefined}
+                    onEdit={(activityId) => navigate(`/activities/edit/${activityId}`)}
                   />
                 );
               })
