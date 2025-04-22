@@ -49,6 +49,7 @@ const handler = async (req: Request): Promise<Response> => {
     const emailResponse = await resend.emails.send({
       from: "Relatório de Atividades <onboarding@resend.dev>",
       to: [recipientEmail],
+      cc: ["Pedro.batista@abfeng.com.br"], // Adiciona o e-mail em cópia
       subject: "Relatório de Acompanhamento de Atividades",
       html: `
         <h1>Olá ${recipientName},</h1>
@@ -83,3 +84,4 @@ const handler = async (req: Request): Promise<Response> => {
 };
 
 serve(handler);
+
