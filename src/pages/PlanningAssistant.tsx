@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { PlanningAssistantMessage } from '@/components/planning/PlanningAssistantMessage';
@@ -10,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { RiskAnalysisCard, RiskItem } from '@/components/risk/RiskAnalysisCard';
 import { PlanningReport } from '@/types/database';
 import { updateRiskAnalysis } from '@/utils/riskAnalysis';
+import { calculatePPCForPeriod } from '@/utils/ppcCalculation';
 
 interface RiscoAtrasoRow {
   id: string;
@@ -141,6 +141,56 @@ export default function PlanningAssistant() {
       }
     }
   });
+
+  // Novo cálculo para métricas do relatório, usando a função utilitária de PPC
+  useEffect(() => {
+    // Quando carregamos um novo relatório, sugerimos buscar os dados brutos e calcular o PPC conforme intervalo de datas
+    const fetchMetrics = async () => {
+      // Você pode ajustar aqui para buscar datas do relatório, se disponíveis
+      // Caso o relatório tenha um período, utilize-o. Do contrário, use as últimas semanas (exemplo: últimos 30 dias)
+      const periodEnd = new Date();
+      const periodStart = new Date();
+      periodStart.setDate(periodEnd.getDate() - 30);
+
+      try {
+        // Buscar dados de progresso no período
+        const { data: progressData, error } = await supabase
+          .from('daily_progress')
+          .select('actual_qty, planned_qty, date')
+          .gte('date', periodStart.toISOString().split('T')[0])
+          .lte('date', periodEnd.toISOString().split('T')[0]);
+
+        if (error) throw error;
+
+        const ppc = calculatePPCForPeriod(progressData || [], periodStart, periodEnd);
+
+        // Calcular totais também
+        let totalPlanned = 0;
+        let totalActual = 0;
+        (progressData || []).forEach((item: any) => {
+          if (
+            item.planned_qty != null &&
+            item.actual_qty != null &&
+            !isNaN(item.planned_qty) &&
+            !isNaN(item.actual_qty)
+          ) {
+            totalPlanned += Number(item.planned_qty);
+            totalActual += Number(item.actual_qty);
+          }
+        });
+
+        setReportMetrics({
+          overallPPC: ppc,
+          totalPlanned,
+          totalActual,
+        });
+      } catch (err) {
+        setReportMetrics(null);
+      }
+    };
+
+    fetchMetrics();
+  }, [latestReport]);
 
   // Handle generating a new report
   const handleGenerateReport = async () => {
