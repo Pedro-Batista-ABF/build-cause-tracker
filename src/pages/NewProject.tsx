@@ -22,8 +22,9 @@ import {
 } from "@/components/ui/card"
 import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { supabase } from "@/integrations/supabase/client"
+import { useAuth } from "@/lib/auth"
 
 const formSchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
@@ -37,6 +38,7 @@ const formSchema = z.object({
 export default function NewProject() {
   const navigate = useNavigate()
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const { session } = useAuth()
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -49,6 +51,22 @@ export default function NewProject() {
       end_date: "",
     },
   })
+
+  // Check authentication state
+  useEffect(() => {
+    if (!session) {
+      console.log("No session found, checking auth state...")
+      const checkAuth = async () => {
+        const { data } = await supabase.auth.getSession()
+        if (!data.session) {
+          toast.error("Você precisa estar autenticado para criar um projeto")
+          navigate("/auth")
+        }
+      }
+      
+      checkAuth()
+    }
+  }, [session, navigate])
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {

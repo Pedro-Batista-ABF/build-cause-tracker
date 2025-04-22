@@ -17,10 +17,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Plus, Search } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 type Project = {
   id: string;
@@ -38,6 +39,15 @@ export default function Projects() {
   const [statusFilter, setStatusFilter] = useState("all");
 
   const fetchProjects = async () => {
+    // Check if user is authenticated before fetching
+    const { data: sessionData } = await supabase.auth.getSession();
+    
+    if (!sessionData.session) {
+      // User is not authenticated, redirect or handle as needed
+      console.warn("User not authenticated. Projects may not be accessible.");
+      return [];
+    }
+
     const { data, error } = await supabase
       .from("projects")
       .select("*")
@@ -45,6 +55,7 @@ export default function Projects() {
 
     if (error) {
       console.error("Erro ao buscar projetos:", error);
+      toast.error("Falha ao carregar projetos");
       throw new Error("Falha ao carregar projetos");
     }
 
