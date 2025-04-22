@@ -39,7 +39,7 @@ export const updateRiskAnalysis = async (): Promise<{ success: boolean; error?: 
       const varianceHistory = [];
       
       activity.daily_progress.forEach((progress: any) => {
-        if (progress.planned_qty && progress.actual_qty) {
+        if (progress.planned_qty !== null && progress.actual_qty !== null) {
           // Garantir que os valores são numéricos
           const plannedQty = Number(progress.planned_qty);
           const actualQty = Number(progress.actual_qty);
@@ -60,7 +60,7 @@ export const updateRiskAnalysis = async (): Promise<{ success: boolean; error?: 
       });
       
       // Cálculo do PPC com verificação de divisão por zero
-      const ppc = totalPlanned > 0 ? Math.round((totalActual / totalPlanned) * 100) : 0;
+      const ppc = totalPlanned > 0 ? Math.min(100, Math.round((totalActual / totalPlanned) * 100)) : 0;
       const riskPct = calculateDelayRisk(ppc, varianceHistory);
       const classification = getRiskClassification(ppc);
       

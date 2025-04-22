@@ -51,8 +51,8 @@ export const calculateAveragePPC = (
   // Return 0 if no valid entries
   if (validEntries === 0 || totalPlanned === 0) return 0;
   
-  // Calculate overall PPC from totals
-  return calculatePPC(totalActual, totalPlanned);
+  // Calculate overall PPC from totals and cap at 100%
+  return Math.min(100, Math.round((totalActual / totalPlanned) * 100));
 };
 
 /**
@@ -95,7 +95,8 @@ export const calculateCumulativePPC = (
     }
   });
   
-  return calculatePPC(totalActual, totalPlanned);
+  // Cap at 100% para evitar valores de PPC acima de 100%
+  return Math.min(100, calculatePPC(totalActual, totalPlanned));
 };
 
 /**
@@ -128,4 +129,37 @@ export const getScheduleStatus = (variance: number): 'atrasado' | 'atenção' | 
   if (variance < -10) return 'atrasado';
   if (variance < 0) return 'atenção';
   return 'no prazo';
+};
+
+/**
+ * Calcula a aderência baseada em dados de progresso
+ * @param progressData - Array de dados de progresso contendo actual_qty e planned_qty
+ * @returns Aderência como uma porcentagem (0-100)
+ */
+export const calculateAdherence = (
+  progressData: Array<{ actual_qty: number | null; planned_qty: number | null }>
+): number => {
+  let compliantEntries = 0;
+  let totalEntries = 0;
+  
+  // Contar entradas que atendem às metas
+  progressData.forEach(item => {
+    if (item.planned_qty != null && item.actual_qty != null) {
+      const plannedQty = Number(item.planned_qty);
+      const actualQty = Number(item.actual_qty);
+      
+      if (!isNaN(plannedQty) && !isNaN(actualQty) && plannedQty > 0) {
+        totalEntries++;
+        if (actualQty >= plannedQty) {
+          compliantEntries++;
+        }
+      }
+    }
+  });
+  
+  // Retornar 0 se não houver entradas válidas
+  if (totalEntries === 0) return 0;
+  
+  // Calcular aderência geral
+  return Math.round((compliantEntries / totalEntries) * 100);
 };

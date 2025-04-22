@@ -39,6 +39,51 @@ Deno.serve(async (req) => {
       throw reportError;
     }
 
+    // Se não existir um relatório, criar um relatório padrão provisório
+    if (!report) {
+      console.log("Nenhum relatório encontrado, criando relatório provisório");
+      const defaultContent = "Nenhum relatório de planejamento foi gerado ainda. Por favor, clique no botão 'Gerar Novo Resumo' para criar o primeiro relatório.";
+      
+      const { data: newReport, error: insertError } = await supabase
+        .from('planning_reports')
+        .insert({
+          content: defaultContent,
+          is_current: true
+        })
+        .select()
+        .single();
+      
+      if (insertError) {
+        console.error("Erro ao criar relatório provisório:", insertError);
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: "Erro ao criar relatório provisório"
+          }),
+          { 
+            status: 500, 
+            headers: { 
+              ...corsHeaders, 
+              'Content-Type': 'application/json' 
+            }
+          }
+        );
+      }
+      
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          report: newReport
+        }),
+        { 
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json' 
+          }
+        }
+      );
+    }
+
     return new Response(
       JSON.stringify({ 
         success: true, 

@@ -69,7 +69,7 @@ Deno.serve(async (req) => {
         let activityActual = 0;
         
         activity.daily_progress.forEach(progress => {
-          if (progress.planned_qty && progress.actual_qty) {
+          if (progress.planned_qty !== null && progress.actual_qty !== null) {
             // Garantir que os valores são numéricos
             const plannedQty = Number(progress.planned_qty);
             const actualQty = Number(progress.actual_qty);
@@ -82,7 +82,7 @@ Deno.serve(async (req) => {
         });
         
         // Evitar divisão por zero ao calcular PPC
-        const ppc = activityPlanned > 0 ? (activityActual / activityPlanned) * 100 : 100;
+        const ppc = activityPlanned > 0 ? Math.min(100, (activityActual / activityPlanned) * 100) : 0;
         
         progressData.push({
           activity: activity.name,
@@ -103,8 +103,8 @@ Deno.serve(async (req) => {
       }
     });
     
-    // Calcular PPC geral
-    const overallPPC = totalPlanned > 0 ? Math.round((totalActual / totalPlanned) * 100) : 0;
+    // Calcular PPC geral (limitado a 100%)
+    const overallPPC = totalPlanned > 0 ? Math.min(100, Math.round((totalActual / totalPlanned) * 100)) : 0;
     
     const today = new Date();
     const weekId = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
@@ -202,7 +202,10 @@ Deno.serve(async (req) => {
         const { data: reportData, error: reportError } = await supabase
           .from('planning_reports')
           .insert([
-            { content: generatedText, is_current: true }
+            { 
+              content: generatedText, 
+              is_current: true 
+            }
           ])
           .select();
         
@@ -215,7 +218,12 @@ Deno.serve(async (req) => {
         return new Response(
           JSON.stringify({ 
             success: true, 
-            report: reportData?.[0] || null
+            report: reportData?.[0] || null,
+            metrics: {
+              overallPPC: overallPPC,
+              totalPlanned: totalPlanned,
+              totalActual: totalActual
+            }
           }),
           { 
             headers: { 
@@ -232,7 +240,18 @@ Deno.serve(async (req) => {
       console.error("Erro ao chamar OpenAI:", openAiError.message);
       
       // Criar um relatório de fallback se ocorrer erro com OpenAI
-      const fallbackReport = "Não foi possível gerar o relatório semanal de planejamento devido a um problema técnico. Por favor, tente novamente mais tarde ou contate o suporte técnico.";
+      const fallbackReport = `
+        # Relatório de Planejamento Semanal (Gerado em Modo de Contingência)
+        
+        ## Resumo do Projeto
+        
+        O projeto atualmente apresenta um PPC (Porcentagem de Plano Concluído) de ${overallPPC}%.
+        Foram identificadas ${delayedActivities.length} atividades com atrasos significativos (PPC inferior a 80%).
+        
+        ## Recomendações
+        
+        Recomenda-se uma revisão detalhada das atividades atrasadas e uma reunião com os responsáveis para identificar as causas dos atrasos e implementar ações corretivas.
+      `;
       
       try {
         await supabase
@@ -256,7 +275,12 @@ Deno.serve(async (req) => {
           JSON.stringify({ 
             success: true, 
             report: reportData?.[0] || null,
-            warning: "Relatório gerado em modo de contingência devido a erro na API OpenAI."
+            warning: "Relatório gerado em modo de contingência devido a erro na API OpenAI.",
+            metrics: {
+              overallPPC: overallPPC,
+              totalPlanned: totalPlanned,
+              totalActual: totalActual
+            }
           }),
           { 
             headers: { 

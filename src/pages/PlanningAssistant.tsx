@@ -27,6 +27,11 @@ interface RiscoAtrasoRow {
 export default function PlanningAssistant() {
   const queryClient = useQueryClient();
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const [reportMetrics, setReportMetrics] = useState<{
+    overallPPC: number;
+    totalPlanned: number;
+    totalActual: number;
+  } | null>(null);
 
   // Analisar riscos ao carregar a página
   useEffect(() => {
@@ -92,7 +97,7 @@ export default function PlanningAssistant() {
           .limit(1);
           
         if (checkError) {
-          console.log("A tabela risco_atraso não existe ainda:", checkError.message);
+          console.log("A tabela risco_atraso não existe ainda ou não tem permissões:", checkError.message);
           return [];
         }
         
@@ -171,6 +176,11 @@ export default function PlanningAssistant() {
         throw new Error(errorMsg);
       }
       
+      // Armazenar as métricas do relatório
+      if (data.metrics) {
+        setReportMetrics(data.metrics);
+      }
+      
       await refetchReport();
       
       if (data.warning) {
@@ -213,6 +223,14 @@ export default function PlanningAssistant() {
           <Card className="bg-card-bg border-border-subtle shadow-md">
             <CardHeader className="pb-2">
               <CardTitle className="text-lg">Resumo do Planejamento Semanal</CardTitle>
+              {reportMetrics && (
+                <div className="text-sm text-muted-foreground">
+                  PPC Geral: {reportMetrics.overallPPC}% 
+                  {reportMetrics.totalPlanned > 0 && (
+                    <span> (Planejado: {reportMetrics.totalPlanned.toFixed(2)}, Realizado: {reportMetrics.totalActual.toFixed(2)})</span>
+                  )}
+                </div>
+              )}
             </CardHeader>
             <CardContent>
               {latestReport ? (
