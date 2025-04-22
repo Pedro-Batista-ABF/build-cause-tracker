@@ -54,11 +54,9 @@ export function ProjectActivities({ projectId }: ProjectActivitiesProps) {
 
       if (error) throw error;
 
-      // Also fetch activity planning data from activity_planning table
+      // Fetch planning data directly with SQL query to avoid type issues
       const { data: planningData, error: planningError } = await supabase
-        .from("activity_planning")
-        .select("*")
-        .eq("project_id", projectId);
+        .rpc('get_activity_planning_by_project', { project_id_param: projectId });
 
       if (planningError) {
         console.error("Error fetching planning data:", planningError);
@@ -67,7 +65,7 @@ export function ProjectActivities({ projectId }: ProjectActivitiesProps) {
       // Create a map for quick lookup of planning data
       const planningMap = new Map();
       if (planningData) {
-        planningData.forEach((plan) => {
+        planningData.forEach((plan: any) => {
           planningMap.set(plan.activity_id, plan);
         });
       }

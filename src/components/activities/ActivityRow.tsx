@@ -1,3 +1,4 @@
+
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import {
@@ -78,7 +79,7 @@ export function ActivityRow({
             </DialogHeader>
             <ActivityDetails
               activityId={id}
-              activityName={name}
+              name={name}
               unit={unit}
               totalQty={totalQty}
               startDate={startDate}
