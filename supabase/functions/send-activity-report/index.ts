@@ -16,8 +16,8 @@ interface Activity {
   progress: number;
   unit: string | null;
   total_qty: number | null;
-  team: string | null; // Added team field
-  responsible: string | null; // Added responsible field
+  team: string | null;
+  responsible: string | null;
 }
 
 interface SendReportRequest {
@@ -34,6 +34,13 @@ const handler = async (req: Request): Promise<Response> => {
   try {
     const { recipientName, recipientEmail, activities }: SendReportRequest = await req.json();
 
+    // Log de depuração para verificar os dados recebidos
+    console.log("Dados recebidos:", {
+      recipientName,
+      recipientEmail,
+      activitiesCount: activities.length
+    });
+
     const activitiesList = activities
       .map(
         (activity) =>
@@ -46,42 +53,73 @@ const handler = async (req: Request): Promise<Response> => {
       )
       .join("");
 
-    const emailResponse = await resend.emails.send({
-      from: "Relatório de Atividades <onboarding@resend.dev>",
-      to: [recipientEmail],
-      cc: ["Pedro.batista@abfeng.com.br"], // Adiciona o e-mail em cópia
-      subject: "Relatório de Acompanhamento de Atividades",
-      html: `
-        <h1>Olá ${recipientName},</h1>
-        <p>Segue o relatório das suas atividades em andamento:</p>
-        <ul>
-          ${activitiesList}
-        </ul>
-        <p>Por favor, mantenha as informações de progresso atualizadas.</p>
-        <p>Atenciosamente,<br>Sistema de Gestão de Atividades</p>
-      `,
-    });
+    try {
+      const emailResponse = await resend.emails.send({
+        from: "Relatório de Atividades <onboarding@resend.dev>",
+        to: [recipientEmail],
+        cc: ["Pedro.batista@abfeng.com.br"],
+        subject: "Relatório de Acompanhamento de Atividades",
+        html: `
+          <h1>Olá ${recipientName},</h1>
+          <p>Segue o relatório das suas atividades em andamento:</p>
+          <ul>
+            ${activitiesList}
+          </ul>
+          <p>Por favor, mantenha as informações de progresso atualizadas.</p>
+          <p>Atenciosamente,<br>Sistema de Gestão de Atividades</p>
+        `,
+      });
 
-    console.log("Email sent successfully:", emailResponse);
+      // Log detalhado da resposta do envio de e-mail
+      console.log("Resposta completa do envio de e-mail:", JSON.stringify(emailResponse, null, 2));
 
-    return new Response(JSON.stringify(emailResponse), {
-      status: 200,
-      headers: {
-        "Content-Type": "application/json",
-        ...corsHeaders,
-      },
-    });
+      return new Response(JSON.stringify(emailResponse), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          ...corsHeaders,
+        },
+      });
+    } catch (emailError) {
+      // Log específico para erros de envio de e-mail
+      console.error("Erro específico no envio de e-mail:", {
+        message: emailError.message,
+        stack: emailError.stack,
+        responseText: emailError.response?.text ? await emailError.response.text() : null
+      });
+
+      return new Response(
+        JSON.stringify({ 
+          error: "Erro no envio do e-mail", 
+          details: emailError.message 
+        }),
+        {
+          status: 500,
+          headers: { 
+            "Content-Type": "application/json", 
+            ...corsHeaders 
+          },
+        }
+      );
+    }
   } catch (error) {
-    console.error("Error sending activity report:", error);
+    // Log para erros de processamento dos dados
+    console.error("Erro geral no processamento do relatório:", {
+      message: error.message,
+      stack: error.stack
+    });
+
     return new Response(
       JSON.stringify({ error: error.message }),
       {
         status: 500,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
+        headers: { 
+          "Content-Type": "application/json", 
+          ...corsHeaders 
+        },
       }
     );
   }
 };
 
 serve(handler);
-
