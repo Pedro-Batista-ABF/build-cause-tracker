@@ -1,4 +1,3 @@
-
 /**
  * Utility functions for calculating PPC (Percentage of Plan Completed)
  */
@@ -97,6 +96,33 @@ export const calculateCumulativePPC = (
   
   // Cap at 100% para evitar valores de PPC acima de 100%
   return Math.min(100, calculatePPC(totalActual, totalPlanned));
+};
+
+export const calculatePPCForPeriod = (
+  progressData: Array<{ actual_qty: number | null; planned_qty: number | null; date: string }>,
+  periodStart: Date,
+  periodEnd: Date
+): number => {
+  let totalPlanned = 0;
+  let totalActual = 0;
+
+  progressData.forEach(item => {
+    if (!item.date) return;
+    const itemDate = new Date(item.date);
+    if (itemDate >= periodStart && itemDate <= periodEnd) {
+      if (item.planned_qty != null && item.actual_qty != null) {
+        const plannedQty = Number(item.planned_qty);
+        const actualQty = Number(item.actual_qty);
+        if (!isNaN(plannedQty) && !isNaN(actualQty) && plannedQty > 0) {
+          totalPlanned += plannedQty;
+          totalActual += actualQty;
+        }
+      }
+    }
+  });
+
+  if (totalPlanned === 0) return 0;
+  return Math.min(100, Math.round((totalActual / totalPlanned) * 100));
 };
 
 /**

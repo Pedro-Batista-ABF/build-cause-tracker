@@ -11,7 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { RiskAnalysisDashboard } from '@/components/dashboard/RiskAnalysisDashboard';
-import { calculateAveragePPC } from '@/utils/ppcCalculation';
+import { calculateAveragePPC, calculatePPCForPeriod } from '@/utils/ppcCalculation';
 import { updateRiskAnalysis } from '@/utils/riskAnalysis';
 
 const periodFilters = ["Dia", "Semana", "Mês", "Trimestre", "6M"];
@@ -96,10 +96,10 @@ export default function Dashboard() {
           .lte('date', dateRange.endDate.toISOString().split('T')[0]);
           
         if (progressError) throw progressError;
-        
-        // Calculate average PPC using our utility function
-        const avgPPC = calculateAveragePPC(progressData || []);
-          
+
+        // Novo cálculo do PPC considerando apenas o período, usando a função criada:
+        const avgPPC = calculatePPCForPeriod(progressData || [], dateRange.startDate, dateRange.endDate);
+
         let compliantActivities = 0;
         let totalProgressItems = 0;
         
