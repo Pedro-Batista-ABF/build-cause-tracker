@@ -54,3 +54,17 @@ export interface ScheduleAnalysis {
   }[];
   acoes_recomendadas: string[];
 }
+
+export interface ActivityScheduleItem {
+  id: string;
+  activity_id: string;
+  name: string;
+  start_date: string | null;
+  end_date: string | null;
+  duration_days: number | null;
+  predecessor_item_id: string | null;
+  percent_complete: number;
+  order_index: number;
+  created_at: string;
+  updated_at: string;
+}

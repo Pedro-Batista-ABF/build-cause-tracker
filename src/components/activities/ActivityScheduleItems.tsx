@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -8,16 +9,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { PlusIcon, Edit2Icon, Trash2Icon, AlertCircleIcon, CheckCircleIcon } from "lucide-react";
+import { PlusIcon, Edit2Icon, Trash2Icon, AlertCircleIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatLocalDate } from "@/utils/dateUtils";
 import { useQueryClient } from "@tanstack/react-query";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ActivityScheduleItem } from "@/types/database";
+import { ActivityScheduleItem } from "@/types/schedule";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
 
@@ -136,7 +137,7 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
       start_date: item.start_date || "",
       end_date: item.end_date || "",
       percent_complete: item.percent_complete,
-      predecessor_item_id: item.predecessor_item_id || ""
+      predecessor_item_id: item.predecessor_item_id || "none"
     });
     setEditDialogOpen(true);
   }
@@ -477,6 +478,9 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Editar Subatividade</DialogTitle>
+            <DialogDescription>
+              Atualize os detalhes desta subatividade no cronograma
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -520,7 +524,7 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
               <Label htmlFor="predecessor">Atividade Predecessora</Label>
               <Select
                 value={formData.predecessor_item_id || "none"}
-                onValueChange={(value) => setFormData({...formData, predecessor_item_id: value})}
+                onValueChange={(value) => setFormData({...formData, predecessor_item_id: value === "none" ? "" : value})}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione o predecessor" />
@@ -572,6 +576,9 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Excluir Subatividade</DialogTitle>
+            <DialogDescription>
+              Esta ação não pode ser desfeita.
+            </DialogDescription>
           </DialogHeader>
           <p>Tem certeza que deseja excluir a subatividade "{currentItem?.name}"?</p>
           <DialogFooter>
