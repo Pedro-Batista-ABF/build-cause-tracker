@@ -21,3 +21,11 @@ export interface Activity {
   daily_progress?: any[];
   project_id?: string | null;
 }
+
+export interface PlanningReport {
+  id: string;
+  content: string;
+  created_at: string;
+  is_current: boolean;
+  created_by: string | null;
+}

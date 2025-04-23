@@ -594,14 +594,14 @@ export default function NewActivity() {
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Predecessor</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value}>
+                            <Select onValueChange={field.onChange} value={field.value || "none"}>
                               <FormControl>
                                 <SelectTrigger>
                                   <SelectValue placeholder="Selecione uma atividade predecessora" />
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="">Nenhum predecessor</SelectItem>
+                                <SelectItem value="none">Nenhum predecessor</SelectItem>
                                 {activities.map((activity) => (
                                   <SelectItem key={activity.id} value={activity.id}>
                                     {activity.name}
@@ -628,7 +628,7 @@ export default function NewActivity() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Vincular à Tarefa do Cronograma</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value || "none"}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Selecione uma tarefa do cronograma" />
