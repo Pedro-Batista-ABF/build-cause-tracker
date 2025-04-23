@@ -200,7 +200,7 @@ export default function EditActivity() {
       if (activity.has_schedule) {
         activityData.schedule_start_date = activity.schedule_start_date || null;
         activityData.schedule_end_date = activity.schedule_end_date || null;
-        activityData.schedule_predecessor_id = activity.schedule_predecessor_id || null;
+        activityData.schedule_predecessor_id = activity.schedule_predecessor_id === "none" ? null : activity.schedule_predecessor_id || null;
         activityData.schedule_duration_days = activity.schedule_duration_days || null;
         activityData.schedule_percent_complete = activity.schedule_percent_complete || 0;
       } else {
@@ -481,14 +481,14 @@ export default function EditActivity() {
                       <div>
                         <Label htmlFor="schedule_predecessor_id">Predecessor</Label>
                         <Select
-                          value={activity.schedule_predecessor_id}
+                          value={activity.schedule_predecessor_id || "none"}
                           onValueChange={(value) => handleSelectChange("schedule_predecessor_id", value)}
                         >
                           <SelectTrigger>
                             <SelectValue placeholder="Selecione uma atividade predecessora" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">Nenhum predecessor</SelectItem>
+                            <SelectItem value="none">Nenhum predecessor</SelectItem>
                             {activities.map((act) => (
                               <SelectItem key={act.id} value={act.id}>
                                 {act.name}
