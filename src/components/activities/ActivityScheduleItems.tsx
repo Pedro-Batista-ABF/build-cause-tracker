@@ -37,7 +37,7 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
     start_date: "",
     end_date: "",
     percent_complete: 0,
-    predecessor_item_id: ""
+    predecessor_item_id: "none"
   });
   
   const queryClient = useQueryClient();

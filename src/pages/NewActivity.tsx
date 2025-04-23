@@ -1,113 +1,54 @@
 
 import { useState, useEffect } from "react";
-import { zodResolver } from "@hookform/resolvers/zod"
-import { useForm } from "react-hook-form"
-import * as z from "zod"
-import { Button } from "@/components/ui/button"
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { useNavigate, useParams } from "react-router-dom"
-import { toast } from "sonner"
-import { ScheduleTask } from "@/types/schedule"
-import { supabase } from "@/integrations/supabase/client"
-import { Tables } from "@/integrations/supabase/types";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { ArrowLeft } from "lucide-react";
+import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
-
-const formSchema = z.object({
-  projectId: z.string().min(1, "Selecione um projeto"),
-  name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
-  discipline: z.string().min(1, "Selecione uma disciplina"),
-  responsible: z.string().min(1, "Selecione um responsável"),
-  team: z.string().min(2, "Equipe deve ter pelo menos 2 caracteres"),
-  unit: z.string().min(1, "Selecione uma unidade"),
-  totalQty: z.string().min(1, "Quantidade é obrigatória"),
-  description: z.string().optional(),
-  startDate: z.string().min(1, "Data de início é obrigatória"),
-  endDate: z.string().min(1, "Data de término é obrigatória"),
-  scheduleTaskId: z.string().optional(),
-  // Schedule fields (optional)
-  hasSchedule: z.boolean().default(false),
-  scheduleStartDate: z.string().optional(),
-  scheduleEndDate: z.string().optional(),
-  scheduleDurationDays: z.string().optional(),
-  schedulePredecessorId: z.string().optional(),
-  schedulePercentComplete: z.string().default("0"),
-  hasDetailedSchedule: z.boolean().default(false)
-})
-
-const disciplines = [
-  "Montagem Civil",
-  "Elétrica",
-  "Mecânica",
-  "Civil",
-  "Instrumentação",
-]
-
-const units = [
-  "un",
-  "m",
-  "m²",
-  "m³",
-  "ton",
-  "kg",
-]
+import { Textarea } from "@/components/ui/textarea";
 
 export default function NewActivity() {
   const navigate = useNavigate();
-  const { projectId } = useParams();
-  const [projects, setProjects] = useState<Tables<'projects'>[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [scheduleTasks, setScheduleTasks] = useState<ScheduleTask[]>([]);
-  const [selectedProjectId, setSelectedProjectId] = useState<string>(projectId || "");
+  
+  const [activity, setActivity] = useState({
+    name: "",
+    discipline: "",
+    responsible: "",
+    team: "",
+    unit: "",
+    total_qty: 0,
+    start_date: "",
+    end_date: "",
+    project_id: "",
+    description: "",
+    // Schedule-related fields
+    has_schedule: false,
+    schedule_start_date: "",
+    schedule_end_date: "",
+    schedule_predecessor_id: "",
+    schedule_duration_days: 0,
+    schedule_percent_complete: 0,
+    // Detailed schedule flag
+    has_detailed_schedule: false
+  });
+  
+  const [isLoading, setIsLoading] = useState(false);
+  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [responsibleContacts, setResponsibleContacts] = useState<Array<{ id: string; name: string; email: string; discipline: string | null }>>([]);
   const [activities, setActivities] = useState<Array<{ id: string; name: string }>>([]);
-  
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      projectId: projectId || "",
-      name: "",
-      discipline: "",
-      responsible: "",
-      team: "",
-      unit: "",
-      totalQty: "",
-      description: "",
-      startDate: "",
-      endDate: "",
-      scheduleTaskId: "",
-      hasSchedule: false,
-      scheduleStartDate: "",
-      scheduleEndDate: "",
-      scheduleDurationDays: "",
-      schedulePredecessorId: "",
-      schedulePercentComplete: "0",
-      hasDetailedSchedule: false
-    },
-  });
+  const [activeTab, setActiveTab] = useState("basic");
 
   useEffect(() => {
     fetchProjects();
@@ -115,58 +56,27 @@ export default function NewActivity() {
   }, []);
 
   useEffect(() => {
-    if (selectedProjectId) {
-      fetchScheduleTasks(selectedProjectId);
-      fetchProjectActivities(selectedProjectId);
+    if (activity.project_id) {
+      fetchProjectActivities(activity.project_id);
     }
-  }, [selectedProjectId]);
+  }, [activity.project_id]);
 
   async function fetchProjects() {
-    const { data, error } = await supabase
-      .from('projects')
-      .select('*')
-      .eq('status', 'active');
+    try {
+      const { data, error } = await supabase
+        .from("projects")
+        .select("id, name");
 
-    if (error) {
+      if (error) {
+        throw error;
+      }
+
+      if (data) {
+        setProjects(data);
+      }
+    } catch (error) {
+      console.error("Error fetching projects:", error);
       toast.error("Erro ao carregar projetos");
-      console.error(error);
-    } else {
-      setProjects(data || []);
-    }
-  }
-
-  async function fetchScheduleTasks(projectId: string) {
-    const { data, error } = await supabase
-      .from('cronograma_projeto')
-      .select('*')
-      .eq('projeto_id', projectId);
-
-    if (error) {
-      toast.error("Erro ao carregar tarefas do cronograma");
-      console.error(error);
-    } else {
-      // Map the database records ensuring all fields from the ScheduleTask interface are properly set
-      const mappedTasks: ScheduleTask[] = (data || []).map(task => ({
-        id: task.id,
-        projeto_id: task.projeto_id,
-        tarefa_id: task.tarefa_id,
-        nome: task.nome,
-        data_inicio: task.data_inicio,
-        data_termino: task.data_termino,
-        duracao_dias: task.duracao_dias,
-        wbs: task.wbs,
-        percentual_previsto: task.percentual_previsto,
-        percentual_real: task.percentual_real,
-        nivel_hierarquia: task.nivel_hierarquia,
-        atividade_lps_id: task.atividade_lps_id,
-        inicio_linha_base: null,
-        termino_linha_base: null,
-        predecessores: task.predecessores || null,
-        predecessor_id: task.predecessor_id || null,
-        created_at: task.created_at
-      }));
-      
-      setScheduleTasks(mappedTasks);
     }
   }
 
@@ -199,522 +109,360 @@ export default function NewActivity() {
     }
   }
 
-  async function onSubmit(values: z.infer<typeof formSchema>) {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setActivity((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setActivity((prev) => ({ ...prev, [name]: value === "" ? 0 : Number(value) }));
+  };
+
+  const handleSelectChange = (field: string, value: string) => {
+    setActivity((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleHasScheduleChange = (checked: boolean) => {
+    setActivity((prev) => ({ ...prev, has_schedule: checked }));
+  };
+
+  const handleDetailedScheduleChange = (checked: boolean) => {
+    setActivity((prev) => ({ ...prev, has_detailed_schedule: checked }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
     try {
-      setLoading(true);
+      setIsLoading(true);
       
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        toast.error("Usuário não autenticado");
-        return;
-      }
-
-      // Create activity data object
-      const activityData = {
-        project_id: values.projectId,
-        name: values.name,
-        discipline: values.discipline,
-        responsible: values.responsible,
-        team: values.team,
-        unit: values.unit,
-        total_qty: Number(values.totalQty),
-        created_by: session.user.id,
-        start_date: values.startDate,
-        end_date: values.endDate,
-        description: values.description,
-        has_detailed_schedule: values.hasDetailedSchedule
+      const activityData: any = {
+        name: activity.name,
+        discipline: activity.discipline,
+        responsible: activity.responsible,
+        team: activity.team,
+        unit: activity.unit,
+        total_qty: activity.total_qty,
+        start_date: activity.start_date || null,
+        end_date: activity.end_date || null,
+        project_id: activity.project_id || null,
+        description: activity.description,
+        has_detailed_schedule: activity.has_detailed_schedule
       };
-      
-      // Add schedule data if has schedule is enabled
-      if (values.hasSchedule) {
-        Object.assign(activityData, {
-          schedule_start_date: values.scheduleStartDate || null,
-          schedule_end_date: values.scheduleEndDate || null,
-          schedule_predecessor_id: values.schedulePredecessorId === "none" ? null : values.schedulePredecessorId || null,
-          schedule_duration_days: values.scheduleDurationDays ? Number(values.scheduleDurationDays) : null,
-          schedule_percent_complete: values.schedulePercentComplete ? Number(values.schedulePercentComplete) : 0,
-        });
+
+      // Add schedule fields only if has_schedule is true
+      if (activity.has_schedule) {
+        activityData.schedule_start_date = activity.schedule_start_date || null;
+        activityData.schedule_end_date = activity.schedule_end_date || null;
+        activityData.schedule_predecessor_id = activity.schedule_predecessor_id === "none" ? null : activity.schedule_predecessor_id || null;
+        activityData.schedule_duration_days = activity.schedule_duration_days || null;
+        activityData.schedule_percent_complete = activity.schedule_percent_complete || 0;
       }
 
-      // Create the activity with the correct fields, including start and end dates
-      const { data: activity, error: activityError } = await supabase
-        .from('activities')
+      const { data, error } = await supabase
+        .from("activities")
         .insert(activityData)
         .select()
         .single();
 
-      if (activityError) {
-        console.error("Activity creation error:", activityError);
-        throw activityError;
-      }
-
-      if (values.scheduleTaskId && values.scheduleTaskId !== 'none' && activity) {
-        const { error: linkError } = await supabase
-          .from('cronograma_projeto')
-          .update({ atividade_lps_id: activity.id })
-          .eq('id', values.scheduleTaskId);
-
-        if (linkError) {
-          console.error("Link error:", linkError);
-          throw linkError;
-        }
-      }
+      if (error) throw error;
 
       toast.success("Atividade criada com sucesso!");
       navigate("/activities");
     } catch (error) {
-      console.error(error);
+      console.error("Error creating activity:", error);
       toast.error("Erro ao criar atividade");
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold tracking-tight">Nova Atividade</h1>
+    <div className="container mx-auto py-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <Button variant="outline" onClick={() => navigate("/activities")}>
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Voltar para Atividades
+        </Button>
+        <h1 className="text-3xl font-bold">Nova Atividade</h1>
+        <div className="w-40"></div>
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Cadastro de Atividade</CardTitle>
-          <CardDescription>
-            Preencha as informações da nova atividade
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <Tabs defaultValue="basic">
-                <TabsList className="mb-4">
-                  <TabsTrigger value="basic">Informações Básicas</TabsTrigger>
-                  <TabsTrigger value="schedule">Cronograma</TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="basic" className="space-y-6">
-                  <FormField
-                    control={form.control}
-                    name="projectId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Projeto</FormLabel>
-                        <Select 
-                          onValueChange={(value) => {
-                            field.onChange(value);
-                            setSelectedProjectId(value);
-                          }} 
-                          defaultValue={field.value}
-                          disabled={!!projectId}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione um projeto" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {projects.map((project) => (
-                              <SelectItem key={project.id} value={project.id}>
-                                {project.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Nome da Atividade</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Ex: Montagem de Estrutura Metálica" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <FormField
-                      control={form.control}
-                      name="discipline"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Disciplina</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Selecione uma disciplina" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {disciplines.map((discipline) => (
-                                <SelectItem key={discipline} value={discipline}>
-                                  {discipline}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="responsible"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Responsável</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Selecione um responsável" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {responsibleContacts.map((contact) => (
-                                <SelectItem key={contact.id} value={contact.name}>
-                                  {contact.name} {contact.discipline ? `(${contact.discipline})` : ''}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
+        <form onSubmit={handleSubmit}>
+          <CardHeader>
+            <CardTitle>Informações da Atividade</CardTitle>
+            <CardDescription>
+              Preencha todos os campos necessários para criar uma nova atividade
+            </CardDescription>
+          </CardHeader>
+          
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <div className="px-6">
+              <TabsList className="mb-4">
+                <TabsTrigger value="basic">Informações Básicas</TabsTrigger>
+                <TabsTrigger value="schedule">Cronograma</TabsTrigger>
+              </TabsList>
+            </div>
+            
+            <TabsContent value="basic">
+              <CardContent className="space-y-6">
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="name">Nome da Atividade</Label>
+                    <Input
+                      id="name"
+                      name="name"
+                      value={activity.name}
+                      onChange={handleChange}
+                      placeholder="Ex: Concretagem do Bloco A"
+                      required
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <FormField
-                      control={form.control}
-                      name="team"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Equipe</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Ex: Equipe A" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="grid grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="unit"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Unidade</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Un." />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {units.map((unit) => (
-                                  <SelectItem key={unit} value={unit}>
-                                    {unit}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="totalQty"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Quantidade</FormLabel>
-                            <FormControl>
-                              <Input type="number" placeholder="0" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="discipline">Disciplina</Label>
+                      <Input
+                        id="discipline"
+                        name="discipline"
+                        value={activity.discipline}
+                        onChange={handleChange}
+                        placeholder="Ex: Estrutura"
                       />
                     </div>
-                  </div>
-
-                  <FormField
-                    control={form.control}
-                    name="description"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Descrição</FormLabel>
-                        <FormControl>
-                          <Textarea 
-                            placeholder="Descreva os detalhes da atividade..."
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <FormField
-                      control={form.control}
-                      name="startDate"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Data de Início</FormLabel>
-                          <FormControl>
-                            <Input type="date" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="endDate"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Data de Término</FormLabel>
-                          <FormControl>
-                            <Input type="date" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </TabsContent>
-                
-                <TabsContent value="schedule" className="space-y-6">
-                  <FormField
-                    control={form.control}
-                    name="hasSchedule"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center space-x-3 space-y-0">
-                        <FormControl>
-                          <Switch 
-                            checked={field.value} 
-                            onCheckedChange={(checked) => {
-                              field.onChange(checked);
-                            }} 
-                          />
-                        </FormControl>
-                        <FormLabel className="text-base">
-                          Adicionar informações de cronograma
-                        </FormLabel>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  {form.watch("hasSchedule") && (
-                    <div className="space-y-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <FormField
-                          control={form.control}
-                          name="scheduleStartDate"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Data de Início do Cronograma</FormLabel>
-                              <FormControl>
-                                <Input 
-                                  type="date" 
-                                  {...field}
-                                  disabled={form.watch("schedulePredecessorId") && form.watch("schedulePredecessorId") !== "none"} 
-                                />
-                              </FormControl>
-                              {form.watch("schedulePredecessorId") && form.watch("schedulePredecessorId") !== "none" && (
-                                <p className="text-xs text-muted-foreground">
-                                  A data de início será definida pelo término da atividade predecessora
-                                </p>
-                              )}
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name="scheduleEndDate"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Data de Término do Cronograma</FormLabel>
-                              <FormControl>
-                                <Input type="date" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <FormField
-                          control={form.control}
-                          name="scheduleDurationDays"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Duração (dias)</FormLabel>
-                              <FormControl>
-                                <Input type="number" placeholder="0" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name="schedulePercentComplete"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Percentual Concluído (%)</FormLabel>
-                              <FormControl>
-                                <Input 
-                                  type="number" 
-                                  min="0" 
-                                  max="100" 
-                                  placeholder="0" 
-                                  {...field} 
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-
-                      <FormField
-                        control={form.control}
-                        name="schedulePredecessorId"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Predecessor</FormLabel>
-                            <Select 
-                              onValueChange={(value) => {
-                                field.onChange(value);
-                                // Se selecionar um predecessor, desativar o campo de data de início
-                                if (value !== "none") {
-                                  form.setValue("scheduleStartDate", "");
-                                }
-                              }}
-                              value={field.value || "none"}
-                            >
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Selecione uma atividade predecessora" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="none">Nenhum predecessor</SelectItem>
-                                {activities.map((activity) => (
-                                  <SelectItem key={activity.id} value={activity.id}>
-                                    {activity.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                            <p className="text-xs text-muted-foreground">
-                              Selecione a atividade que precisa ser concluída antes desta.
-                            </p>
-                            {field.value && field.value !== "none" && (
-                              <p className="text-xs text-amber-500 mt-1">
-                                Ao definir um predecessor, a data de início será automaticamente ajustada.
-                              </p>
-                            )}
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="hasDetailedSchedule"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-center space-x-3 space-y-0">
-                            <FormControl>
-                              <Switch 
-                                checked={field.value} 
-                                onCheckedChange={field.onChange} 
-                              />
-                            </FormControl>
-                            <FormLabel className="text-base">
-                              Habilitar cronograma detalhado (subatividades)
-                            </FormLabel>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      {form.watch("hasDetailedSchedule") && (
-                        <div className="bg-muted/30 p-4 rounded-md">
-                          <p className="text-sm text-muted-foreground">
-                            Após criar a atividade, você poderá adicionar e gerenciar subatividades no cronograma detalhado.
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </TabsContent>
-              </Tabs>
-
-              {selectedProjectId && (
-                <FormField
-                  control={form.control}
-                  name="scheduleTaskId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Vincular à Tarefa do Cronograma</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value || "none"}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione uma tarefa do cronograma" />
-                          </SelectTrigger>
-                        </FormControl>
+                    <div>
+                      <Label htmlFor="project">Projeto</Label>
+                      <Select
+                        value={activity.project_id}
+                        onValueChange={(value) => handleSelectChange("project_id", value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione um projeto" />
+                        </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="none">Nenhuma tarefa</SelectItem>
-                          {scheduleTasks.map((task) => (
-                            <SelectItem key={task.id} value={task.id}>
-                              {task.nome}
+                          {projects.map((project) => (
+                            <SelectItem key={project.id} value={project.id}>
+                              {project.name}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              )}
+                    </div>
+                  </div>
 
-              <div className="flex justify-end space-x-4">
-                <Button 
-                  variant="outline" 
-                  type="button" 
-                  onClick={() => navigate("/activities")}
-                  disabled={loading}
-                >
-                  Cancelar
-                </Button>
-                <Button type="submit" disabled={loading}>
-                  {loading ? "Criando..." : "Criar Atividade"}
-                </Button>
-              </div>
-            </form>
-          </Form>
-        </CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="responsible">Responsável</Label>
+                      <Select
+                        value={activity.responsible}
+                        onValueChange={(value) => handleSelectChange("responsible", value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione um responsável" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {responsibleContacts.map((contact) => (
+                            <SelectItem key={contact.id} value={contact.name}>
+                              {contact.name} {contact.discipline ? `(${contact.discipline})` : ''}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="team">Equipe</Label>
+                      <Input
+                        id="team"
+                        name="team"
+                        value={activity.team}
+                        onChange={handleChange}
+                        placeholder="Ex: Equipe A"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div>
+                      <Label htmlFor="total_qty">Quantidade Total</Label>
+                      <Input
+                        id="total_qty"
+                        name="total_qty"
+                        type="number"
+                        value={activity.total_qty}
+                        onChange={handleNumberChange}
+                        placeholder="Ex: 100"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="unit">Unidade</Label>
+                      <Input
+                        id="unit"
+                        name="unit"
+                        value={activity.unit}
+                        onChange={handleChange}
+                        placeholder="Ex: m²"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="start_date">Data de Início</Label>
+                      <Input
+                        id="start_date"
+                        name="start_date"
+                        type="date"
+                        value={activity.start_date}
+                        onChange={handleChange}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="end_date">Data de Término</Label>
+                      <Input
+                        id="end_date"
+                        name="end_date"
+                        type="date"
+                        value={activity.end_date}
+                        onChange={handleChange}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="description">Descrição</Label>
+                    <Textarea
+                      id="description"
+                      name="description"
+                      value={activity.description}
+                      onChange={handleChange}
+                      placeholder="Descreva os detalhes da atividade..."
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </TabsContent>
+            
+            <TabsContent value="schedule">
+              <CardContent className="space-y-6">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      id="has-schedule"
+                      checked={activity.has_schedule}
+                      onCheckedChange={handleHasScheduleChange}
+                    />
+                    <Label htmlFor="has-schedule">
+                      Habilitar cronograma para esta atividade
+                    </Label>
+                  </div>
+                  
+                  {activity.has_schedule && (
+                    <div className="space-y-4 pl-6 border-l-2 border-muted mt-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="schedule_start_date">Data de Início Planejada</Label>
+                          <Input
+                            id="schedule_start_date"
+                            name="schedule_start_date"
+                            type="date"
+                            value={activity.schedule_start_date}
+                            onChange={handleChange}
+                            disabled={activity.schedule_predecessor_id && activity.schedule_predecessor_id !== "none"}
+                          />
+                          {activity.schedule_predecessor_id && activity.schedule_predecessor_id !== "none" && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              A data de início é determinada pelo predecessor
+                            </p>
+                          )}
+                        </div>
+                        <div>
+                          <Label htmlFor="schedule_end_date">Data de Término Planejada</Label>
+                          <Input
+                            id="schedule_end_date"
+                            name="schedule_end_date"
+                            type="date"
+                            value={activity.schedule_end_date}
+                            onChange={handleChange}
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="schedule_predecessor_id">Atividade Predecessora</Label>
+                          <Select
+                            value={activity.schedule_predecessor_id || "none"}
+                            onValueChange={(value) => handleSelectChange("schedule_predecessor_id", value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione uma atividade predecessora" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">Nenhum predecessor</SelectItem>
+                              {activities.map((act) => (
+                                <SelectItem key={act.id} value={act.id}>
+                                  {act.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label htmlFor="schedule_duration_days">Duração (dias)</Label>
+                          <Input
+                            id="schedule_duration_days"
+                            name="schedule_duration_days"
+                            type="number"
+                            min="1"
+                            value={activity.schedule_duration_days}
+                            onChange={handleNumberChange}
+                          />
+                        </div>
+                      </div>
+                  
+                      <div>
+                        <div className="flex items-center gap-2 mt-4">
+                          <Switch
+                            id="has-detailed-schedule"
+                            checked={activity.has_detailed_schedule}
+                            onCheckedChange={handleDetailedScheduleChange}
+                          />
+                          <Label htmlFor="has-detailed-schedule">
+                            Habilitar cronograma detalhado (subatividades)
+                          </Label>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1 pl-7">
+                          Após criar a atividade, você poderá adicionar subatividades ao cronograma
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {!activity.has_schedule && (
+                    <div className="bg-muted/30 p-6 rounded-md text-center text-muted-foreground">
+                      <p>Ative o cronograma para configurar informações de planejamento.</p>
+                      <p className="text-xs mt-2">Isso permitirá definir datas, predecessores e controlar o progresso da atividade.</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </TabsContent>
+          </Tabs>
+          
+          <CardFooter className="flex justify-between">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => navigate("/activities")}
+            >
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? "Criando..." : "Criar Atividade"}
+            </Button>
+          </CardFooter>
+        </form>
       </Card>
     </div>
   );
