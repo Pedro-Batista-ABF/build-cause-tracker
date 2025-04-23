@@ -3,7 +3,13 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft } from "lucide-react";
@@ -31,11 +37,13 @@ export default function EditActivity() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
+  const [responsibleContacts, setResponsibleContacts] = useState<Array<{ id: string; name: string; email: string; discipline: string | null }>>([]);
 
   useEffect(() => {
     if (id) {
       fetchActivity();
       fetchProjects();
+      fetchResponsibleContacts();
     }
   }, [id]);
 
@@ -90,6 +98,21 @@ export default function EditActivity() {
     } catch (error) {
       console.error("Error fetching projects:", error);
       toast.error("Erro ao carregar projetos");
+    }
+  }
+
+  async function fetchResponsibleContacts() {
+    try {
+      const { data, error } = await supabase
+        .from('responsible_contacts')
+        .select('*')
+        .order('name');
+
+      if (error) throw error;
+      setResponsibleContacts(data || []);
+    } catch (error) {
+      console.error("Error fetching responsible contacts:", error);
+      toast.error("Erro ao carregar lista de responsáveis");
     }
   }
 
@@ -223,13 +246,21 @@ export default function EditActivity() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="responsible">Responsável</Label>
-                  <Input
-                    id="responsible"
-                    name="responsible"
+                  <Select
                     value={activity.responsible}
-                    onChange={handleChange}
-                    placeholder="Ex: João Silva"
-                  />
+                    onValueChange={(value) => handleSelectChange("responsible", value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione um responsável" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {responsibleContacts.map((contact) => (
+                        <SelectItem key={contact.id} value={contact.name}>
+                          {contact.name} {contact.discipline ? `(${contact.discipline})` : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
                   <Label htmlFor="team">Equipe</Label>
