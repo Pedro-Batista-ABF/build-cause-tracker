@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -167,6 +166,9 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
         durationDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
       }
       
+      // Ajuste para garantir que predecessor_item_id seja null quando "none" é selecionado
+      const predecessorId = formData.predecessor_item_id === "none" ? null : formData.predecessor_item_id;
+      
       const { error } = await supabase
         .from('activity_schedule_items')
         .update({
@@ -174,7 +176,7 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
           start_date: formData.start_date || null,
           end_date: formData.end_date || null,
           duration_days: durationDays,
-          predecessor_item_id: formData.predecessor_item_id || null,
+          predecessor_item_id: predecessorId,
           percent_complete: formData.percent_complete
         })
         .eq('id', currentItem.id);
@@ -495,9 +497,9 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
                   type="date"
                   value={formData.start_date}
                   onChange={handleInputChange}
-                  disabled={!!formData.predecessor_item_id}
+                  disabled={!!formData.predecessor_item_id && formData.predecessor_item_id !== "none"}
                 />
-                {!!formData.predecessor_item_id && (
+                {formData.predecessor_item_id && formData.predecessor_item_id !== "none" && (
                   <p className="text-xs text-muted-foreground mt-1">
                     A data de início é controlada pelo predecessor
                   </p>
@@ -517,14 +519,13 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
             <div className="space-y-2">
               <Label htmlFor="predecessor">Atividade Predecessora</Label>
               <Select
-                value={formData.predecessor_item_id}
+                value={formData.predecessor_item_id || "none"}
                 onValueChange={(value) => setFormData({...formData, predecessor_item_id: value})}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione o predecessor" />
                 </SelectTrigger>
                 <SelectContent>
-                  {/* Fix: Make sure we don't pass an empty string as value */}
                   <SelectItem value="none">Nenhum predecessor</SelectItem>
                   {items
                     .filter(i => i.id !== currentItem?.id) // Evitar selecionar a si mesmo
@@ -540,7 +541,7 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
                   }
                 </SelectContent>
               </Select>
-              {formData.predecessor_item_id && (
+              {formData.predecessor_item_id && formData.predecessor_item_id !== "none" && (
                 <p className="text-xs text-amber-500 mt-1">
                   Ao definir um predecessor, a data de início será automaticamente ajustada.
                 </p>

@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -76,6 +76,9 @@ export function EditScheduleItemDialog({
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Editar {item.nome}</DialogTitle>
+          <DialogDescription>
+            Atualizar informações da subatividade no cronograma
+          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -86,7 +89,13 @@ export function EditScheduleItemDialog({
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
+              disabled={predecessorId !== 'none'}
             />
+            {predecessorId !== 'none' && (
+              <p className="text-xs text-muted-foreground">
+                A data de início é controlada pelo término da atividade predecessora
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">
