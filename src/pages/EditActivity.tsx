@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,6 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
+import { ActivityScheduleItems } from "@/components/activities/ActivityScheduleItems";
 
 export default function EditActivity() {
   const { id } = useParams<{ id: string }>();
@@ -419,88 +419,19 @@ export default function EditActivity() {
                 <div className="space-y-4">
                   <div className="flex items-center gap-2">
                     <Switch
-                      id="has-schedule"
-                      checked={activity.has_schedule}
-                      onCheckedChange={handleHasScheduleChange}
+                      id="has-detailed-schedule"
+                      checked={activity.has_detailed_schedule}
+                      onCheckedChange={(checked) => 
+                        setActivity(prev => ({ ...prev, has_detailed_schedule: checked }))
+                      }
                     />
-                    <Label htmlFor="has-schedule">Adicionar informações de cronograma</Label>
+                    <Label htmlFor="has-detailed-schedule">
+                      Habilitar cronograma detalhado
+                    </Label>
                   </div>
                   
-                  {activity.has_schedule && (
-                    <div className="space-y-4 pt-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="schedule_start_date">Data de Início do Cronograma</Label>
-                          <Input
-                            id="schedule_start_date"
-                            name="schedule_start_date"
-                            type="date"
-                            value={activity.schedule_start_date}
-                            onChange={handleChange}
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="schedule_end_date">Data de Término do Cronograma</Label>
-                          <Input
-                            id="schedule_end_date"
-                            name="schedule_end_date"
-                            type="date"
-                            value={activity.schedule_end_date}
-                            onChange={handleChange}
-                          />
-                        </div>
-                      </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="schedule_duration_days">Duração (dias)</Label>
-                          <Input
-                            id="schedule_duration_days"
-                            name="schedule_duration_days"
-                            type="number"
-                            value={activity.schedule_duration_days}
-                            onChange={handleNumberChange}
-                            placeholder="Ex: 30"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="schedule_percent_complete">Percentual Concluído (%)</Label>
-                          <Input
-                            id="schedule_percent_complete"
-                            name="schedule_percent_complete"
-                            type="number"
-                            value={activity.schedule_percent_complete}
-                            onChange={handleNumberChange}
-                            min="0"
-                            max="100"
-                            placeholder="Ex: 50"
-                          />
-                        </div>
-                      </div>
-                      
-                      <div>
-                        <Label htmlFor="schedule_predecessor_id">Predecessor</Label>
-                        <Select
-                          value={activity.schedule_predecessor_id || "none"}
-                          onValueChange={(value) => handleSelectChange("schedule_predecessor_id", value)}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione uma atividade predecessora" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">Nenhum predecessor</SelectItem>
-                            {activities.map((act) => (
-                              <SelectItem key={act.id} value={act.id}>
-                                {act.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          Selecione a atividade que precisa ser concluída antes desta.
-                        </p>
-                      </div>
-                    </div>
+                  {activity.has_detailed_schedule && id && (
+                    <ActivityScheduleItems activityId={id} />
                   )}
                 </div>
               </CardContent>

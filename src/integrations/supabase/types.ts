@@ -16,6 +16,7 @@ export type Database = {
           description: string | null
           discipline: string | null
           end_date: string | null
+          has_detailed_schedule: boolean | null
           id: string
           manager: string | null
           name: string
@@ -38,6 +39,7 @@ export type Database = {
           description?: string | null
           discipline?: string | null
           end_date?: string | null
+          has_detailed_schedule?: boolean | null
           id?: string
           manager?: string | null
           name: string
@@ -60,6 +62,7 @@ export type Database = {
           description?: string | null
           discipline?: string | null
           end_date?: string | null
+          has_detailed_schedule?: boolean | null
           id?: string
           manager?: string | null
           name?: string
@@ -96,6 +99,63 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      activity_schedule_items: {
+        Row: {
+          activity_id: string
+          created_at: string
+          duration_days: number | null
+          end_date: string | null
+          id: string
+          name: string
+          order_index: number
+          percent_complete: number | null
+          predecessor_item_id: string | null
+          start_date: string | null
+          updated_at: string
+        }
+        Insert: {
+          activity_id: string
+          created_at?: string
+          duration_days?: number | null
+          end_date?: string | null
+          id?: string
+          name: string
+          order_index?: number
+          percent_complete?: number | null
+          predecessor_item_id?: string | null
+          start_date?: string | null
+          updated_at?: string
+        }
+        Update: {
+          activity_id?: string
+          created_at?: string
+          duration_days?: number | null
+          end_date?: string | null
+          id?: string
+          name?: string
+          order_index?: number
+          percent_complete?: number | null
+          predecessor_item_id?: string | null
+          start_date?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_schedule_items_activity_id_fkey"
+            columns: ["activity_id"]
+            isOneToOne: false
+            referencedRelation: "activities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_schedule_items_predecessor_item_id_fkey"
+            columns: ["predecessor_item_id"]
+            isOneToOne: false
+            referencedRelation: "activity_schedule_items"
             referencedColumns: ["id"]
           },
         ]
