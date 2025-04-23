@@ -36,6 +36,7 @@ export function EditScheduleItemDialog({
   const [progress, setProgress] = useState(item.percentual_real?.toString() || '0');
   const [predecessorId, setPredecessorId] = useState(item.predecessor_id || 'none');
   const [loading, setLoading] = useState(false);
+  const [errorDetails, setErrorDetails] = useState<string | null>(null);
 
   // Filter out the current task and its successors to avoid circular dependencies
   const availablePredecessors = tasks.filter(task => 
@@ -46,8 +47,13 @@ export function EditScheduleItemDialog({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
+    setErrorDetails(null);
 
     try {
+      // Log authentication status
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log("Auth session:", session ? "Active" : "Not active");
+
       // Prepare the update data with proper handling of null values
       const updateData = {
         data_inicio: startDate || null,
@@ -55,21 +61,30 @@ export function EditScheduleItemDialog({
         percentual_real: progress ? parseFloat(progress) : 0,
         predecessor_id: predecessorId === 'none' ? null : predecessorId,
       };
+      
+      console.log("Updating item with data:", updateData);
+      console.log("Item ID:", item.id);
 
       // Perform the update
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('cronograma_projeto')
         .update(updateData)
-        .eq('id', item.id);
+        .eq('id', item.id)
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error details:', error);
+        setErrorDetails(`${error.code}: ${error.message}`);
+        throw error;
+      }
 
+      console.log("Update successful, response:", data);
       toast.success('Item atualizado com sucesso');
       onSave();
       onOpenChange(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating schedule item:', error);
-      toast.error('Erro ao atualizar item');
+      toast.error(`Erro ao atualizar item: ${errorDetails || error.message || 'Erro desconhecido'}`);
     } finally {
       setLoading(false);
     }
@@ -86,6 +101,13 @@ export function EditScheduleItemDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {errorDetails && (
+            <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm">
+              <p className="font-medium">Erro detalhado:</p>
+              <p className="mt-1">{errorDetails}</p>
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label htmlFor="startDate">Data de Início</Label>
             <Input

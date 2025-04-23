@@ -21,6 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ActivityScheduleItem } from "@/types/schedule";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 
 interface ActivityScheduleItemsProps {
   activityId: string;
@@ -29,6 +30,7 @@ interface ActivityScheduleItemsProps {
 export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps) {
   const [items, setItems] = useState<ActivityScheduleItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [addingItem, setAddingItem] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [currentItem, setCurrentItem] = useState<ActivityScheduleItem | null>(null);
@@ -39,6 +41,7 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
     percent_complete: 0,
     predecessor_item_id: "none"
   });
+  const [error, setError] = useState<string | null>(null);
   
   const queryClient = useQueryClient();
 
@@ -58,22 +61,34 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
   async function fetchScheduleItems() {
     try {
       setLoading(true);
+      setError(null);
+
+      // Verificar status da autenticação
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log("Auth session when fetching items:", session ? "Active" : "Not active");
+
       const { data, error } = await supabase
         .from('activity_schedule_items')
         .select('*')
         .eq('activity_id', activityId)
         .order('order_index');
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching items:", error);
+        setError(`Erro ao carregar itens: ${error.message}`);
+        throw error;
+      }
+
+      console.log("Fetched items:", data);
       setItems(data || []);
       
       // Após carregar os itens, atualizar o progresso da atividade principal
       if (data && data.length > 0) {
         updateActivityProgress(data);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching schedule items:', error);
-      toast.error('Erro ao carregar itens do cronograma');
+      toast.error(`Erro ao carregar itens do cronograma: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -96,17 +111,35 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
         })
         .eq('id', activityId);
         
-      if (error) throw error;
+      if (error) {
+        console.error("Error updating activity progress:", error);
+        throw error;
+      }
       
       // Invalida cache de queries para atualizar a UI
       queryClient.invalidateQueries({ queryKey: ['activities'] });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating activity progress:', error);
+      toast.error(`Erro ao atualizar progresso da atividade: ${error.message}`);
     }
   }
 
   async function addNewItem() {
     try {
+      setAddingItem(true);
+      setError(null);
+
+      // Verificar status da autenticação
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log("Auth session when adding item:", session ? "Active" : "Not active");
+      
+      if (!session) {
+        const errorMsg = "Usuário não está autenticado. Faça login novamente.";
+        setError(errorMsg);
+        toast.error(errorMsg);
+        return;
+      }
+
       // Criar um novo item com valores padrão seguros
       const newItem = {
         activity_id: activityId,
@@ -118,19 +151,28 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
         predecessor_item_id: null
       };
 
+      console.log("Adding new item:", newItem);
+
       const { data, error } = await supabase
         .from('activity_schedule_items')
         .insert(newItem)
         .select('*')
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error details:", error);
+        setError(`Erro ao adicionar item: (${error.code}) ${error.message}`);
+        throw error;
+      }
 
+      console.log("Item added successfully:", data);
       toast.success('Item adicionado com sucesso');
       await fetchScheduleItems(); // Recarregar todos os itens
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error adding schedule item:', error);
-      toast.error('Erro ao adicionar item');
+      toast.error(`Erro ao adicionar item: ${error.message}`);
+    } finally {
+      setAddingItem(false);
     }
   }
   
@@ -176,6 +218,8 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
     if (!currentItem) return;
     
     try {
+      setError(null);
+      
       // Calcular duração em dias se as datas estiverem definidas
       let durationDays = null;
       if (formData.start_date && formData.end_date) {
@@ -197,23 +241,27 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
       };
       
       console.log('Updating item with data:', updateData);
+      console.log('Item ID:', currentItem.id);
       
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('activity_schedule_items')
         .update(updateData)
-        .eq('id', currentItem.id);
+        .eq('id', currentItem.id)
+        .select();
         
       if (error) {
         console.error('Error in update operation:', error);
+        setError(`Erro ao atualizar item: (${error.code}) ${error.message}`);
         throw error;
       }
-      
+
+      console.log("Update successful:", data);
       toast.success('Item atualizado com sucesso');
       setEditDialogOpen(false);
       await fetchScheduleItems();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating schedule item:', error);
-      toast.error('Erro ao atualizar item');
+      toast.error(`Erro ao atualizar item: ${error.message}`);
     }
   }
   
@@ -221,12 +269,20 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
     if (!currentItem) return;
     
     try {
+      setError(null);
+      
       // Primeiro precisamos verificar se há algum item que depende deste
-      const { data: dependentItems } = await supabase
+      const { data: dependentItems, error: checkError } = await supabase
         .from('activity_schedule_items')
         .select('id, name')
         .eq('predecessor_item_id', currentItem.id);
         
+      if (checkError) {
+        console.error('Error checking dependent items:', checkError);
+        setError(`Erro ao verificar dependências: ${checkError.message}`);
+        throw checkError;
+      }
+      
       if (dependentItems && dependentItems.length > 0) {
         // Existem itens dependentes, remova as dependências primeiro
         const dependentNames = dependentItems.map(item => item.name).join(', ');
@@ -241,14 +297,18 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
         .delete()
         .eq('id', currentItem.id);
         
-      if (error) throw error;
+      if (error) {
+        console.error('Error deleting item:', error);
+        setError(`Erro ao excluir item: ${error.message}`);
+        throw error;
+      }
       
       toast.success('Item excluído com sucesso');
       setDeleteDialogOpen(false);
       await fetchScheduleItems();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting schedule item:', error);
-      toast.error('Erro ao excluir item');
+      toast.error(`Erro ao excluir item: ${error.message}`);
     }
   }
   
@@ -321,7 +381,7 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
       // Atualizar itens que precisam ser atualizados
       if (hasUpdates) {
         for (const update of updates) {
-          await supabase
+          const { error } = await supabase
             .from('activity_schedule_items')
             .update({
               start_date: update.start_date,
@@ -329,15 +389,19 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
               duration_days: update.duration_days
             })
             .eq('id', update.id);
+            
+          if (error) {
+            console.error(`Error updating dependent item ${update.id}:`, error);
+          }
         }
         
         // Recarregar itens para refletir alterações
         toast.success('Datas das subatividades dependentes foram atualizadas');
         fetchScheduleItems();
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating dependent dates:', error);
-      toast.error('Erro ao atualizar datas dependentes');
+      toast.error(`Erro ao atualizar datas dependentes: ${error.message}`);
     }
   }
   
@@ -406,11 +470,24 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
 
   return (
     <div className="space-y-4">
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircleIcon className="h-4 w-4" />
+          <AlertTitle>Erro</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-medium">Itens do Cronograma</h3>
-        <Button onClick={addNewItem} size="sm" className="flex items-center">
+        <Button 
+          onClick={addNewItem} 
+          size="sm" 
+          className="flex items-center"
+          disabled={addingItem}
+        >
           <PlusIcon className="h-4 w-4 mr-2" />
-          Adicionar Subatividade
+          {addingItem ? 'Adicionando...' : 'Adicionar Subatividade'}
         </Button>
       </div>
 
@@ -507,6 +584,13 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            {error && (
+              <Alert variant="destructive">
+                <AlertCircleIcon className="h-4 w-4" />
+                <AlertTitle>Erro</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
             <div className="space-y-2">
               <Label htmlFor="name">Nome</Label>
               <Input
