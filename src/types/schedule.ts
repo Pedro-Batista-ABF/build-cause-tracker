@@ -1,4 +1,3 @@
-
 export interface ScheduleTask {
   id: string;
   projeto_id: string;
@@ -23,6 +22,15 @@ export interface Activity {
   id: string;
   name: string;
   discipline: string | null;
+  schedule?: ActivitySchedule | null;
+}
+
+export interface ActivitySchedule {
+  start_date: string | null;
+  end_date: string | null;
+  predecessor_id: string | null;
+  duration_days: number | null;
+  percent_complete: number | null;
 }
 
 export interface LinkedActivity {

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -25,6 +26,9 @@ function calculateBusinessDays(startDate?: string | null, endDate?: string | nul
     const day = curr.getDay();
     if (day !== 0 && day !== 6) count++; // 0=Dom, 6=Sáb
     curr.setDate(curr.getDate() + 1);
+    
+    // Safety check to prevent infinite loops
+    if (count > 1000) break;
   }
   return count > 0 ? count : 1;
 }
@@ -47,12 +51,22 @@ interface ActivityDetailsProps {
 }
 
 export function ActivityDetails({ activityId }: ActivityDetailsProps) {
-  const { data: progressData = [], isLoading } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ['activity-details', activityId],
     queryFn: async () => {
       const { data: activityData, error: activityError } = await supabase
         .from("activities")
-        .select("total_qty, start_date, end_date, description")
+        .select(`
+          total_qty, 
+          start_date, 
+          end_date, 
+          description,
+          schedule_start_date,
+          schedule_end_date,
+          schedule_duration_days,
+          schedule_predecessor_id,
+          schedule_percent_complete
+        `)
         .eq("id", activityId)
         .single();
 
@@ -61,7 +75,7 @@ export function ActivityDetails({ activityId }: ActivityDetailsProps) {
         throw activityError;
       }
 
-      const { data, error } = await supabase
+      const { data: progressData, error: progressError } = await supabase
         .from('daily_progress')
         .select(`
           id,
@@ -81,16 +95,32 @@ export function ActivityDetails({ activityId }: ActivityDetailsProps) {
         .eq('activity_id', activityId)
         .order('date', { ascending: false });
 
-      if (error) {
-        console.error("Error fetching activity details:", error);
-        throw error;
+      if (progressError) {
+        console.error("Error fetching activity progress:", progressError);
+        throw progressError;
       }
 
-      // Attach activity data to each progress entry for daily goal calculation
-      return (data || []).map(item => ({
-        ...item,
-        activity: activityData
-      }));
+      let predecessorName = null;
+      if (activityData?.schedule_predecessor_id) {
+        const { data: predecessorData } = await supabase
+          .from("activities")
+          .select("name")
+          .eq("id", activityData.schedule_predecessor_id)
+          .single();
+          
+        if (predecessorData) {
+          predecessorName = predecessorData.name;
+        }
+      }
+
+      // Return both activity data and progress data
+      return {
+        activity: {
+          ...activityData,
+          predecessorName
+        },
+        progress: progressData || []
+      };
     }
   });
 
@@ -102,6 +132,14 @@ export function ActivityDetails({ activityId }: ActivityDetailsProps) {
     );
   }
 
+  const hasSchedule = !!(
+    data?.activity?.schedule_start_date || 
+    data?.activity?.schedule_end_date || 
+    data?.activity?.schedule_duration_days || 
+    data?.activity?.schedule_predecessor_id ||
+    data?.activity?.schedule_percent_complete
+  );
+
   return (
     <Card className="mb-6">
       <CardContent className="p-4">
@@ -109,7 +147,11 @@ export function ActivityDetails({ activityId }: ActivityDetailsProps) {
           <TabsList className="mb-4">
             <TabsTrigger value="progress">Apontamentos</TabsTrigger>
             <TabsTrigger value="causes">Causas</TabsTrigger>
+            {hasSchedule && (
+              <TabsTrigger value="schedule">Cronograma</TabsTrigger>
+            )}
           </TabsList>
+          
           <TabsContent value="progress">
             <div className="rounded-md border">
               <Table>
@@ -122,13 +164,13 @@ export function ActivityDetails({ activityId }: ActivityDetailsProps) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {progressData.length > 0 ? (
-                    progressData.map((item) => {
+                  {data?.progress.length ? (
+                    data.progress.map((item) => {
                       // Calculate daily goal based on activity data
                       const dailyGoal = calculateDailyGoal(
-                        item.activity?.start_date, 
-                        item.activity?.end_date, 
-                        item.activity?.total_qty
+                        data.activity?.start_date, 
+                        data.activity?.end_date, 
+                        data.activity?.total_qty
                       );
                       
                       const plannedQty = dailyGoal.qty;
@@ -166,6 +208,7 @@ export function ActivityDetails({ activityId }: ActivityDetailsProps) {
               </Table>
             </div>
           </TabsContent>
+          
           <TabsContent value="causes">
             <div className="rounded-md border">
               <Table>
@@ -178,8 +221,8 @@ export function ActivityDetails({ activityId }: ActivityDetailsProps) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {progressData.some(item => item.progress_causes && item.progress_causes.length > 0) ? (
-                    progressData
+                  {data?.progress.some(item => item.progress_causes && item.progress_causes.length > 0) ? (
+                    data.progress
                       .filter(item => item.progress_causes && item.progress_causes.length > 0)
                       .map((item) => (
                         item.progress_causes.map(cause => (
@@ -202,11 +245,51 @@ export function ActivityDetails({ activityId }: ActivityDetailsProps) {
               </Table>
             </div>
           </TabsContent>
+          
+          {hasSchedule && (
+            <TabsContent value="schedule">
+              <div className="space-y-4">
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Informação</TableHead>
+                        <TableHead>Valor</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      <TableRow>
+                        <TableCell className="font-medium">Data de Início</TableCell>
+                        <TableCell>{data?.activity?.schedule_start_date ? formatLocalDate(data.activity.schedule_start_date) : 'Não definido'}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell className="font-medium">Data de Término</TableCell>
+                        <TableCell>{data?.activity?.schedule_end_date ? formatLocalDate(data.activity.schedule_end_date) : 'Não definido'}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell className="font-medium">Duração (dias)</TableCell>
+                        <TableCell>{data?.activity?.schedule_duration_days || 'Não definido'}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell className="font-medium">Predecessor</TableCell>
+                        <TableCell>{data?.activity?.predecessorName || 'Nenhum'}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell className="font-medium">Percentual Concluído</TableCell>
+                        <TableCell>{data?.activity?.schedule_percent_complete ? `${data.activity.schedule_percent_complete}%` : '0%'}</TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            </TabsContent>
+          )}
         </Tabs>
-        {progressData?.activity?.description && (
-          <div>
+        
+        {data?.activity?.description && (
+          <div className="mt-4">
             <h4 className="text-sm font-medium text-muted-foreground mb-2">Descrição</h4>
-            <p className="text-sm bg-muted p-3 rounded-md">{progressData.activity.description}</p>
+            <p className="text-sm bg-muted p-3 rounded-md">{data.activity.description}</p>
           </div>
         )}
       </CardContent>

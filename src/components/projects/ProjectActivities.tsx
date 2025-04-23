@@ -29,6 +29,7 @@ interface Activity {
   start_date?: string | null;
   end_date?: string | null;
   saldoAExecutar?: number; 
+  schedule_percent_complete?: number | null;
 }
 
 interface ProjectActivitiesProps {
@@ -49,9 +50,9 @@ export function ProjectActivities({ projectId }: ProjectActivitiesProps) {
     try {
       const { data: activitiesData, error } = await supabase
         .from("activities")
-        .select("*, daily_progress(actual_qty, planned_qty, date), start_date, end_date")
+        .select("*, daily_progress(actual_qty, planned_qty, date), start_date, end_date, schedule_percent_complete")
         .eq("project_id", projectId)
-        .order('start_date', { ascending: true, nullsLast: true });
+        .order('start_date', { ascending: true, nullsFirst: false });
 
       if (error) throw error;
 
@@ -60,12 +61,17 @@ export function ProjectActivities({ projectId }: ProjectActivitiesProps) {
         const totalActual = progressData.reduce((sum: number, p: any) => sum + (p.actual_qty || 0), 0);
         const totalPlanned = progressData.reduce((sum: number, p: any) => sum + (p.planned_qty || 0), 0);
         
-        // Calcular o progresso com base na quantidade total
-        const progress = activity.total_qty && Number(activity.total_qty) > 0 
-          ? Math.round((totalActual / Number(activity.total_qty)) * 100) 
-          : 0;
+        // Use schedule_percent_complete if available, otherwise calculate based on quantity
+        let progress;
+        if (activity.schedule_percent_complete !== null && activity.schedule_percent_complete !== undefined) {
+          progress = activity.schedule_percent_complete;
+        } else {
+          progress = activity.total_qty && Number(activity.total_qty) > 0 
+            ? Math.round((totalActual / Number(activity.total_qty)) * 100) 
+            : 0;
+        }
         
-        // Usar a função utilitária para calcular o PPC
+        // Use the function utilitária para calcular o PPC
         const ppc = calculatePPC(totalActual, totalPlanned);
         
         // Cálculo de aderência (% de dias em que a meta foi cumprida)

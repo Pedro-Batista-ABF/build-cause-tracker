@@ -36,6 +36,7 @@ interface Activity {
   start_date?: string | null;
   end_date?: string | null;
   project_id?: string | null;
+  schedule_percent_complete?: number | null;
 }
 
 interface Project {
@@ -76,8 +77,8 @@ export default function Activities() {
     try {
       const { data, error } = await supabase
         .from("activities")
-        .select("*, daily_progress(actual_qty, planned_qty, date), project_id, start_date, end_date")
-        .order('start_date', { ascending: true, nullsLast: true });
+        .select("*, daily_progress(actual_qty, planned_qty, date), project_id, start_date, end_date, schedule_percent_complete")
+        .order('start_date', { ascending: true, nullsFirst: false });
 
       if (error) {
         console.error("Error fetching activities:", error);
@@ -116,10 +117,15 @@ export default function Activities() {
       0
     );
     
-    // CRITICAL: Use exact same calculation as the edge function and ProjectActivities
-    const progress = activity.total_qty && Number(activity.total_qty) > 0
-      ? Math.round((totalActual / Number(activity.total_qty)) * 100)
-      : 0;
+    // Use schedule_percent_complete if available, otherwise calculate based on quantity
+    let progress;
+    if (activity.schedule_percent_complete !== null && activity.schedule_percent_complete !== undefined) {
+      progress = activity.schedule_percent_complete;
+    } else {
+      progress = activity.total_qty && Number(activity.total_qty) > 0
+        ? Math.round((totalActual / Number(activity.total_qty)) * 100)
+        : 0;
+    }
       
     // Use the utility function for PPC calculation
     const ppc = calculatePPC(totalActual, totalPlanned);

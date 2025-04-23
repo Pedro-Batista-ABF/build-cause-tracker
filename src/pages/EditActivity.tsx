@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,6 +17,9 @@ import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 
 export default function EditActivity() {
   const { id } = useParams<{ id: string }>();
@@ -32,12 +36,20 @@ export default function EditActivity() {
     end_date: "",
     project_id: "",
     description: "",
+    // Schedule-related fields
+    has_schedule: false,
+    schedule_start_date: "",
+    schedule_end_date: "",
+    schedule_predecessor_id: "",
+    schedule_duration_days: 0,
+    schedule_percent_complete: 0,
   });
   
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [responsibleContacts, setResponsibleContacts] = useState<Array<{ id: string; name: string; email: string; discipline: string | null }>>([]);
+  const [activities, setActivities] = useState<Array<{ id: string; name: string }>>([]);
 
   useEffect(() => {
     if (id) {
@@ -46,6 +58,12 @@ export default function EditActivity() {
       fetchResponsibleContacts();
     }
   }, [id]);
+
+  useEffect(() => {
+    if (activity.project_id) {
+      fetchProjectActivities(activity.project_id);
+    }
+  }, [activity.project_id]);
 
   async function fetchActivity() {
     try {
@@ -61,6 +79,10 @@ export default function EditActivity() {
       }
 
       if (data) {
+        // Check if there's schedule data
+        const hasScheduleData = !!(data.schedule_start_date || data.schedule_end_date || 
+                                 data.schedule_predecessor_id || data.schedule_duration_days !== null);
+
         setActivity({
           name: data.name || "",
           discipline: data.discipline || "",
@@ -72,6 +94,12 @@ export default function EditActivity() {
           end_date: data.end_date || "",
           project_id: data.project_id || "",
           description: data.description || "",
+          has_schedule: hasScheduleData,
+          schedule_start_date: data.schedule_start_date || "",
+          schedule_end_date: data.schedule_end_date || "",
+          schedule_predecessor_id: data.schedule_predecessor_id || "",
+          schedule_duration_days: data.schedule_duration_days || 0,
+          schedule_percent_complete: data.schedule_percent_complete || 0,
         });
       }
     } catch (error) {
@@ -116,13 +144,37 @@ export default function EditActivity() {
     }
   }
 
+  async function fetchProjectActivities(projectId: string) {
+    try {
+      const { data, error } = await supabase
+        .from("activities")
+        .select("id, name")
+        .eq("project_id", projectId)
+        .neq("id", id); // Exclude current activity
+
+      if (error) throw error;
+      setActivities(data || []);
+    } catch (error) {
+      console.error("Error fetching project activities:", error);
+    }
+  }
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setActivity((prev) => ({ ...prev, [name]: value }));
   };
 
+  const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setActivity((prev) => ({ ...prev, [name]: value === "" ? 0 : Number(value) }));
+  };
+
   const handleSelectChange = (field: string, value: string) => {
     setActivity((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleHasScheduleChange = (checked: boolean) => {
+    setActivity((prev) => ({ ...prev, has_schedule: checked }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -131,20 +183,38 @@ export default function EditActivity() {
     try {
       setIsSaving(true);
       
+      const activityData: any = {
+        name: activity.name,
+        discipline: activity.discipline,
+        responsible: activity.responsible,
+        team: activity.team,
+        unit: activity.unit,
+        total_qty: activity.total_qty,
+        start_date: activity.start_date || null,
+        end_date: activity.end_date || null,
+        project_id: activity.project_id || null,
+        description: activity.description,
+      };
+
+      // Add schedule fields only if has_schedule is true
+      if (activity.has_schedule) {
+        activityData.schedule_start_date = activity.schedule_start_date || null;
+        activityData.schedule_end_date = activity.schedule_end_date || null;
+        activityData.schedule_predecessor_id = activity.schedule_predecessor_id || null;
+        activityData.schedule_duration_days = activity.schedule_duration_days || null;
+        activityData.schedule_percent_complete = activity.schedule_percent_complete || 0;
+      } else {
+        // If has_schedule is false, set all schedule fields to null
+        activityData.schedule_start_date = null;
+        activityData.schedule_end_date = null;
+        activityData.schedule_predecessor_id = null;
+        activityData.schedule_duration_days = null;
+        activityData.schedule_percent_complete = null;
+      }
+
       const { error } = await supabase
         .from("activities")
-        .update({
-          name: activity.name,
-          discipline: activity.discipline,
-          responsible: activity.responsible,
-          team: activity.team,
-          unit: activity.unit,
-          total_qty: activity.total_qty,
-          start_date: activity.start_date || null,
-          end_date: activity.end_date || null,
-          project_id: activity.project_id || null,
-          description: activity.description,
-        })
+        .update(activityData)
         .eq("id", id);
 
       if (error) throw error;
@@ -198,140 +268,245 @@ export default function EditActivity() {
               Atualize os detalhes da atividade
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="name">Nome da Atividade</Label>
-                <Input
-                  id="name"
-                  name="name"
-                  value={activity.name}
-                  onChange={handleChange}
-                  placeholder="Ex: Concretagem do Bloco A"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="discipline">Disciplina</Label>
-                  <Input
-                    id="discipline"
-                    name="discipline"
-                    value={activity.discipline}
-                    onChange={handleChange}
-                    placeholder="Ex: Estrutura"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="project">Projeto</Label>
-                  <Select
-                    value={activity.project_id}
-                    onValueChange={(value) => handleSelectChange("project_id", value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione um projeto" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {projects.map((project) => (
-                        <SelectItem key={project.id} value={project.id}>
-                          {project.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="responsible">Responsável</Label>
-                  <Select
-                    value={activity.responsible}
-                    onValueChange={(value) => handleSelectChange("responsible", value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione um responsável" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {responsibleContacts.map((contact) => (
-                        <SelectItem key={contact.id} value={contact.name}>
-                          {contact.name} {contact.discipline ? `(${contact.discipline})` : ''}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="team">Equipe</Label>
-                  <Input
-                    id="team"
-                    name="team"
-                    value={activity.team}
-                    onChange={handleChange}
-                    placeholder="Ex: Equipe A"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div>
-                  <Label htmlFor="total_qty">Quantidade Total</Label>
-                  <Input
-                    id="total_qty"
-                    name="total_qty"
-                    type="number"
-                    value={activity.total_qty}
-                    onChange={handleChange}
-                    placeholder="Ex: 100"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="unit">Unidade</Label>
-                  <Input
-                    id="unit"
-                    name="unit"
-                    value={activity.unit}
-                    onChange={handleChange}
-                    placeholder="Ex: m²"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="start_date">Data de Início</Label>
-                  <Input
-                    id="start_date"
-                    name="start_date"
-                    type="date"
-                    value={activity.start_date}
-                    onChange={handleChange}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="end_date">Data de Término</Label>
-                  <Input
-                    id="end_date"
-                    name="end_date"
-                    type="date"
-                    value={activity.end_date}
-                    onChange={handleChange}
-                  />
-                </div>
-              </div>
-              <div>
-                <Label htmlFor="description">Descrição</Label>
-                <Textarea
-                  id="description"
-                  name="description"
-                  value={activity.description}
-                  onChange={handleChange}
-                  placeholder="Descreva os detalhes da atividade..."
-                />
-              </div>
+          
+          <Tabs defaultValue="basic">
+            <div className="px-6">
+              <TabsList className="mb-4">
+                <TabsTrigger value="basic">Informações Básicas</TabsTrigger>
+                <TabsTrigger value="schedule">Cronograma</TabsTrigger>
+              </TabsList>
             </div>
-          </CardContent>
+            
+            <TabsContent value="basic">
+              <CardContent className="space-y-6">
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="name">Nome da Atividade</Label>
+                    <Input
+                      id="name"
+                      name="name"
+                      value={activity.name}
+                      onChange={handleChange}
+                      placeholder="Ex: Concretagem do Bloco A"
+                      required
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="discipline">Disciplina</Label>
+                      <Input
+                        id="discipline"
+                        name="discipline"
+                        value={activity.discipline}
+                        onChange={handleChange}
+                        placeholder="Ex: Estrutura"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="project">Projeto</Label>
+                      <Select
+                        value={activity.project_id}
+                        onValueChange={(value) => handleSelectChange("project_id", value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione um projeto" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {projects.map((project) => (
+                            <SelectItem key={project.id} value={project.id}>
+                              {project.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="responsible">Responsável</Label>
+                      <Select
+                        value={activity.responsible}
+                        onValueChange={(value) => handleSelectChange("responsible", value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione um responsável" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {responsibleContacts.map((contact) => (
+                            <SelectItem key={contact.id} value={contact.name}>
+                              {contact.name} {contact.discipline ? `(${contact.discipline})` : ''}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="team">Equipe</Label>
+                      <Input
+                        id="team"
+                        name="team"
+                        value={activity.team}
+                        onChange={handleChange}
+                        placeholder="Ex: Equipe A"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div>
+                      <Label htmlFor="total_qty">Quantidade Total</Label>
+                      <Input
+                        id="total_qty"
+                        name="total_qty"
+                        type="number"
+                        value={activity.total_qty}
+                        onChange={handleNumberChange}
+                        placeholder="Ex: 100"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="unit">Unidade</Label>
+                      <Input
+                        id="unit"
+                        name="unit"
+                        value={activity.unit}
+                        onChange={handleChange}
+                        placeholder="Ex: m²"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="start_date">Data de Início</Label>
+                      <Input
+                        id="start_date"
+                        name="start_date"
+                        type="date"
+                        value={activity.start_date}
+                        onChange={handleChange}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="end_date">Data de Término</Label>
+                      <Input
+                        id="end_date"
+                        name="end_date"
+                        type="date"
+                        value={activity.end_date}
+                        onChange={handleChange}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="description">Descrição</Label>
+                    <Textarea
+                      id="description"
+                      name="description"
+                      value={activity.description}
+                      onChange={handleChange}
+                      placeholder="Descreva os detalhes da atividade..."
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </TabsContent>
+            
+            <TabsContent value="schedule">
+              <CardContent className="space-y-6">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      id="has-schedule"
+                      checked={activity.has_schedule}
+                      onCheckedChange={handleHasScheduleChange}
+                    />
+                    <Label htmlFor="has-schedule">Adicionar informações de cronograma</Label>
+                  </div>
+                  
+                  {activity.has_schedule && (
+                    <div className="space-y-4 pt-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="schedule_start_date">Data de Início do Cronograma</Label>
+                          <Input
+                            id="schedule_start_date"
+                            name="schedule_start_date"
+                            type="date"
+                            value={activity.schedule_start_date}
+                            onChange={handleChange}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="schedule_end_date">Data de Término do Cronograma</Label>
+                          <Input
+                            id="schedule_end_date"
+                            name="schedule_end_date"
+                            type="date"
+                            value={activity.schedule_end_date}
+                            onChange={handleChange}
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="schedule_duration_days">Duração (dias)</Label>
+                          <Input
+                            id="schedule_duration_days"
+                            name="schedule_duration_days"
+                            type="number"
+                            value={activity.schedule_duration_days}
+                            onChange={handleNumberChange}
+                            placeholder="Ex: 30"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="schedule_percent_complete">Percentual Concluído (%)</Label>
+                          <Input
+                            id="schedule_percent_complete"
+                            name="schedule_percent_complete"
+                            type="number"
+                            value={activity.schedule_percent_complete}
+                            onChange={handleNumberChange}
+                            min="0"
+                            max="100"
+                            placeholder="Ex: 50"
+                          />
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <Label htmlFor="schedule_predecessor_id">Predecessor</Label>
+                        <Select
+                          value={activity.schedule_predecessor_id}
+                          onValueChange={(value) => handleSelectChange("schedule_predecessor_id", value)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione uma atividade predecessora" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="">Nenhum predecessor</SelectItem>
+                            {activities.map((act) => (
+                              <SelectItem key={act.id} value={act.id}>
+                                {act.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Selecione a atividade que precisa ser concluída antes desta.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </TabsContent>
+          </Tabs>
+          
           <CardFooter className="flex justify-between">
             <Button
               type="button"
