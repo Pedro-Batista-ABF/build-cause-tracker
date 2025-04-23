@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,11 +15,9 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
-import { format } from "date-fns";
-import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { ActivityScheduleItems } from "@/components/activities/ActivityScheduleItems";
 
 export default function EditActivity() {
@@ -43,6 +42,8 @@ export default function EditActivity() {
     schedule_predecessor_id: "",
     schedule_duration_days: 0,
     schedule_percent_complete: 0,
+    // Detailed schedule flag
+    has_detailed_schedule: false
   });
   
   const [isLoading, setIsLoading] = useState(true);
@@ -100,6 +101,7 @@ export default function EditActivity() {
           schedule_predecessor_id: data.schedule_predecessor_id || "",
           schedule_duration_days: data.schedule_duration_days || 0,
           schedule_percent_complete: data.schedule_percent_complete || 0,
+          has_detailed_schedule: data.has_detailed_schedule || false
         });
       }
     } catch (error) {
@@ -194,6 +196,7 @@ export default function EditActivity() {
         end_date: activity.end_date || null,
         project_id: activity.project_id || null,
         description: activity.description,
+        has_detailed_schedule: activity.has_detailed_schedule || false
       };
 
       // Add schedule fields only if has_schedule is true
