@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -51,6 +50,7 @@ export default function EditActivity() {
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [responsibleContacts, setResponsibleContacts] = useState<Array<{ id: string; name: string; email: string; discipline: string | null }>>([]);
   const [activities, setActivities] = useState<Array<{ id: string; name: string }>>([]);
+  const [activeTab, setActiveTab] = useState("basic");
 
   useEffect(() => {
     if (id) {
@@ -103,6 +103,11 @@ export default function EditActivity() {
           schedule_percent_complete: data.schedule_percent_complete || 0,
           has_detailed_schedule: data.has_detailed_schedule || false
         });
+        
+        // Se tiver cronograma detalhado, ativar a aba de cronograma
+        if (data.has_detailed_schedule) {
+          setActiveTab("schedule");
+        }
       }
     } catch (error) {
       console.error("Error fetching activity:", error);
@@ -179,6 +184,10 @@ export default function EditActivity() {
     setActivity((prev) => ({ ...prev, has_schedule: checked }));
   };
 
+  const handleDetailedScheduleChange = (checked: boolean) => {
+    setActivity((prev) => ({ ...prev, has_detailed_schedule: checked }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -196,7 +205,7 @@ export default function EditActivity() {
         end_date: activity.end_date || null,
         project_id: activity.project_id || null,
         description: activity.description,
-        has_detailed_schedule: activity.has_detailed_schedule || false
+        has_detailed_schedule: activity.has_detailed_schedule
       };
 
       // Add schedule fields only if has_schedule is true
@@ -272,7 +281,7 @@ export default function EditActivity() {
             </CardDescription>
           </CardHeader>
           
-          <Tabs defaultValue="basic">
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
             <div className="px-6">
               <TabsList className="mb-4">
                 <TabsTrigger value="basic">Informações Básicas</TabsTrigger>
@@ -424,17 +433,20 @@ export default function EditActivity() {
                     <Switch
                       id="has-detailed-schedule"
                       checked={activity.has_detailed_schedule}
-                      onCheckedChange={(checked) => 
-                        setActivity(prev => ({ ...prev, has_detailed_schedule: checked }))
-                      }
+                      onCheckedChange={handleDetailedScheduleChange}
                     />
                     <Label htmlFor="has-detailed-schedule">
-                      Habilitar cronograma detalhado
+                      Habilitar cronograma detalhado (subatividades)
                     </Label>
                   </div>
                   
-                  {activity.has_detailed_schedule && id && (
+                  {activity.has_detailed_schedule && id ? (
                     <ActivityScheduleItems activityId={id} />
+                  ) : (
+                    <div className="bg-muted/30 p-6 rounded-md text-center text-muted-foreground">
+                      <p>Ative o cronograma detalhado para adicionar e gerenciar subatividades.</p>
+                      <p className="text-xs mt-2">Isso permitirá dividir a atividade principal em etapas menores e rastrear o progresso de cada uma separadamente.</p>
+                    </div>
                   )}
                 </div>
               </CardContent>

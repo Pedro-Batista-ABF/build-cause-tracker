@@ -17,6 +17,7 @@ export interface Activity {
   schedule_predecessor_id?: string | null;
   schedule_duration_days?: number | null;
   schedule_percent_complete?: number | null;
+  has_detailed_schedule?: boolean;
   saldoAExecutar?: number;
   daily_progress?: any[];
   project_id?: string | null;
@@ -28,4 +29,16 @@ export interface PlanningReport {
   created_at: string;
   is_current: boolean;
   created_by: string | null;
+}
+
+export interface ActivityScheduleItem {
+  id: string;
+  activity_id: string;
+  name: string;
+  start_date: string | null;
+  end_date: string | null;
+  duration_days: number | null;
+  predecessor_item_id: string | null;
+  percent_complete: number;
+  order_index: number;
 }
