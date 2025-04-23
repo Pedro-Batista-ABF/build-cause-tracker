@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,33 +22,14 @@ import {
 import { ResponsibleReportController } from "@/components/reports/ResponsibleReportController";
 import { supabase } from "@/integrations/supabase/client";
 import { calculatePPC } from "@/utils/ppcCalculation";
-
-interface Activity {
-  id: string;
-  name: string;
-  discipline: string | null;
-  responsible: string | null;
-  team: string | null;
-  unit: string | null;
-  total_qty: number | null;
-  daily_progress?: any[];
-  start_date?: string | null;
-  end_date?: string | null;
-  project_id?: string | null;
-  schedule_percent_complete?: number | null;
-}
-
-interface Project {
-  id: string;
-  name: string;
-}
+import { Activity } from "@/types/database";
 
 export default function Activities() {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [filter, setFilter] = useState("");
   const [disciplineFilter, setDisciplineFilter] = useState("all");
   const [projectFilter, setProjectFilter] = useState("all");
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -57,27 +37,22 @@ export default function Activities() {
     fetchProjects();
   }, []);
 
-  async function fetchProjects() {
-    try {
-      const { data, error } = await supabase.from("projects").select("id, name");
-      if (error) {
-        console.error("Erro ao buscar projetos:", error);
-        return;
-      }
-      
-      if (data) {
-        setProjects(data);
-      }
-    } catch (error) {
-      console.error("Erro ao buscar projetos:", error);
-    }
-  }
-
   async function fetchActivities() {
     try {
       const { data, error } = await supabase
         .from("activities")
-        .select("*, daily_progress(actual_qty, planned_qty, date), project_id, start_date, end_date, schedule_percent_complete")
+        .select(`
+          *, 
+          daily_progress(actual_qty, planned_qty, date), 
+          project_id, 
+          start_date, 
+          end_date, 
+          schedule_percent_complete,
+          schedule_start_date,
+          schedule_end_date,
+          schedule_duration_days,
+          schedule_predecessor_id
+        `)
         .order('start_date', { ascending: true, nullsFirst: false });
 
       if (error) {

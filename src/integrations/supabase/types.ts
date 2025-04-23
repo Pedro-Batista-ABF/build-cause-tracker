@@ -21,6 +21,11 @@ export type Database = {
           name: string
           project_id: string | null
           responsible: string | null
+          schedule_duration_days: number | null
+          schedule_end_date: string | null
+          schedule_percent_complete: number | null
+          schedule_predecessor_id: string | null
+          schedule_start_date: string | null
           start_date: string | null
           team: string | null
           total_qty: number | null
@@ -38,6 +43,11 @@ export type Database = {
           name: string
           project_id?: string | null
           responsible?: string | null
+          schedule_duration_days?: number | null
+          schedule_end_date?: string | null
+          schedule_percent_complete?: number | null
+          schedule_predecessor_id?: string | null
+          schedule_start_date?: string | null
           start_date?: string | null
           team?: string | null
           total_qty?: number | null
@@ -55,6 +65,11 @@ export type Database = {
           name?: string
           project_id?: string | null
           responsible?: string | null
+          schedule_duration_days?: number | null
+          schedule_end_date?: string | null
+          schedule_percent_complete?: number | null
+          schedule_predecessor_id?: string | null
+          schedule_start_date?: string | null
           start_date?: string | null
           team?: string | null
           total_qty?: number | null
@@ -67,6 +82,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activities_schedule_predecessor_id_fkey"
+            columns: ["schedule_predecessor_id"]
+            isOneToOne: false
+            referencedRelation: "activities"
             referencedColumns: ["id"]
           },
           {

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ActivityRow } from "@/components/activities/ActivityRow";
@@ -14,23 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ResponsibleReportController } from "@/components/reports/ResponsibleReportController";
 import { calculatePPC } from "@/utils/ppcCalculation";
-
-interface Activity {
-  id: string;
-  name: string;
-  discipline: string | null;
-  responsible: string | null;
-  team: string | null;
-  unit: string | null;
-  total_qty: number | null;
-  progress: number;
-  ppc: number;
-  adherence: number;
-  start_date?: string | null;
-  end_date?: string | null;
-  saldoAExecutar?: number; 
-  schedule_percent_complete?: number | null;
-}
+import { Activity } from "@/types/database";
 
 interface ProjectActivitiesProps {
   projectId: string;
@@ -48,15 +31,25 @@ export function ProjectActivities({ projectId }: ProjectActivitiesProps) {
 
   async function fetchActivities() {
     try {
-      const { data: activitiesData, error } = await supabase
+      const { data, error } = await supabase
         .from("activities")
-        .select("*, daily_progress(actual_qty, planned_qty, date), start_date, end_date, schedule_percent_complete")
+        .select(`
+          *, 
+          daily_progress(actual_qty, planned_qty, date),
+          start_date, 
+          end_date, 
+          schedule_percent_complete,
+          schedule_start_date,
+          schedule_end_date,
+          schedule_duration_days,
+          schedule_predecessor_id
+        `)
         .eq("project_id", projectId)
         .order('start_date', { ascending: true, nullsFirst: false });
 
       if (error) throw error;
 
-      const processedActivities = activitiesData.map(activity => {
+      const processedActivities = data.map(activity => {
         const progressData = activity.daily_progress || [];
         const totalActual = progressData.reduce((sum: number, p: any) => sum + (p.actual_qty || 0), 0);
         const totalPlanned = progressData.reduce((sum: number, p: any) => sum + (p.planned_qty || 0), 0);

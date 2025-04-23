@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -65,7 +64,8 @@ export function ActivityDetails({ activityId }: ActivityDetailsProps) {
           schedule_end_date,
           schedule_duration_days,
           schedule_predecessor_id,
-          schedule_percent_complete
+          schedule_percent_complete,
+          name
         `)
         .eq("id", activityId)
         .single();
@@ -113,7 +113,7 @@ export function ActivityDetails({ activityId }: ActivityDetailsProps) {
         }
       }
 
-      // Return both activity data and progress data
+      // Return both activity data and predecessor name
       return {
         activity: {
           ...activityData,
@@ -137,13 +137,13 @@ export function ActivityDetails({ activityId }: ActivityDetailsProps) {
     data?.activity?.schedule_end_date || 
     data?.activity?.schedule_duration_days || 
     data?.activity?.schedule_predecessor_id ||
-    data?.activity?.schedule_percent_complete
+    data?.activity?.schedule_percent_complete !== null
   );
 
   return (
     <Card className="mb-6">
       <CardContent className="p-4">
-        <Tabs defaultValue="progress" className="w-full">
+        <Tabs defaultValue="schedule" className="w-full">
           <TabsList className="mb-4">
             <TabsTrigger value="progress">Apontamentos</TabsTrigger>
             <TabsTrigger value="causes">Causas</TabsTrigger>
@@ -276,7 +276,7 @@ export function ActivityDetails({ activityId }: ActivityDetailsProps) {
                       </TableRow>
                       <TableRow>
                         <TableCell className="font-medium">Percentual Concluído</TableCell>
-                        <TableCell>{data?.activity?.schedule_percent_complete ? `${data.activity.schedule_percent_complete}%` : '0%'}</TableCell>
+                        <TableCell>{data?.activity?.schedule_percent_complete !== null ? `${data.activity.schedule_percent_complete}%` : '0%'}</TableCell>
                       </TableRow>
                     </TableBody>
                   </Table>
