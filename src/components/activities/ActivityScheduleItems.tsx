@@ -524,7 +524,8 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
                   <SelectValue placeholder="Selecione o predecessor" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Nenhum predecessor</SelectItem>
+                  {/* Fix: Make sure we don't pass an empty string as value */}
+                  <SelectItem value="none">Nenhum predecessor</SelectItem>
                   {items
                     .filter(i => i.id !== currentItem?.id) // Evitar selecionar a si mesmo
                     .map((item) => (
