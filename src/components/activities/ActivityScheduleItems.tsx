@@ -107,11 +107,15 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
 
   async function addNewItem() {
     try {
+      // Criar um novo item com valores padrão seguros
       const newItem = {
         activity_id: activityId,
         name: 'Nova subatividade',
         order_index: items.length,
-        percent_complete: 0
+        percent_complete: 0,
+        start_date: null,
+        end_date: null,
+        predecessor_item_id: null
       };
 
       const { data, error } = await supabase
@@ -123,7 +127,7 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
       if (error) throw error;
 
       toast.success('Item adicionado com sucesso');
-      fetchScheduleItems();
+      await fetchScheduleItems(); // Recarregar todos os itens
     } catch (error) {
       console.error('Error adding schedule item:', error);
       toast.error('Erro ao adicionar item');
@@ -132,13 +136,16 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
   
   function openEditDialog(item: ActivityScheduleItem) {
     setCurrentItem(item);
+    
+    // Configurar o estado do formulário com valores seguros
     setFormData({
-      name: item.name,
+      name: item.name || "",
       start_date: item.start_date || "",
       end_date: item.end_date || "",
-      percent_complete: item.percent_complete,
+      percent_complete: item.percent_complete || 0,
       predecessor_item_id: item.predecessor_item_id || "none"
     });
+    
     setEditDialogOpen(true);
   }
   
@@ -149,10 +156,20 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
   
   function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
     const { name, value } = e.target;
-    setFormData({
-      ...formData,
-      [name]: name === 'percent_complete' ? Number(value) : value
-    });
+    
+    // Para campos numéricos, garantir que seja um número ou zero
+    if (name === 'percent_complete') {
+      const numValue = value === '' ? 0 : Number(value);
+      setFormData({
+        ...formData,
+        [name]: numValue
+      });
+    } else {
+      setFormData({
+        ...formData,
+        [name]: value
+      });
+    }
   }
   
   async function saveItem() {
@@ -170,19 +187,26 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
       // Ajuste para garantir que predecessor_item_id seja null quando "none" é selecionado
       const predecessorId = formData.predecessor_item_id === "none" ? null : formData.predecessor_item_id;
       
+      const updateData = {
+        name: formData.name,
+        start_date: formData.start_date || null,
+        end_date: formData.end_date || null,
+        duration_days: durationDays,
+        predecessor_item_id: predecessorId,
+        percent_complete: formData.percent_complete
+      };
+      
+      console.log('Updating item with data:', updateData);
+      
       const { error } = await supabase
         .from('activity_schedule_items')
-        .update({
-          name: formData.name,
-          start_date: formData.start_date || null,
-          end_date: formData.end_date || null,
-          duration_days: durationDays,
-          predecessor_item_id: predecessorId,
-          percent_complete: formData.percent_complete
-        })
+        .update(updateData)
         .eq('id', currentItem.id);
         
-      if (error) throw error;
+      if (error) {
+        console.error('Error in update operation:', error);
+        throw error;
+      }
       
       toast.success('Item atualizado com sucesso');
       setEditDialogOpen(false);
@@ -230,72 +254,72 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
   
   // Função para atualizar datas dos itens dependentes
   async function updateDependentDates() {
-    // Cria um mapa de itens por ID para fácil acesso
-    const itemMap = new Map<string, ActivityScheduleItem>();
-    items.forEach(item => {
-      if (item.id) {
-        itemMap.set(item.id, item);
-      }
-    });
-    
-    let hasUpdates = false;
-    const updates: { id: string, start_date: string, end_date: string | null, duration_days: number | null }[] = [];
-    
-    // Para cada item com predecessor, ajustar data de início
-    for (const item of items) {
-      if (item.predecessor_item_id) {
-        const predecessor = itemMap.get(item.predecessor_item_id);
-        
-        if (predecessor && predecessor.end_date) {
-          // Predecessor encontrado, ajustar data inicial para ser o próximo dia após o término do predecessor
-          const predecessorEndDate = new Date(predecessor.end_date);
-          const nextDay = new Date(predecessorEndDate);
-          nextDay.setDate(nextDay.getDate() + 1);
+    try {
+      // Cria um mapa de itens por ID para fácil acesso
+      const itemMap = new Map<string, ActivityScheduleItem>();
+      items.forEach(item => {
+        if (item.id) {
+          itemMap.set(item.id, item);
+        }
+      });
+      
+      let hasUpdates = false;
+      const updates: { id: string, start_date: string | null, end_date: string | null, duration_days: number | null }[] = [];
+      
+      // Para cada item com predecessor, ajustar data de início
+      for (const item of items) {
+        if (item.predecessor_item_id) {
+          const predecessor = itemMap.get(item.predecessor_item_id);
           
-          // Formato YYYY-MM-DD para o Supabase
-          const newStartDate = nextDay.toISOString().split('T')[0];
-          
-          // Somente se a data for diferente da atual
-          if (!item.start_date || newStartDate !== item.start_date) {
-            // Calcular nova data de término baseada na duração, se disponível
-            let newEndDate = null;
-            let durationDays = null;
+          if (predecessor && predecessor.end_date) {
+            // Predecessor encontrado, ajustar data inicial para ser o próximo dia após o término do predecessor
+            const predecessorEndDate = new Date(predecessor.end_date);
+            const nextDay = new Date(predecessorEndDate);
+            nextDay.setDate(nextDay.getDate() + 1);
             
-            if (item.duration_days) {
-              // Mantém a mesma duração, mas ajusta a data de término
-              const endDate = new Date(nextDay);
-              endDate.setDate(endDate.getDate() + (item.duration_days - 1));
-              newEndDate = endDate.toISOString().split('T')[0];
-              durationDays = item.duration_days;
-            } else if (item.end_date) {
-              // Se não tem duração mas tem data de término, recalcular
-              const oldStartDate = new Date(item.start_date || "");
-              const oldEndDate = new Date(item.end_date);
-              const oldDuration = Math.ceil((oldEndDate.getTime() - oldStartDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+            // Formato YYYY-MM-DD para o Supabase
+            const newStartDate = nextDay.toISOString().split('T')[0];
+            
+            // Somente se a data for diferente da atual
+            if (!item.start_date || newStartDate !== item.start_date) {
+              // Calcular nova data de término baseada na duração, se disponível
+              let newEndDate = null;
+              let durationDays = null;
               
-              const endDate = new Date(nextDay);
-              endDate.setDate(endDate.getDate() + (oldDuration - 1));
-              newEndDate = endDate.toISOString().split('T')[0];
-              durationDays = oldDuration;
-            }
-            
-            if (item.id) {
-              hasUpdates = true;
-              updates.push({
-                id: item.id,
-                start_date: newStartDate,
-                end_date: newEndDate,
-                duration_days: durationDays
-              });
+              if (item.duration_days) {
+                // Mantém a mesma duração, mas ajusta a data de término
+                const endDate = new Date(nextDay);
+                endDate.setDate(endDate.getDate() + (item.duration_days - 1));
+                newEndDate = endDate.toISOString().split('T')[0];
+                durationDays = item.duration_days;
+              } else if (item.end_date) {
+                // Se não tem duração mas tem data de término, recalcular
+                const oldStartDate = new Date(item.start_date || "");
+                const oldEndDate = new Date(item.end_date);
+                const oldDuration = Math.ceil((oldEndDate.getTime() - oldStartDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+                
+                const endDate = new Date(nextDay);
+                endDate.setDate(endDate.getDate() + (oldDuration - 1));
+                newEndDate = endDate.toISOString().split('T')[0];
+                durationDays = oldDuration;
+              }
+              
+              if (item.id) {
+                hasUpdates = true;
+                updates.push({
+                  id: item.id,
+                  start_date: newStartDate,
+                  end_date: newEndDate,
+                  duration_days: durationDays
+                });
+              }
             }
           }
         }
       }
-    }
-    
-    // Atualizar itens que precisam ser atualizados
-    if (hasUpdates) {
-      try {
+      
+      // Atualizar itens que precisam ser atualizados
+      if (hasUpdates) {
         for (const update of updates) {
           await supabase
             .from('activity_schedule_items')
@@ -310,10 +334,10 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
         // Recarregar itens para refletir alterações
         toast.success('Datas das subatividades dependentes foram atualizadas');
         fetchScheduleItems();
-      } catch (error) {
-        console.error('Error updating dependent dates:', error);
-        toast.error('Erro ao atualizar datas dependentes');
       }
+    } catch (error) {
+      console.error('Error updating dependent dates:', error);
+      toast.error('Erro ao atualizar datas dependentes');
     }
   }
   
@@ -501,9 +525,9 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
                   type="date"
                   value={formData.start_date}
                   onChange={handleInputChange}
-                  disabled={!!formData.predecessor_item_id && formData.predecessor_item_id !== "none"}
+                  disabled={formData.predecessor_item_id !== "none"}
                 />
-                {formData.predecessor_item_id && formData.predecessor_item_id !== "none" && (
+                {formData.predecessor_item_id !== "none" && (
                   <p className="text-xs text-muted-foreground mt-1">
                     A data de início é controlada pelo predecessor
                   </p>
@@ -524,7 +548,7 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
               <Label htmlFor="predecessor">Atividade Predecessora</Label>
               <Select
                 value={formData.predecessor_item_id || "none"}
-                onValueChange={(value) => setFormData({...formData, predecessor_item_id: value === "none" ? "" : value})}
+                onValueChange={(value) => setFormData({...formData, predecessor_item_id: value})}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione o predecessor" />
@@ -545,7 +569,7 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
                   }
                 </SelectContent>
               </Select>
-              {formData.predecessor_item_id && formData.predecessor_item_id !== "none" && (
+              {formData.predecessor_item_id !== "none" && (
                 <p className="text-xs text-amber-500 mt-1">
                   Ao definir um predecessor, a data de início será automaticamente ajustada.
                 </p>

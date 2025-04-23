@@ -48,14 +48,18 @@ export function EditScheduleItemDialog({
     setLoading(true);
 
     try {
+      // Prepare the update data with proper handling of null values
+      const updateData = {
+        data_inicio: startDate || null,
+        data_termino: endDate || null,
+        percentual_real: progress ? parseFloat(progress) : 0,
+        predecessor_id: predecessorId === 'none' ? null : predecessorId,
+      };
+
+      // Perform the update
       const { error } = await supabase
         .from('cronograma_projeto')
-        .update({
-          data_inicio: startDate || null,
-          data_termino: endDate || null,
-          percentual_real: progress ? parseFloat(progress) : 0,
-          predecessor_id: predecessorId === 'none' ? null : predecessorId,
-        })
+        .update(updateData)
         .eq('id', item.id);
 
       if (error) throw error;
