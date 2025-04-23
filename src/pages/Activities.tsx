@@ -76,7 +76,8 @@ export default function Activities() {
     try {
       const { data, error } = await supabase
         .from("activities")
-        .select("*, daily_progress(actual_qty, planned_qty, date), project_id, start_date, end_date");
+        .select("*, daily_progress(actual_qty, planned_qty, date), project_id, start_date, end_date")
+        .order('start_date', { ascending: true, nullsLast: true });
 
       if (error) {
         console.error("Error fetching activities:", error);

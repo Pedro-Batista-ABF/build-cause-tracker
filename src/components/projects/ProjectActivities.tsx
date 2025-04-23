@@ -50,7 +50,8 @@ export function ProjectActivities({ projectId }: ProjectActivitiesProps) {
       const { data: activitiesData, error } = await supabase
         .from("activities")
         .select("*, daily_progress(actual_qty, planned_qty, date), start_date, end_date")
-        .eq("project_id", projectId);
+        .eq("project_id", projectId)
+        .order('start_date', { ascending: true, nullsLast: true });
 
       if (error) throw error;
 
