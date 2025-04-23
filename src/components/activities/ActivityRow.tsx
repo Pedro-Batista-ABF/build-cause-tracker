@@ -21,7 +21,8 @@ interface ActivityRowProps {
   startDate?: string | null;
   endDate?: string | null;
   onEdit?: (activityId: string) => void;
-  saldoAExecutar?: number;  // <-- NEW PROP
+  saldoAExecutar?: number;
+  description?: string | null;
 }
 
 export function ActivityRow({
@@ -38,7 +39,8 @@ export function ActivityRow({
   startDate,
   endDate,
   onEdit,
-  saldoAExecutar, // <-- NEW PROP
+  saldoAExecutar,
+  description,
 }: ActivityRowProps) {
   const [showDetails, setShowDetails] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -107,6 +109,11 @@ export function ActivityRow({
             <Trash2 className="h-4 w-4 text-destructive" />
           </Button>
         </div>
+        {description && (
+          <div className="w-full text-sm text-muted-foreground mt-2">
+            {description.length > 100 ? `${description.slice(0, 100)}...` : description}
+          </div>
+        )}
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 text-sm">

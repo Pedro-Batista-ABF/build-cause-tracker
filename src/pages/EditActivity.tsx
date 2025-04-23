@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,6 +9,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { Textarea } from "@/components/ui/textarea";
 
 export default function EditActivity() {
   const { id } = useParams<{ id: string }>();
@@ -24,7 +24,8 @@ export default function EditActivity() {
     total_qty: 0,
     start_date: "",
     end_date: "",
-    project_id: ""
+    project_id: "",
+    description: "",
   });
   
   const [isLoading, setIsLoading] = useState(true);
@@ -61,7 +62,8 @@ export default function EditActivity() {
           total_qty: data.total_qty || 0,
           start_date: data.start_date || "",
           end_date: data.end_date || "",
-          project_id: data.project_id || ""
+          project_id: data.project_id || "",
+          description: data.description || "",
         });
       }
     } catch (error) {
@@ -91,7 +93,7 @@ export default function EditActivity() {
     }
   }
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setActivity((prev) => ({ ...prev, [name]: value }));
   };
@@ -117,7 +119,8 @@ export default function EditActivity() {
           total_qty: activity.total_qty,
           start_date: activity.start_date || null,
           end_date: activity.end_date || null,
-          project_id: activity.project_id || null
+          project_id: activity.project_id || null,
+          description: activity.description,
         })
         .eq("id", id);
 
@@ -285,6 +288,16 @@ export default function EditActivity() {
                     onChange={handleChange}
                   />
                 </div>
+              </div>
+              <div>
+                <Label htmlFor="description">Descrição</Label>
+                <Textarea
+                  id="description"
+                  name="description"
+                  value={activity.description}
+                  onChange={handleChange}
+                  placeholder="Descreva os detalhes da atividade..."
+                />
               </div>
             </div>
           </CardContent>

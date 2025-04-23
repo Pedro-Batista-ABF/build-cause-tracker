@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
@@ -190,7 +189,8 @@ export default function NewActivity() {
           total_qty: Number(values.totalQty),
           created_by: session.user.id,
           start_date: values.startDate,
-          end_date: values.endDate
+          end_date: values.endDate,
+          description: values.description
         })
         .select()
         .single();

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -53,7 +52,7 @@ export function ActivityDetails({ activityId }: ActivityDetailsProps) {
     queryFn: async () => {
       const { data: activityData, error: activityError } = await supabase
         .from("activities")
-        .select("total_qty, start_date, end_date")
+        .select("total_qty, start_date, end_date, description")
         .eq("id", activityId)
         .single();
 
@@ -204,6 +203,12 @@ export function ActivityDetails({ activityId }: ActivityDetailsProps) {
             </div>
           </TabsContent>
         </Tabs>
+        {progressData?.activity?.description && (
+          <div>
+            <h4 className="text-sm font-medium text-muted-foreground mb-2">Descrição</h4>
+            <p className="text-sm bg-muted p-3 rounded-md">{progressData.activity.description}</p>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
