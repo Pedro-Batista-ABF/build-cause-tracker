@@ -17,6 +17,7 @@ export interface Activity {
   schedule_predecessor_id?: string | null;
   schedule_duration_days?: number | null;
   schedule_percent_complete?: number | null;
-  saldoAExecutar?: number; 
+  saldoAExecutar?: number;
   daily_progress?: any[];
+  project_id?: string | null;
 }

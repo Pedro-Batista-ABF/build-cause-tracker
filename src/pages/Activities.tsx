@@ -37,6 +37,24 @@ export default function Activities() {
     fetchProjects();
   }, []);
 
+  async function fetchProjects() {
+    try {
+      const { data, error } = await supabase
+        .from("projects")
+        .select("id, name")
+        .order("name");
+
+      if (error) {
+        console.error("Error fetching projects:", error);
+        return;
+      }
+
+      setProjects(data || []);
+    } catch (error) {
+      console.error("Error fetching projects:", error);
+    }
+  }
+
   async function fetchActivities() {
     try {
       const { data, error } = await supabase
@@ -60,7 +78,45 @@ export default function Activities() {
         return;
       }
 
-      setActivities(data || []);
+      // Process the activities to calculate progress, ppc, and adherence
+      const processedActivities = data.map(activity => {
+        const progressData = activity.daily_progress || [];
+        const totalActual = progressData.reduce(
+          (sum: number, p: any) => sum + (p.actual_qty || 0),
+          0
+        );
+        const totalPlanned = progressData.reduce(
+          (sum: number, p: any) => sum + (p.planned_qty || 0),
+          0
+        );
+        
+        // Use schedule_percent_complete if available, otherwise calculate based on quantity
+        let progress;
+        if (activity.schedule_percent_complete !== null && activity.schedule_percent_complete !== undefined) {
+          progress = activity.schedule_percent_complete;
+        } else {
+          progress = activity.total_qty && Number(activity.total_qty) > 0
+            ? Math.round((totalActual / Number(activity.total_qty)) * 100)
+            : 0;
+        }
+          
+        // Use the utility function for PPC calculation
+        const ppc = calculatePPC(totalActual, totalPlanned);
+        
+        // Calculate adherence
+        const adherence = totalPlanned ? Math.min(100, Math.round((totalActual / totalPlanned) * 100)) : 0;
+        const saldoAExecutar = Number(activity.total_qty || 0) - totalActual;
+
+        return {
+          ...activity,
+          progress,
+          ppc,
+          adherence,
+          saldoAExecutar,
+        };
+      });
+
+      setActivities(processedActivities);
     } catch (error) {
       console.error("Error fetching activities:", error);
     }
@@ -78,44 +134,6 @@ export default function Activities() {
       projectFilter === "all" || activity.project_id === projectFilter;
 
     return matchesFilter && matchesDiscipline && matchesProject;
-  });
-
-  // Calculate progress for each activity using the same logic as in ProjectActivities
-  const activitiesWithProgress = filteredActivities.map((activity) => {
-    const progressData = activity.daily_progress || [];
-    const totalActual = progressData.reduce(
-      (sum: number, p: any) => sum + (p.actual_qty || 0),
-      0
-    );
-    const totalPlanned = progressData.reduce(
-      (sum: number, p: any) => sum + (p.planned_qty || 0),
-      0
-    );
-    
-    // Use schedule_percent_complete if available, otherwise calculate based on quantity
-    let progress;
-    if (activity.schedule_percent_complete !== null && activity.schedule_percent_complete !== undefined) {
-      progress = activity.schedule_percent_complete;
-    } else {
-      progress = activity.total_qty && Number(activity.total_qty) > 0
-        ? Math.round((totalActual / Number(activity.total_qty)) * 100)
-        : 0;
-    }
-      
-    // Use the utility function for PPC calculation
-    const ppc = calculatePPC(totalActual, totalPlanned);
-    
-    // Calculate adherence
-    const adherence = totalPlanned ? Math.min(100, Math.round((totalActual / totalPlanned) * 100)) : 0;
-    const saldoAExecutar = Number(activity.total_qty || 0) - totalActual;
-
-    return {
-      ...activity,
-      progress,
-      ppc,
-      adherence,
-      saldoAExecutar,
-    };
   });
 
   // Filter out null disciplines and ensure we have unique values
@@ -199,8 +217,8 @@ export default function Activities() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {activitiesWithProgress.length > 0 ? (
-              activitiesWithProgress.map((activity) => {
+            {filteredActivities.length > 0 ? (
+              filteredActivities.map((activity) => {
                 const {
                   id,
                   name,
