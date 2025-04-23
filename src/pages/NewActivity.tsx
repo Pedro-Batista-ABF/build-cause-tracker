@@ -54,7 +54,8 @@ const formSchema = z.object({
   scheduleEndDate: z.string().optional(),
   scheduleDurationDays: z.string().optional(),
   schedulePredecessorId: z.string().optional(),
-  schedulePercentComplete: z.string().optional(),
+  schedulePercentComplete: z.string().default("0"),
+  hasDetailedSchedule: z.boolean().default(false)
 })
 
 const disciplines = [
@@ -83,7 +84,6 @@ export default function NewActivity() {
   const [selectedProjectId, setSelectedProjectId] = useState<string>(projectId || "");
   const [responsibleContacts, setResponsibleContacts] = useState<Array<{ id: string; name: string; email: string; discipline: string | null }>>([]);
   const [activities, setActivities] = useState<Array<{ id: string; name: string }>>([]);
-  const [hasSchedule, setHasSchedule] = useState(false);
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -105,6 +105,7 @@ export default function NewActivity() {
       scheduleDurationDays: "",
       schedulePredecessorId: "",
       schedulePercentComplete: "0",
+      hasDetailedSchedule: false
     },
   });
 
@@ -161,7 +162,7 @@ export default function NewActivity() {
         inicio_linha_base: null,
         termino_linha_base: null,
         predecessores: task.predecessores || null,
-        predecessor_id: null,
+        predecessor_id: task.predecessor_id || null,
         created_at: task.created_at
       }));
       
@@ -221,7 +222,8 @@ export default function NewActivity() {
         created_by: session.user.id,
         start_date: values.startDate,
         end_date: values.endDate,
-        description: values.description
+        description: values.description,
+        has_detailed_schedule: values.hasDetailedSchedule
       };
       
       // Add schedule data if has schedule is enabled
@@ -229,7 +231,7 @@ export default function NewActivity() {
         Object.assign(activityData, {
           schedule_start_date: values.scheduleStartDate || null,
           schedule_end_date: values.scheduleEndDate || null,
-          schedule_predecessor_id: values.schedulePredecessorId || null,
+          schedule_predecessor_id: values.schedulePredecessorId === "none" ? null : values.schedulePredecessorId || null,
           schedule_duration_days: values.scheduleDurationDays ? Number(values.scheduleDurationDays) : null,
           schedule_percent_complete: values.schedulePercentComplete ? Number(values.schedulePercentComplete) : 0,
         });
@@ -508,7 +510,6 @@ export default function NewActivity() {
                             checked={field.value} 
                             onCheckedChange={(checked) => {
                               field.onChange(checked);
-                              setHasSchedule(checked);
                             }} 
                           />
                         </FormControl>
@@ -530,8 +531,17 @@ export default function NewActivity() {
                             <FormItem>
                               <FormLabel>Data de Início do Cronograma</FormLabel>
                               <FormControl>
-                                <Input type="date" {...field} />
+                                <Input 
+                                  type="date" 
+                                  {...field}
+                                  disabled={form.watch("schedulePredecessorId") && form.watch("schedulePredecessorId") !== "none"} 
+                                />
                               </FormControl>
+                              {form.watch("schedulePredecessorId") && form.watch("schedulePredecessorId") !== "none" && (
+                                <p className="text-xs text-muted-foreground">
+                                  A data de início será definida pelo término da atividade predecessora
+                                </p>
+                              )}
                               <FormMessage />
                             </FormItem>
                           )}
@@ -594,7 +604,16 @@ export default function NewActivity() {
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Predecessor</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value || "none"}>
+                            <Select 
+                              onValueChange={(value) => {
+                                field.onChange(value);
+                                // Se selecionar um predecessor, desativar o campo de data de início
+                                if (value !== "none") {
+                                  form.setValue("scheduleStartDate", "");
+                                }
+                              }}
+                              value={field.value || "none"}
+                            >
                               <FormControl>
                                 <SelectTrigger>
                                   <SelectValue placeholder="Selecione uma atividade predecessora" />
@@ -610,12 +629,43 @@ export default function NewActivity() {
                               </SelectContent>
                             </Select>
                             <FormMessage />
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-xs text-muted-foreground">
                               Selecione a atividade que precisa ser concluída antes desta.
                             </p>
+                            {field.value && field.value !== "none" && (
+                              <p className="text-xs text-amber-500 mt-1">
+                                Ao definir um predecessor, a data de início será automaticamente ajustada.
+                              </p>
+                            )}
                           </FormItem>
                         )}
                       />
+                      
+                      <FormField
+                        control={form.control}
+                        name="hasDetailedSchedule"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                            <FormControl>
+                              <Switch 
+                                checked={field.value} 
+                                onCheckedChange={field.onChange} 
+                              />
+                            </FormControl>
+                            <FormLabel className="text-base">
+                              Habilitar cronograma detalhado (subatividades)
+                            </FormLabel>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      {form.watch("hasDetailedSchedule") && (
+                        <div className="bg-muted/30 p-4 rounded-md">
+                          <p className="text-sm text-muted-foreground">
+                            Após criar a atividade, você poderá adicionar e gerenciar subatividades no cronograma detalhado.
+                          </p>
+                        </div>
+                      )}
                     </div>
                   )}
                 </TabsContent>
