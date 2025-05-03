@@ -38,6 +38,7 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
     percent_complete: 0,
     predecessor_item_id: "none"
   });
+  const [isSaving, setIsSaving] = useState(false);
   
   const queryClient = useQueryClient();
 
@@ -263,6 +264,8 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
     if (!currentItem) return;
     
     try {
+      setIsSaving(true);
+      
       // Calcular duração em dias se as datas estiverem definidas
       let durationDays = null;
       if (formData.start_date && formData.end_date) {
@@ -298,13 +301,15 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
       toast.success('Item atualizado com sucesso');
       
       // Only close the dialog AFTER successful update
-      setEditDialogOpen(false);
-      
-      // Fetch updated items AFTER closing the dialog
       await fetchScheduleItems();
+      
+      // Close dialog after data is fetched and state is updated
+      setEditDialogOpen(false);
     } catch (error) {
       console.error('Error updating schedule item:', error);
       toast.error('Erro ao atualizar item');
+    } finally {
+      setIsSaving(false);
     }
   }
   
@@ -508,7 +513,7 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
         open={editDialogOpen} 
         onOpenChange={(open) => {
           // Only update the state if we're closing the dialog and not in the middle of an update operation
-          if (!open && !loading) {
+          if (!isSaving) {
             setEditDialogOpen(open);
           }
         }}
@@ -603,8 +608,10 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={saveItem}>Salvar</Button>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)} disabled={isSaving}>Cancelar</Button>
+            <Button onClick={saveItem} disabled={isSaving}>
+              {isSaving ? 'Salvando...' : 'Salvar'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -612,9 +619,7 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
       {/* Diálogo de Exclusão */}
       <Dialog open={deleteDialogOpen} onOpenChange={(open) => {
         // Only update state if we're not in the middle of an operation
-        if (!loading) {
-          setDeleteDialogOpen(open);
-        }
+        setDeleteDialogOpen(open);
       }}>
         <DialogContent>
           <DialogHeader>

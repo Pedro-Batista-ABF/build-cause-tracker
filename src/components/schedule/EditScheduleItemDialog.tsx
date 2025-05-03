@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -43,6 +43,16 @@ export function EditScheduleItemDialog({
     task.nivel_hierarquia === item.nivel_hierarquia
   );
 
+  // Update state values when item prop or open state changes
+  useEffect(() => {
+    if (open && item) {
+      setStartDate(item.data_inicio?.split('T')[0] || '');
+      setEndDate(item.data_termino?.split('T')[0] || '');
+      setProgress(item.percentual_real?.toString() || '0');
+      setPredecessorId(item.predecessor_id || 'none');
+    }
+  }, [item, open]);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
@@ -76,19 +86,13 @@ export function EditScheduleItemDialog({
     }
   }
 
-  // Update state values when item prop changes
-  // This ensures the dialog displays the correct values when opening with a different item
-  useState(() => {
-    if (open) {
-      setStartDate(item.data_inicio?.split('T')[0] || '');
-      setEndDate(item.data_termino?.split('T')[0] || '');
-      setProgress(item.percentual_real?.toString() || '0');
-      setPredecessorId(item.predecessor_id || 'none');
-    }
-  });
-
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(open) => {
+      // Only allow dialog to close if we're not currently loading
+      if (!loading || !open) {
+        onOpenChange(open);
+      }
+    }}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Editar {item.nome}</DialogTitle>
@@ -196,6 +200,7 @@ export function EditScheduleItemDialog({
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
+              disabled={loading}
             >
               Cancelar
             </Button>
