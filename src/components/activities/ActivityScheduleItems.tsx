@@ -260,7 +260,9 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
     }
   }
   
-  async function saveItem() {
+  async function saveItem(e: React.MouseEvent) {
+    e.preventDefault(); // Prevent default form submission
+    
     if (!currentItem) return;
     
     try {
@@ -608,8 +610,22 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditDialogOpen(false)} disabled={isSaving}>Cancelar</Button>
-            <Button onClick={saveItem} disabled={isSaving}>
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={(e) => {
+                e.preventDefault();
+                setEditDialogOpen(false);
+              }} 
+              disabled={isSaving}
+            >
+              Cancelar
+            </Button>
+            <Button 
+              type="button" 
+              onClick={saveItem} 
+              disabled={isSaving}
+            >
               {isSaving ? 'Salvando...' : 'Salvar'}
             </Button>
           </DialogFooter>

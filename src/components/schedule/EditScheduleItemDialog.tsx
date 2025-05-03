@@ -75,6 +75,7 @@ export function EditScheduleItemDialog({
       if (error) throw error;
 
       toast.success('Item atualizado com sucesso');
+      // Call onSave callback to refresh data
       onSave();
       // Only close the dialog if there was no error
       onOpenChange(false);
@@ -199,7 +200,10 @@ export function EditScheduleItemDialog({
             <Button
               type="button"
               variant="outline"
-              onClick={() => onOpenChange(false)}
+              onClick={(e) => {
+                e.preventDefault();
+                onOpenChange(false);
+              }}
               disabled={loading}
             >
               Cancelar

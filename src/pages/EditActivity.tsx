@@ -232,11 +232,17 @@ export default function EditActivity() {
       if (error) throw error;
 
       toast.success("Atividade atualizada com sucesso!");
-      navigate("/activities");
+      
+      if (e.nativeEvent instanceof SubmitEvent && e.nativeEvent.submitter) {
+        // If the form was submitted by a button click (not a subactivity operation), navigate back
+        navigate("/activities");
+      } else {
+        // Otherwise, stay on the current page (for subactivity operations)
+        setIsSaving(false);
+      }
     } catch (error) {
       console.error("Error updating activity:", error);
       toast.error("Erro ao atualizar atividade");
-    } finally {
       setIsSaving(false);
     }
   };
@@ -458,6 +464,7 @@ export default function EditActivity() {
               type="button"
               variant="outline"
               onClick={() => navigate("/activities")}
+              disabled={isSaving}
             >
               Cancelar
             </Button>
