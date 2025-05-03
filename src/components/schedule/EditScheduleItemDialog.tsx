@@ -66,6 +66,7 @@ export function EditScheduleItemDialog({
 
       toast.success('Item atualizado com sucesso');
       onSave();
+      // Only close the dialog if there was no error
       onOpenChange(false);
     } catch (error) {
       console.error('Error updating schedule item:', error);
@@ -74,6 +75,17 @@ export function EditScheduleItemDialog({
       setLoading(false);
     }
   }
+
+  // Update state values when item prop changes
+  // This ensures the dialog displays the correct values when opening with a different item
+  useState(() => {
+    if (open) {
+      setStartDate(item.data_inicio?.split('T')[0] || '');
+      setEndDate(item.data_termino?.split('T')[0] || '');
+      setProgress(item.percentual_real?.toString() || '0');
+      setPredecessorId(item.predecessor_id || 'none');
+    }
+  });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

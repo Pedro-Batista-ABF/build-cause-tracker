@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -102,6 +101,94 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
       queryClient.invalidateQueries({ queryKey: ['activities'] });
     } catch (error) {
       console.error('Error updating activity progress:', error);
+    }
+  }
+
+  async function updateDependentDates() {
+    try {
+      // Cria um mapa de itens por ID para fácil acesso
+      const itemMap = new Map<string, ActivityScheduleItem>();
+      items.forEach(item => {
+        if (item.id) {
+          itemMap.set(item.id, item);
+        }
+      });
+      
+      let hasUpdates = false;
+      const updates: { id: string, start_date: string | null, end_date: string | null, duration_days: number | null }[] = [];
+      
+      // Para cada item com predecessor, ajustar data de início
+      for (const item of items) {
+        if (item.predecessor_item_id) {
+          const predecessor = itemMap.get(item.predecessor_item_id);
+          
+          if (predecessor && predecessor.end_date) {
+            // Predecessor encontrado, ajustar data inicial para ser o próximo dia após o término do predecessor
+            const predecessorEndDate = new Date(predecessor.end_date);
+            const nextDay = new Date(predecessorEndDate);
+            nextDay.setDate(nextDay.getDate() + 1);
+            
+            // Formato YYYY-MM-DD para o Supabase
+            const newStartDate = nextDay.toISOString().split('T')[0];
+            
+            // Somente se a data for diferente da atual
+            if (!item.start_date || newStartDate !== item.start_date) {
+              // Calcular nova data de término baseada na duração, se disponível
+              let newEndDate = null;
+              let durationDays = null;
+              
+              if (item.duration_days) {
+                // Mantém a mesma duração, mas ajusta a data de término
+                const endDate = new Date(nextDay);
+                endDate.setDate(endDate.getDate() + (item.duration_days - 1));
+                newEndDate = endDate.toISOString().split('T')[0];
+                durationDays = item.duration_days;
+              } else if (item.end_date) {
+                // Se não tem duração mas tem data de término, recalcular
+                const oldStartDate = new Date(item.start_date || "");
+                const oldEndDate = new Date(item.end_date);
+                const oldDuration = Math.ceil((oldEndDate.getTime() - oldStartDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+                
+                const endDate = new Date(nextDay);
+                endDate.setDate(endDate.getDate() + (oldDuration - 1));
+                newEndDate = endDate.toISOString().split('T')[0];
+                durationDays = oldDuration;
+              }
+              
+              if (item.id) {
+                hasUpdates = true;
+                updates.push({
+                  id: item.id,
+                  start_date: newStartDate,
+                  end_date: newEndDate,
+                  duration_days: durationDays
+                });
+              }
+            }
+          }
+        }
+      }
+      
+      // Atualizar itens que precisam ser atualizados
+      if (hasUpdates) {
+        for (const update of updates) {
+          await supabase
+            .from('activity_schedule_items')
+            .update({
+              start_date: update.start_date,
+              end_date: update.end_date,
+              duration_days: update.duration_days
+            })
+            .eq('id', update.id);
+        }
+        
+        // Recarregar itens para refletir alterações
+        toast.success('Datas das subatividades dependentes foram atualizadas');
+        fetchScheduleItems();
+      }
+    } catch (error) {
+      console.error('Error updating dependent dates:', error);
+      toast.error('Erro ao atualizar datas dependentes');
     }
   }
 
@@ -209,7 +296,11 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
       }
       
       toast.success('Item atualizado com sucesso');
+      
+      // Only close the dialog AFTER successful update
       setEditDialogOpen(false);
+      
+      // Fetch updated items AFTER closing the dialog
       await fetchScheduleItems();
     } catch (error) {
       console.error('Error updating schedule item:', error);
@@ -244,100 +335,15 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
       if (error) throw error;
       
       toast.success('Item excluído com sucesso');
+      
+      // Close dialog first to prevent UI issues
       setDeleteDialogOpen(false);
+      
+      // Then fetch updated items
       await fetchScheduleItems();
     } catch (error) {
       console.error('Error deleting schedule item:', error);
       toast.error('Erro ao excluir item');
-    }
-  }
-  
-  // Função para atualizar datas dos itens dependentes
-  async function updateDependentDates() {
-    try {
-      // Cria um mapa de itens por ID para fácil acesso
-      const itemMap = new Map<string, ActivityScheduleItem>();
-      items.forEach(item => {
-        if (item.id) {
-          itemMap.set(item.id, item);
-        }
-      });
-      
-      let hasUpdates = false;
-      const updates: { id: string, start_date: string | null, end_date: string | null, duration_days: number | null }[] = [];
-      
-      // Para cada item com predecessor, ajustar data de início
-      for (const item of items) {
-        if (item.predecessor_item_id) {
-          const predecessor = itemMap.get(item.predecessor_item_id);
-          
-          if (predecessor && predecessor.end_date) {
-            // Predecessor encontrado, ajustar data inicial para ser o próximo dia após o término do predecessor
-            const predecessorEndDate = new Date(predecessor.end_date);
-            const nextDay = new Date(predecessorEndDate);
-            nextDay.setDate(nextDay.getDate() + 1);
-            
-            // Formato YYYY-MM-DD para o Supabase
-            const newStartDate = nextDay.toISOString().split('T')[0];
-            
-            // Somente se a data for diferente da atual
-            if (!item.start_date || newStartDate !== item.start_date) {
-              // Calcular nova data de término baseada na duração, se disponível
-              let newEndDate = null;
-              let durationDays = null;
-              
-              if (item.duration_days) {
-                // Mantém a mesma duração, mas ajusta a data de término
-                const endDate = new Date(nextDay);
-                endDate.setDate(endDate.getDate() + (item.duration_days - 1));
-                newEndDate = endDate.toISOString().split('T')[0];
-                durationDays = item.duration_days;
-              } else if (item.end_date) {
-                // Se não tem duração mas tem data de término, recalcular
-                const oldStartDate = new Date(item.start_date || "");
-                const oldEndDate = new Date(item.end_date);
-                const oldDuration = Math.ceil((oldEndDate.getTime() - oldStartDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-                
-                const endDate = new Date(nextDay);
-                endDate.setDate(endDate.getDate() + (oldDuration - 1));
-                newEndDate = endDate.toISOString().split('T')[0];
-                durationDays = oldDuration;
-              }
-              
-              if (item.id) {
-                hasUpdates = true;
-                updates.push({
-                  id: item.id,
-                  start_date: newStartDate,
-                  end_date: newEndDate,
-                  duration_days: durationDays
-                });
-              }
-            }
-          }
-        }
-      }
-      
-      // Atualizar itens que precisam ser atualizados
-      if (hasUpdates) {
-        for (const update of updates) {
-          await supabase
-            .from('activity_schedule_items')
-            .update({
-              start_date: update.start_date,
-              end_date: update.end_date,
-              duration_days: update.duration_days
-            })
-            .eq('id', update.id);
-        }
-        
-        // Recarregar itens para refletir alterações
-        toast.success('Datas das subatividades dependentes foram atualizadas');
-        fetchScheduleItems();
-      }
-    } catch (error) {
-      console.error('Error updating dependent dates:', error);
-      toast.error('Erro ao atualizar datas dependentes');
     }
   }
   
@@ -498,7 +504,15 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
       )}
       
       {/* Diálogo de Edição */}
-      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+      <Dialog 
+        open={editDialogOpen} 
+        onOpenChange={(open) => {
+          // Only update the state if we're closing the dialog and not in the middle of an update operation
+          if (!open && !loading) {
+            setEditDialogOpen(open);
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Editar Subatividade</DialogTitle>
@@ -596,7 +610,12 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
       </Dialog>
       
       {/* Diálogo de Exclusão */}
-      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      <Dialog open={deleteDialogOpen} onOpenChange={(open) => {
+        // Only update state if we're not in the middle of an operation
+        if (!loading) {
+          setDeleteDialogOpen(open);
+        }
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Excluir Subatividade</DialogTitle>
