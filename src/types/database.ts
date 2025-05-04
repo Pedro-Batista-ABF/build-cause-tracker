@@ -1,4 +1,3 @@
-
 export interface Activity {
   id: string;
   name: string;
@@ -21,6 +20,7 @@ export interface Activity {
   saldoAExecutar?: number;
   daily_progress?: any[];
   project_id?: string | null;
+  description?: string | null;  // Added the missing description field
 }
 
 export interface PlanningReport {

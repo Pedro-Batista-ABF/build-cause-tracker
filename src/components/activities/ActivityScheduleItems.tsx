@@ -136,6 +136,13 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
           if (predecessor && predecessor.end_date) {
             // Predecessor encontrado, ajustar data inicial para ser o próximo dia após o término do predecessor
             const predecessorEndDate = new Date(predecessor.end_date);
+            
+            // Verificar se a data do predecessor é válida antes de prosseguir
+            if (isNaN(predecessorEndDate.getTime())) {
+              console.error('Data de término do predecessor inválida:', predecessor.end_date);
+              continue; // Pular este item e continuar com os próximos
+            }
+            
             const nextDay = new Date(predecessorEndDate);
             nextDay.setDate(nextDay.getDate() + 1);
             
@@ -155,15 +162,41 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
                 newEndDate = endDate.toISOString().split('T')[0];
                 durationDays = item.duration_days;
               } else if (item.end_date) {
-                // Se não tem duração mas tem data de término, recalcular
-                const oldStartDate = new Date(item.start_date || "");
+                // Verificar se a data de término do item é válida antes de calcular duração
                 const oldEndDate = new Date(item.end_date);
-                const oldDuration = Math.ceil((oldEndDate.getTime() - oldStartDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
                 
-                const endDate = new Date(nextDay);
-                endDate.setDate(endDate.getDate() + (oldDuration - 1));
-                newEndDate = endDate.toISOString().split('T')[0];
-                durationDays = oldDuration;
+                if (!isNaN(oldEndDate.getTime())) {
+                  // Se há uma data de início existente, usar para calcular duração
+                  const oldStartDate = item.start_date ? new Date(item.start_date) : nextDay;
+                  
+                  // Verificar se a data de início é válida
+                  if (!isNaN(oldStartDate.getTime())) {
+                    const oldDuration = Math.ceil((oldEndDate.getTime() - oldStartDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+                    if (oldDuration > 0) {
+                      const endDate = new Date(nextDay);
+                      endDate.setDate(endDate.getDate() + (oldDuration - 1));
+                      newEndDate = endDate.toISOString().split('T')[0];
+                      durationDays = oldDuration;
+                    } else {
+                      // Se a duração calculada for negativa ou zero, definir duração mínima
+                      const endDate = new Date(nextDay);
+                      newEndDate = endDate.toISOString().split('T')[0];
+                      durationDays = 1; // Duração mínima de 1 dia
+                    }
+                  } else {
+                    // Data de início inválida, usar duração padrão
+                    const endDate = new Date(nextDay);
+                    endDate.setDate(endDate.getDate());
+                    newEndDate = endDate.toISOString().split('T')[0];
+                    durationDays = 1;
+                  }
+                } else {
+                  // Data de término inválida, usar duração padrão
+                  const endDate = new Date(nextDay);
+                  endDate.setDate(endDate.getDate());
+                  newEndDate = endDate.toISOString().split('T')[0];
+                  durationDays = 1;
+                }
               }
               
               if (item.id) {

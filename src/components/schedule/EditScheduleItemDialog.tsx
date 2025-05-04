@@ -53,6 +53,25 @@ export function EditScheduleItemDialog({
     }
   }, [item, open]);
 
+  // Get predecessor end date
+  useEffect(() => {
+    if (open && predecessorId && predecessorId !== 'none') {
+      const predecessor = tasks.find(task => task.id === predecessorId);
+      if (predecessor && predecessor.data_termino) {
+        // Calculate next day after predecessor end date
+        const predecessorEndDate = new Date(predecessor.data_termino);
+        if (!isNaN(predecessorEndDate.getTime())) {
+          const nextDay = new Date(predecessorEndDate);
+          nextDay.setDate(nextDay.getDate() + 1);
+          
+          // Format as YYYY-MM-DD for input field
+          const nextDayFormatted = nextDay.toISOString().split('T')[0];
+          setStartDate(nextDayFormatted);
+        }
+      }
+    }
+  }, [open, predecessorId, tasks]);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     e.stopPropagation();
