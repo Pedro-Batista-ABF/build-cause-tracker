@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -32,30 +33,8 @@ export default function Activities() {
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    fetchActivities();
-    fetchProjects();
-  }, []);
-
-  async function fetchProjects() {
-    try {
-      const { data, error } = await supabase
-        .from("projects")
-        .select("id, name")
-        .order("name");
-
-      if (error) {
-        console.error("Error fetching projects:", error);
-        return;
-      }
-
-      setProjects(data || []);
-    } catch (error) {
-      console.error("Error fetching projects:", error);
-    }
-  }
-
-  async function fetchActivities() {
+  // Use useCallback to memoize the fetchActivities function
+  const fetchActivities = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from("activities")
@@ -120,7 +99,35 @@ export default function Activities() {
     } catch (error) {
       console.error("Error fetching activities:", error);
     }
-  }
+  }, []);
+
+  const fetchProjects = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from("projects")
+        .select("id, name")
+        .order("name");
+
+      if (error) {
+        console.error("Error fetching projects:", error);
+        return;
+      }
+
+      setProjects(data || []);
+    } catch (error) {
+      console.error("Error fetching projects:", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchActivities();
+    fetchProjects();
+  }, [fetchActivities, fetchProjects]);
+
+  // Handle activity deletion by refreshing the activities list
+  const handleActivityDeleted = () => {
+    fetchActivities();
+  };
 
   const filteredActivities = activities.filter((activity) => {
     const matchesFilter =
@@ -233,6 +240,7 @@ export default function Activities() {
                   start_date,
                   end_date,
                   saldoAExecutar,
+                  description,
                 } = activity;
 
                 return (
@@ -251,7 +259,9 @@ export default function Activities() {
                     startDate={start_date}
                     endDate={end_date}
                     onEdit={(activityId) => navigate(`/activities/edit/${activityId}`)}
+                    onDelete={handleActivityDeleted}
                     saldoAExecutar={saldoAExecutar}
+                    description={description}
                   />
                 );
               })

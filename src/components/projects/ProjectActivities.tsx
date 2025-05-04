@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ActivityRow } from "@/components/activities/ActivityRow";
 import { supabase } from "@/integrations/supabase/client";
@@ -25,12 +26,9 @@ export function ProjectActivities({ projectId }: ProjectActivitiesProps) {
   const [filter, setFilter] = useState("");
   const [disciplineFilter, setDisciplineFilter] = useState("all");
 
-  useEffect(() => {
-    fetchActivities();
-  }, [projectId]);
-
-  async function fetchActivities() {
+  const fetchActivities = useCallback(async () => {
     try {
+      setLoading(true);
       const { data, error } = await supabase
         .from("activities")
         .select(`
@@ -87,7 +85,15 @@ export function ProjectActivities({ projectId }: ProjectActivitiesProps) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [projectId]);
+
+  useEffect(() => {
+    fetchActivities();
+  }, [fetchActivities]);
+
+  const handleActivityDeleted = () => {
+    fetchActivities();
+  };
 
   const filteredActivities = activities.filter(activity => {
     const matchesSearch = filter === "" ||
@@ -162,6 +168,7 @@ export function ProjectActivities({ projectId }: ProjectActivitiesProps) {
                   startDate={activity.start_date}
                   endDate={activity.end_date}
                   saldoAExecutar={activity.saldoAExecutar}
+                  onDelete={handleActivityDeleted}
                 />
               ))}
             </div>

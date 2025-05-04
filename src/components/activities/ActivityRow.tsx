@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { DailyProgress } from "./DailyProgress";
@@ -21,6 +22,7 @@ interface ActivityRowProps {
   startDate?: string | null;
   endDate?: string | null;
   onEdit?: (activityId: string) => void;
+  onDelete?: () => void;
   saldoAExecutar?: number;
   description?: string | null;
 }
@@ -39,11 +41,22 @@ export function ActivityRow({
   startDate,
   endDate,
   onEdit,
+  onDelete,
   saldoAExecutar,
   description,
 }: ActivityRowProps) {
   const [showDetails, setShowDetails] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+
+  const handleDeleteSuccess = () => {
+    // Close the dialog
+    setShowDeleteDialog(false);
+    
+    // Call the parent's onDelete if provided
+    if (onDelete) {
+      onDelete();
+    }
+  };
 
   return (
     <div className="bg-card hover:bg-accent/50 rounded-lg p-4 transition-colors">
@@ -159,9 +172,7 @@ export function ActivityRow({
         activityName={name}
         isOpen={showDeleteDialog}
         onClose={() => setShowDeleteDialog(false)}
-        onDelete={() => {
-          window.location.reload();
-        }}
+        onDelete={handleDeleteSuccess}
       />
     </div>
   );
