@@ -1,3 +1,4 @@
+
 /**
  * Utility functions for calculating PPC (Percentage of Plan Completed)
  */

@@ -257,8 +257,9 @@ export function DailyProgress({
       if (registerAsPercent) {
         // Avanço por percentual
         if (isSubactivity) {
-          // For subactivity, 100% means complete, so we just store the percentage
-          qtyValue = Number(percent);
+          // Para subatividade, valores são percentuais entre 0-100
+          // Não permitimos valores acima de 100%
+          qtyValue = Math.min(100, Number(percent));
           plannedValue = plannedPercent;
         } else {
           // For regular activity, convert percent to quantity
@@ -266,8 +267,15 @@ export function DailyProgress({
           plannedValue = totalQty * (plannedPercent / 100);
         }
       } else {
-        qtyValue = Number(quantity);
-        plannedValue = plannedQty;
+        if (isSubactivity) {
+          // Para subatividade, quando não é percentual, convertemos para percentual
+          // Limitando a no máximo 100%
+          qtyValue = Math.min(100, Number(quantity));
+          plannedValue = plannedPercent;
+        } else {
+          qtyValue = Number(quantity);
+          plannedValue = plannedQty;
+        }
       }
 
       // Ensure qtyValue is a valid number (not NaN)
@@ -335,56 +343,50 @@ export function DailyProgress({
 
       // If this is a subactivity progress, update the percent_complete on the subactivity
       if (isSubactivity && targetItem && selectedScheduleItem) {
-        // Calculate new percent complete based on all progress entries for this subactivity
-        const { data: allProgress, error: progressError } = await supabase
-          .from('daily_progress')
-          .select('actual_qty, planned_qty')
-          .eq('subactivity_id', selectedScheduleItem);
+        // Para subatividades, valores são sempre percentuais
+        // Limitamos o valor para máximo de 100%
+        let newPercent = Math.min(100, Number(qtyValue));
         
-        if (progressError) {
-          console.error("Error fetching all progress data:", progressError);
-        } else if (allProgress && allProgress.length > 0) {
-          // Calculate progress percentage (use PPC calculation)
-          // For subactivities we use the most recent progress entry as the current percent
-          const newPercent = Number(qtyValue);
+        // Update subactivity percent complete
+        const { error: updateError } = await supabase
+          .from('activity_schedule_items')
+          .update({
+            percent_complete: newPercent,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', selectedScheduleItem);
           
-          // Update subactivity percent complete
-          const { error: updateError } = await supabase
-            .from('activity_schedule_items')
+        if (updateError) {
+          console.error("Error updating subactivity percent complete:", updateError);
+        }
+        
+        // Calculate and update parent activity's progress based on all subactivities
+        const { data: allSubactivities } = await supabase
+          .from('activity_schedule_items')
+          .select('percent_complete')
+          .eq('activity_id', activityId);
+          
+        if (allSubactivities && allSubactivities.length > 0) {
+          // Average all subactivities' percent complete
+          const totalPercent = allSubactivities.reduce((sum, item) => sum + (item.percent_complete || 0), 0);
+          const avgPercent = totalPercent / allSubactivities.length;
+          
+          // O PPC da atividade principal é a média do percentual de todas as subatividades
+          // E nunca deve ser maior que 100%
+          const calculatedPPC = Math.min(100, Math.round(avgPercent));
+          
+          // Update parent activity's PPC based on subactivities
+          const { error: activityUpdateError } = await supabase
+            .from('activities')
             .update({
-              percent_complete: newPercent,
+              ppc: calculatedPPC,
+              schedule_percent_complete: calculatedPPC,
               updated_at: new Date().toISOString()
             })
-            .eq('id', selectedScheduleItem);
+            .eq('id', activityId);
             
-          if (updateError) {
-            console.error("Error updating subactivity percent complete:", updateError);
-          }
-          
-          // Calculate and update parent activity's progress based on all subactivities
-          const { data: allSubactivities } = await supabase
-            .from('activity_schedule_items')
-            .select('percent_complete')
-            .eq('activity_id', activityId);
-            
-          if (allSubactivities && allSubactivities.length > 0) {
-            // Average all subactivities' percent complete
-            const totalPercent = allSubactivities.reduce((sum, item) => sum + (item.percent_complete || 0), 0);
-            const avgPercent = totalPercent / allSubactivities.length;
-            
-            // Update parent activity's PPC based on subactivities
-            const { error: activityUpdateError } = await supabase
-              .from('activities')
-              .update({
-                ppc: Math.round(avgPercent),
-                schedule_percent_complete: Math.round(avgPercent),
-                updated_at: new Date().toISOString()
-              })
-              .eq('id', activityId);
-              
-            if (activityUpdateError) {
-              console.error("Error updating parent activity PPC:", activityUpdateError);
-            }
+          if (activityUpdateError) {
+            console.error("Error updating parent activity PPC:", activityUpdateError);
           }
         }
       }
@@ -428,10 +430,13 @@ export function DailyProgress({
     mutationFn: async ({ progressId, newValue }: { progressId: string; newValue: number }) => {
       if (!session?.user) throw new Error("Usuário não autenticado");
 
+      // Para subatividades, garantimos que o valor está limitado a 100%
+      const valueToSave = hasDetailedSchedule ? Math.min(100, newValue) : newValue;
+
       const { error } = await supabase
         .from('daily_progress')
         .update({
-          actual_qty: newValue,
+          actual_qty: valueToSave,
           updated_at: new Date().toISOString()
         })
         .eq('id', progressId);
@@ -446,7 +451,7 @@ export function DailyProgress({
         const { error: updateError } = await supabase
           .from('activity_schedule_items')
           .update({
-            percent_complete: newValue,
+            percent_complete: valueToSave,
             updated_at: new Date().toISOString()
           })
           .eq('id', selectedScheduleItem);
@@ -465,11 +470,14 @@ export function DailyProgress({
           const totalPercent = allSubactivities.reduce((sum, item) => sum + (item.percent_complete || 0), 0);
           const avgPercent = totalPercent / allSubactivities.length;
           
+          // Garantir que o PPC não ultrapasse 100%
+          const calculatedPPC = Math.min(100, Math.round(avgPercent));
+          
           await supabase
             .from('activities')
             .update({
-              ppc: Math.round(avgPercent),
-              schedule_percent_complete: Math.round(avgPercent)
+              ppc: calculatedPPC,
+              schedule_percent_complete: calculatedPPC
             })
             .eq('id', activityId);
         }
