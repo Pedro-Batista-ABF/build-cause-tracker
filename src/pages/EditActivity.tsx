@@ -1,6 +1,5 @@
-
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +22,8 @@ import { ActivityScheduleItems } from "@/components/activities/ActivityScheduleI
 export default function EditActivity() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const returnPath = location.state?.returnTo || "/activities";
   
   const [activity, setActivity] = useState({
     name: "",
@@ -248,8 +249,8 @@ export default function EditActivity() {
                              e.nativeEvent.submitter instanceof HTMLButtonElement;
       
       if (isMainFormSubmit) {
-        // If it was the main form's submit button, navigate back to activities page
-        navigate("/activities");
+        // If it was the main form's submit button, navigate back preserving filters
+        navigate(returnPath);
       } else {
         // Otherwise, stay on the current page (for subactivity operations)
         setIsSaving(false);
@@ -265,14 +266,14 @@ export default function EditActivity() {
   const handleCancel = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    navigate("/activities");
+    navigate(returnPath);
   };
 
   if (isLoading) {
     return (
       <div className="container mx-auto py-6 space-y-6">
         <div className="flex items-center">
-          <Button variant="outline" onClick={() => navigate("/activities")}>
+          <Button variant="outline" onClick={() => navigate(returnPath)}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Voltar para Atividades
           </Button>
@@ -291,7 +292,7 @@ export default function EditActivity() {
   return (
     <div className="container mx-auto py-6 space-y-6">
       <div className="flex items-center justify-between">
-        <Button variant="outline" onClick={() => navigate("/activities")}>
+        <Button variant="outline" onClick={() => navigate(returnPath)}>
           <ArrowLeft className="mr-2 h-4 w-4" />
           Voltar para Atividades
         </Button>

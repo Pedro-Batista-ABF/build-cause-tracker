@@ -13,7 +13,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 interface DeleteActivityDialogProps {
   activityId: string;
@@ -32,6 +32,7 @@ export function DeleteActivityDialog({
 }: DeleteActivityDialogProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleDelete = async () => {
     try {
@@ -76,9 +77,9 @@ export function DeleteActivityDialog({
       // Close the dialog
       onClose();
       
-      // Use React Router to navigate instead of reloading the page
-      // This will be much faster and preserve React's state
-      navigate('/activities', { replace: true });
+      // Preserve current URL with filters when navigating
+      // This ensures filters remain applied after deletion
+      navigate(location.pathname + location.search, { replace: true });
       
     } catch (error) {
       console.error('Error deleting activity:', error);

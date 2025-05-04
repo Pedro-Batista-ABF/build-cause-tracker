@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { ResponsibleReportController } from "@/components/reports/ResponsibleReportController";
 import { calculatePPC } from "@/utils/ppcCalculation";
 import { Activity } from "@/types/database";
+import { useLocation } from "react-router-dom";
 
 interface ProjectActivitiesProps {
   projectId: string;
@@ -25,6 +26,7 @@ export function ProjectActivities({ projectId }: ProjectActivitiesProps) {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("");
   const [disciplineFilter, setDisciplineFilter] = useState("all");
+  const location = useLocation();
 
   const fetchActivities = useCallback(async () => {
     try {
@@ -168,6 +170,7 @@ export function ProjectActivities({ projectId }: ProjectActivitiesProps) {
                   startDate={activity.start_date}
                   endDate={activity.end_date}
                   saldoAExecutar={activity.saldoAExecutar}
+                  description={activity.description}
                   onDelete={handleActivityDeleted}
                 />
               ))}

@@ -12,7 +12,7 @@ import { ActivityRow } from "@/components/activities/ActivityRow";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PlusIcon } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import {
   Select,
   SelectContent,
@@ -27,11 +27,13 @@ import { Activity } from "@/types/database";
 
 export default function Activities() {
   const [activities, setActivities] = useState<Activity[]>([]);
-  const [filter, setFilter] = useState("");
-  const [disciplineFilter, setDisciplineFilter] = useState("all");
-  const [projectFilter, setProjectFilter] = useState("all");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [filter, setFilter] = useState(searchParams.get("filter") || "");
+  const [disciplineFilter, setDisciplineFilter] = useState(searchParams.get("discipline") || "all");
+  const [projectFilter, setProjectFilter] = useState(searchParams.get("project") || "all");
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Use useCallback to memoize the fetchActivities function
   const fetchActivities = useCallback(async () => {
@@ -124,9 +126,30 @@ export default function Activities() {
     fetchProjects();
   }, [fetchActivities, fetchProjects]);
 
+  // Update search params when filters change
+  useEffect(() => {
+    const newParams = new URLSearchParams();
+    if (filter) newParams.set("filter", filter);
+    if (disciplineFilter !== "all") newParams.set("discipline", disciplineFilter);
+    if (projectFilter !== "all") newParams.set("project", projectFilter);
+    setSearchParams(newParams, { replace: true });
+  }, [filter, disciplineFilter, projectFilter, setSearchParams]);
+
   // Handle activity deletion by refreshing the activities list
   const handleActivityDeleted = () => {
     fetchActivities();
+  };
+
+  const handleFilterChange = (value: string) => {
+    setFilter(value);
+  };
+
+  const handleDisciplineChange = (value: string) => {
+    setDisciplineFilter(value);
+  };
+
+  const handleProjectChange = (value: string) => {
+    setProjectFilter(value);
   };
 
   const filteredActivities = activities.filter((activity) => {
@@ -154,7 +177,10 @@ export default function Activities() {
         <h1 className="text-3xl font-bold">Atividades</h1>
         <div className="flex gap-2">
           <ResponsibleReportController />
-          <Button onClick={() => navigate("/activities/new")}>
+          <Button onClick={() => {
+            // Preserve current filters when creating a new activity
+            navigate("/activities/new", { state: { returnTo: location.pathname + location.search } });
+          }}>
             <PlusIcon className="h-4 w-4 mr-2" />
             Nova Atividade
           </Button>
@@ -176,12 +202,12 @@ export default function Activities() {
                 id="search"
                 placeholder="Buscar por nome ou responsável..."
                 value={filter}
-                onChange={(e) => setFilter(e.target.value)}
+                onChange={(e) => handleFilterChange(e.target.value)}
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="discipline">Disciplina</Label>
-              <Select value={disciplineFilter} onValueChange={setDisciplineFilter}>
+              <Select value={disciplineFilter} onValueChange={handleDisciplineChange}>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione uma disciplina" />
                 </SelectTrigger>
@@ -197,7 +223,7 @@ export default function Activities() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="project">Projeto</Label>
-              <Select value={projectFilter} onValueChange={setProjectFilter}>
+              <Select value={projectFilter} onValueChange={handleProjectChange}>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione um projeto" />
                 </SelectTrigger>
@@ -258,7 +284,9 @@ export default function Activities() {
                     adherence={adherence}
                     startDate={start_date}
                     endDate={end_date}
-                    onEdit={(activityId) => navigate(`/activities/edit/${activityId}`)}
+                    onEdit={(activityId) => navigate(`/activities/edit/${activityId}`, { 
+                      state: { returnTo: location.pathname + location.search } 
+                    })}
                     onDelete={handleActivityDeleted}
                     saldoAExecutar={saldoAExecutar}
                     description={description}
