@@ -265,6 +265,7 @@ export type Database = {
           date: string
           id: string
           planned_qty: number | null
+          subactivity_id: string | null
           updated_at: string | null
         }
         Insert: {
@@ -275,6 +276,7 @@ export type Database = {
           date: string
           id?: string
           planned_qty?: number | null
+          subactivity_id?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -285,6 +287,7 @@ export type Database = {
           date?: string
           id?: string
           planned_qty?: number | null
+          subactivity_id?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -293,6 +296,13 @@ export type Database = {
             columns: ["activity_id"]
             isOneToOne: false
             referencedRelation: "activities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_progress_subactivity_id_fkey"
+            columns: ["subactivity_id"]
+            isOneToOne: false
+            referencedRelation: "activity_schedule_items"
             referencedColumns: ["id"]
           },
         ]

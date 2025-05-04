@@ -36,7 +36,7 @@ import {
   SelectValue 
 } from "@/components/ui/select";
 import { calculatePPC } from "@/utils/ppcCalculation";
-import { Activity, ActivityScheduleItem } from "@/types/database";
+import { Activity, ActivityScheduleItem, DailyProgress } from "@/types/database";
 
 // NOVO: Calcular meta diária automática (quantidade e percentual)
 // Atualizar função para pegar só dias úteis:
@@ -155,15 +155,23 @@ export function DailyProgress({
     queryFn: async () => {
       if (!session?.user) throw new Error("Não autenticado");
 
-      // If we have detailed schedule and a selected item, use that item's ID
-      // Otherwise use the activity ID
-      const targetId = hasDetailedSchedule && selectedScheduleItem ? selectedScheduleItem : activityId;
+      // If we have detailed schedule and a selected item, query using subactivity_id
+      // Otherwise query using activity_id
+      let query;
+      if (hasDetailedSchedule && selectedScheduleItem) {
+        query = supabase
+          .from('daily_progress')
+          .select('id, date, actual_qty, planned_qty')
+          .eq('subactivity_id', selectedScheduleItem);
+      } else {
+        query = supabase
+          .from('daily_progress')
+          .select('id, date, actual_qty, planned_qty')
+          .eq('activity_id', activityId)
+          .is('subactivity_id', null); // Ensure we only get main activity progress
+      }
 
-      const { data, error } = await supabase
-        .from('daily_progress')
-        .select('id, date, actual_qty, planned_qty')
-        .eq('activity_id', targetId)
-        .order('date');
+      const { data, error } = await query.order('date');
 
       if (error) {
         console.error('Error fetching progress data:', error);
@@ -181,14 +189,28 @@ export function DailyProgress({
     enabled: !!session?.user && (hasDetailedSchedule ? !!selectedScheduleItem : true)
   });
 
-  const checkExistingProgress = async (itemId: string, date: string) => {
+  const checkExistingProgress = async (date: string, isSubactivity: boolean, itemId: string) => {
     try {
-      const { data, error } = await supabase
-        .from('daily_progress')
-        .select('id')
-        .eq('activity_id', itemId)
-        .eq('date', date)
-        .maybeSingle();
+      let query;
+      
+      if (isSubactivity) {
+        // Check for existing subactivity progress
+        query = supabase
+          .from('daily_progress')
+          .select('id')
+          .eq('subactivity_id', itemId)
+          .eq('date', date);
+      } else {
+        // Check for existing activity progress
+        query = supabase
+          .from('daily_progress')
+          .select('id')
+          .eq('activity_id', itemId)
+          .is('subactivity_id', null)
+          .eq('date', date);
+      }
+      
+      const { data, error } = await query.maybeSingle();
       
       if (error) {
         console.error('Error checking for existing progress:', error);
@@ -211,29 +233,29 @@ export function DailyProgress({
     }) => {
       if (!session?.user) throw new Error("Usuário não autenticado");
       
-      // If we have detailed schedule and a selected item, use that item's ID
-      // Otherwise use the activity ID
-      const targetId = hasDetailedSchedule && selectedScheduleItem ? selectedScheduleItem : activityId;
+      const isSubactivity = hasDetailedSchedule && !!selectedScheduleItem;
+      const targetId = isSubactivity ? selectedScheduleItem : activityId;
       
       if (!targetId) {
         throw new Error("ID da atividade ou subatividade não definido");
       }
       
-      console.log("Registering progress for ID:", targetId);
+      console.log("Registering progress for:", isSubactivity ? "Subactivity" : "Activity", "ID:", targetId);
       
-      const existingProgressId = await checkExistingProgress(targetId, date);
+      // Check for existing progress differently based on subactivity or main activity
+      const existingProgressId = await checkExistingProgress(date, isSubactivity, targetId);
 
       let qtyValue: number;
       let plannedValue: number;
 
       // Get the target item for progress calculation
-      const targetItem = hasDetailedSchedule && selectedScheduleItem
+      const targetItem = isSubactivity
         ? scheduleItems.find(item => item.id === selectedScheduleItem) 
         : null;
 
       if (registerAsPercent) {
         // Avanço por percentual
-        if (hasDetailedSchedule && targetItem) {
+        if (isSubactivity) {
           // For subactivity, 100% means complete, so we just store the percentage
           qtyValue = Number(percent);
           plannedValue = plannedPercent;
@@ -272,17 +294,29 @@ export function DailyProgress({
           
           progressData = data;
         } else {
-          console.log("Inserting new progress record for activity_id:", targetId);
+          // Prepare progress data based on whether it's subactivity or main activity
+          const progressInsert = isSubactivity
+            ? {
+                subactivity_id: targetId,
+                activity_id: activityId, // Store parent activity ID for reference
+                date,
+                actual_qty: qtyValue,
+                planned_qty: plannedValue,
+                created_by: session.user.id
+              }
+            : {
+                activity_id: targetId,
+                date,
+                actual_qty: qtyValue,
+                planned_qty: plannedValue,
+                created_by: session.user.id
+              };
+          
+          console.log("Inserting new progress record:", progressInsert);
           
           const { data, error: progressError } = await supabase
             .from('daily_progress')
-            .insert([{
-              activity_id: targetId,
-              date,
-              actual_qty: qtyValue,
-              planned_qty: plannedValue,
-              created_by: session.user.id
-            }])
+            .insert([progressInsert])
             .select('id')
             .single();
 
@@ -299,12 +333,12 @@ export function DailyProgress({
       }
 
       // If this is a subactivity progress, update the percent_complete on the subactivity
-      if (hasDetailedSchedule && targetItem && selectedScheduleItem) {
+      if (isSubactivity && targetItem && selectedScheduleItem) {
         // Calculate new percent complete based on all progress entries for this subactivity
         const { data: allProgress, error: progressError } = await supabase
           .from('daily_progress')
           .select('actual_qty, planned_qty')
-          .eq('activity_id', selectedScheduleItem);
+          .eq('subactivity_id', selectedScheduleItem);
         
         if (progressError) {
           console.error("Error fetching all progress data:", progressError);
@@ -454,7 +488,7 @@ export function DailyProgress({
     }
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     
     // Convert inputs to numbers and handle empty inputs
@@ -476,9 +510,9 @@ export function DailyProgress({
       }
       submitProgressMutation.mutate({ quantity: numericQuantity, date });
     }
-  };
+  }
 
-  const handleCauseSubmit = (cause: { type: string; description: string }) => {
+  function handleCauseSubmit(cause: { type: string; description: string }) {
     if (registerAsPercent) {
       const numericPercent = percent === "" ? 0 : Number(percent);
       submitProgressMutation.mutate({ 
@@ -494,14 +528,14 @@ export function DailyProgress({
         cause 
       });
     }
-  };
+  }
 
-  const handleDialogCancel = () => {
+  function handleDialogCancel() {
     setOpen(false);
     setShowCauseDialog(false);
     setQuantity("");
     setPercent("");
-  };
+  }
 
   // Handle schedule item selection
   const handleScheduleItemChange = (value: string) => {

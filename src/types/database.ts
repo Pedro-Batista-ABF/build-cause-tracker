@@ -47,6 +47,7 @@ export interface ActivityScheduleItem {
 export interface DailyProgress {
   id: string;
   activity_id: string;
+  subactivity_id?: string | null;
   date: string;
   actual_qty: number;
   planned_qty: number;
