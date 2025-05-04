@@ -182,17 +182,24 @@ export function DailyProgress({
   });
 
   const checkExistingProgress = async (itemId: string, date: string) => {
-    const { data, error } = await supabase
-      .from('daily_progress')
-      .select('id')
-      .eq('activity_id', itemId)
-      .eq('date', date)
-      .maybeSingle();
-    if (error) {
-      console.error('Error checking for existing progress:', error);
+    try {
+      const { data, error } = await supabase
+        .from('daily_progress')
+        .select('id')
+        .eq('activity_id', itemId)
+        .eq('date', date)
+        .maybeSingle();
+      
+      if (error) {
+        console.error('Error checking for existing progress:', error);
+        return null;
+      }
+      
+      return data?.id || null;
+    } catch (err) {
+      console.error('Exception checking for existing progress:', err);
       return null;
     }
-    return data?.id;
   };
 
   const submitProgressMutation = useMutation({
@@ -207,6 +214,13 @@ export function DailyProgress({
       // If we have detailed schedule and a selected item, use that item's ID
       // Otherwise use the activity ID
       const targetId = hasDetailedSchedule && selectedScheduleItem ? selectedScheduleItem : activityId;
+      
+      if (!targetId) {
+        throw new Error("ID da atividade ou subatividade não definido");
+      }
+      
+      console.log("Registering progress for ID:", targetId);
+      
       const existingProgressId = await checkExistingProgress(targetId, date);
 
       let qtyValue: number;
@@ -238,40 +252,50 @@ export function DailyProgress({
       plannedValue = isNaN(plannedValue) ? 0 : plannedValue;
 
       let progressData;
-      if (existingProgressId) {
-        const { data, error: updateError } = await supabase
-          .from('daily_progress')
-          .update({
-            actual_qty: qtyValue,
-            planned_qty: plannedValue,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', existingProgressId)
-          .select('id')
-          .single();
-        if (updateError) {
-          console.error("Error updating daily progress:", updateError);
-          throw updateError;
-        }
-        progressData = data;
-      } else {
-        const { data, error: progressError } = await supabase
-          .from('daily_progress')
-          .insert([{
-            activity_id: targetId,
-            date,
-            actual_qty: qtyValue,
-            planned_qty: plannedValue,
-            created_by: session.user.id
-          }])
-          .select('id')
-          .single();
+      try {
+        if (existingProgressId) {
+          const { data, error: updateError } = await supabase
+            .from('daily_progress')
+            .update({
+              actual_qty: qtyValue,
+              planned_qty: plannedValue,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', existingProgressId)
+            .select('id')
+            .single();
+          
+          if (updateError) {
+            console.error("Error updating daily progress:", updateError);
+            throw updateError;
+          }
+          
+          progressData = data;
+        } else {
+          console.log("Inserting new progress record for activity_id:", targetId);
+          
+          const { data, error: progressError } = await supabase
+            .from('daily_progress')
+            .insert([{
+              activity_id: targetId,
+              date,
+              actual_qty: qtyValue,
+              planned_qty: plannedValue,
+              created_by: session.user.id
+            }])
+            .select('id')
+            .single();
 
-        if (progressError) {
-          console.error("Error inserting daily progress:", progressError);
-          throw progressError;
+          if (progressError) {
+            console.error("Error inserting daily progress:", progressError);
+            throw progressError;
+          }
+          
+          progressData = data;
         }
-        progressData = data;
+      } catch (error) {
+        console.error("Exception in daily progress operation:", error);
+        throw error;
       }
 
       // If this is a subactivity progress, update the percent_complete on the subactivity

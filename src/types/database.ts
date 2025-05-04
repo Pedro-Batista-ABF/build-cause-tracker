@@ -43,3 +43,13 @@ export interface ActivityScheduleItem {
   percent_complete: number;
   order_index: number;
 }
+
+export interface DailyProgress {
+  id: string;
+  activity_id: string;
+  date: string;
+  actual_qty: number;
+  planned_qty: number;
+  created_at?: string;
+  updated_at?: string;
+}
