@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -190,6 +191,7 @@ export default function EditActivity() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     
     try {
       setIsSaving(true);
@@ -224,17 +226,29 @@ export default function EditActivity() {
         activityData.schedule_percent_complete = null;
       }
 
+      console.log("Updating activity with data:", activityData);
+
       const { error } = await supabase
         .from("activities")
         .update(activityData)
         .eq("id", id);
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error updating activity:", error); 
+        toast.error(`Erro ao atualizar atividade: ${error.message || 'Erro desconhecido'}`);
+        throw error;
+      }
 
       toast.success("Atividade atualizada com sucesso!");
       
-      if (e.nativeEvent instanceof SubmitEvent && e.nativeEvent.submitter) {
-        // If the form was submitted by a button click (not a subactivity operation), navigate back
+      // Check if this is a form submission from the main form buttons
+      // by checking if the event has a submitter property
+      const isMainFormSubmit = e.nativeEvent instanceof SubmitEvent && 
+                             e.nativeEvent.submitter && 
+                             e.nativeEvent.submitter instanceof HTMLButtonElement;
+      
+      if (isMainFormSubmit) {
+        // If it was the main form's submit button, navigate back to activities page
         navigate("/activities");
       } else {
         // Otherwise, stay on the current page (for subactivity operations)
@@ -245,6 +259,13 @@ export default function EditActivity() {
       toast.error("Erro ao atualizar atividade");
       setIsSaving(false);
     }
+  };
+
+  // Function for the Cancel button
+  const handleCancel = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    navigate("/activities");
   };
 
   if (isLoading) {
@@ -463,12 +484,15 @@ export default function EditActivity() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => navigate("/activities")}
+              onClick={handleCancel}
               disabled={isSaving}
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={isSaving}>
+            <Button 
+              type="submit" 
+              disabled={isSaving}
+            >
               {isSaving ? "Salvando..." : "Salvar Alterações"}
             </Button>
           </CardFooter>

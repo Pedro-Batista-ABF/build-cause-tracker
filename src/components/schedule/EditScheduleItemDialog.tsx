@@ -55,6 +55,8 @@ export function EditScheduleItemDialog({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    e.stopPropagation();
+    
     setLoading(true);
 
     try {
@@ -66,18 +68,26 @@ export function EditScheduleItemDialog({
         predecessor_id: predecessorId === 'none' ? null : predecessorId,
       };
 
+      console.log('Updating schedule item with data:', updateData);
+
       // Perform the update
       const { error } = await supabase
         .from('cronograma_projeto')
         .update(updateData)
         .eq('id', item.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error updating schedule item:', error);
+        toast.error(`Erro ao atualizar item: ${error.message || 'Erro desconhecido'}`);
+        throw error;
+      }
 
       toast.success('Item atualizado com sucesso');
-      // Call onSave callback to refresh data
+      
+      // Call onSave callback to refresh data FIRST
       onSave();
-      // Only close the dialog if there was no error
+      
+      // Only close the dialog if there was no error and after data is refreshed
       onOpenChange(false);
     } catch (error) {
       console.error('Error updating schedule item:', error);
@@ -86,6 +96,17 @@ export function EditScheduleItemDialog({
       setLoading(false);
     }
   }
+
+  // Function to handle cancel button click
+  const handleCancel = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Only allow closing if we're not currently saving
+    if (!loading) {
+      onOpenChange(false);
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={(open) => {
@@ -200,10 +221,7 @@ export function EditScheduleItemDialog({
             <Button
               type="button"
               variant="outline"
-              onClick={(e) => {
-                e.preventDefault();
-                onOpenChange(false);
-              }}
+              onClick={handleCancel}
               disabled={loading}
             >
               Cancelar

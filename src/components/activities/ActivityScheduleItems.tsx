@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -64,7 +65,12 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
         .eq('activity_id', activityId)
         .order('order_index');
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching schedule items:', error);
+        toast.error('Erro ao carregar itens do cronograma');
+        throw error;
+      }
+      
       setItems(data || []);
       
       // Após carregar os itens, atualizar o progresso da atividade principal
@@ -96,12 +102,16 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
         })
         .eq('id', activityId);
         
-      if (error) throw error;
+      if (error) {
+        console.error('Error updating activity progress:', error);
+        throw error;
+      }
       
       // Invalida cache de queries para atualizar a UI
       queryClient.invalidateQueries({ queryKey: ['activities'] });
     } catch (error) {
       console.error('Error updating activity progress:', error);
+      // Don't show toast here as it's a background operation
     }
   }
 
@@ -173,7 +183,7 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
       // Atualizar itens que precisam ser atualizados
       if (hasUpdates) {
         for (const update of updates) {
-          await supabase
+          const { error } = await supabase
             .from('activity_schedule_items')
             .update({
               start_date: update.start_date,
@@ -181,6 +191,11 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
               duration_days: update.duration_days
             })
             .eq('id', update.id);
+            
+          if (error) {
+            console.error('Error updating dependent date:', error);
+            throw error;
+          }
         }
         
         // Recarregar itens para refletir alterações
@@ -193,8 +208,13 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
     }
   }
 
-  async function addNewItem() {
+  async function addNewItem(e: React.MouseEvent) {
+    e.preventDefault(); // Prevent any form submission
+    e.stopPropagation(); // Stop event propagation
+    
     try {
+      setIsSaving(true);
+      
       // Criar um novo item com valores padrão seguros
       const newItem = {
         activity_id: activityId,
@@ -206,23 +226,36 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
         predecessor_item_id: null
       };
 
+      console.log("Adding new subactivity:", newItem);
+
       const { data, error } = await supabase
         .from('activity_schedule_items')
         .insert(newItem)
         .select('*')
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error adding schedule item:', error);
+        toast.error(`Erro ao adicionar item: ${error.message || 'Erro desconhecido'}`);
+        throw error;
+      }
 
       toast.success('Item adicionado com sucesso');
       await fetchScheduleItems(); // Recarregar todos os itens
     } catch (error) {
       console.error('Error adding schedule item:', error);
       toast.error('Erro ao adicionar item');
+    } finally {
+      setIsSaving(false);
     }
   }
   
-  function openEditDialog(item: ActivityScheduleItem) {
+  function openEditDialog(item: ActivityScheduleItem, e?: React.MouseEvent) {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
     setCurrentItem(item);
     
     // Configurar o estado do formulário com valores seguros
@@ -237,7 +270,12 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
     setEditDialogOpen(true);
   }
   
-  function openDeleteDialog(item: ActivityScheduleItem) {
+  function openDeleteDialog(item: ActivityScheduleItem, e?: React.MouseEvent) {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
     setCurrentItem(item);
     setDeleteDialogOpen(true);
   }
@@ -262,6 +300,7 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
   
   async function saveItem(e: React.MouseEvent) {
     e.preventDefault(); // Prevent default form submission
+    e.stopPropagation(); // Stop event propagation
     
     if (!currentItem) return;
     
@@ -297,15 +336,16 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
         
       if (error) {
         console.error('Error in update operation:', error);
+        toast.error(`Erro ao atualizar item: ${error.message || 'Erro desconhecido'}`);
         throw error;
       }
       
       toast.success('Item atualizado com sucesso');
       
-      // Only close the dialog AFTER successful update
+      // Only fetch schedule items BEFORE closing the dialog
       await fetchScheduleItems();
       
-      // Close dialog after data is fetched and state is updated
+      // Only close the dialog AFTER successful update and data refresh
       setEditDialogOpen(false);
     } catch (error) {
       console.error('Error updating schedule item:', error);
@@ -315,16 +355,29 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
     }
   }
   
-  async function deleteItem() {
+  async function deleteItem(e?: React.MouseEvent) {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
     if (!currentItem) return;
     
     try {
+      setIsSaving(true);
+      
       // Primeiro precisamos verificar se há algum item que depende deste
-      const { data: dependentItems } = await supabase
+      const { data: dependentItems, error: checkError } = await supabase
         .from('activity_schedule_items')
         .select('id, name')
         .eq('predecessor_item_id', currentItem.id);
         
+      if (checkError) {
+        console.error('Error checking dependent items:', checkError);
+        toast.error(`Erro ao verificar dependências: ${checkError.message || 'Erro desconhecido'}`);
+        throw checkError;
+      }
+      
       if (dependentItems && dependentItems.length > 0) {
         // Existem itens dependentes, remova as dependências primeiro
         const dependentNames = dependentItems.map(item => item.name).join(', ');
@@ -339,18 +392,24 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
         .delete()
         .eq('id', currentItem.id);
         
-      if (error) throw error;
+      if (error) {
+        console.error('Error deleting item:', error);
+        toast.error(`Erro ao excluir item: ${error.message || 'Erro desconhecido'}`);
+        throw error;
+      }
       
       toast.success('Item excluído com sucesso');
       
-      // Close dialog first to prevent UI issues
-      setDeleteDialogOpen(false);
-      
-      // Then fetch updated items
+      // First fetch updated items, then close the dialog
       await fetchScheduleItems();
+      
+      // Close dialog after data is refreshed
+      setDeleteDialogOpen(false);
     } catch (error) {
       console.error('Error deleting schedule item:', error);
       toast.error('Erro ao excluir item');
+    } finally {
+      setIsSaving(false);
     }
   }
   
@@ -421,7 +480,13 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-medium">Itens do Cronograma</h3>
-        <Button onClick={addNewItem} size="sm" className="flex items-center">
+        <Button 
+          onClick={addNewItem} 
+          size="sm" 
+          className="flex items-center"
+          type="button"
+          disabled={isSaving}
+        >
           <PlusIcon className="h-4 w-4 mr-2" />
           Adicionar Subatividade
         </Button>
@@ -485,14 +550,16 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
                         <Button 
                           variant="ghost" 
                           size="sm"
-                          onClick={() => openEditDialog(item)}
+                          type="button"
+                          onClick={(e) => openEditDialog(item, e)}
                         >
                           <Edit2Icon className="h-4 w-4" />
                         </Button>
                         <Button 
                           variant="ghost" 
                           size="sm"
-                          onClick={() => openDeleteDialog(item)}
+                          type="button"
+                          onClick={(e) => openDeleteDialog(item, e)}
                         >
                           <Trash2Icon className="h-4 w-4 text-red-500" />
                         </Button>
@@ -615,6 +682,7 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
               variant="outline" 
               onClick={(e) => {
                 e.preventDefault();
+                e.stopPropagation();
                 setEditDialogOpen(false);
               }} 
               disabled={isSaving}
@@ -635,7 +703,9 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
       {/* Diálogo de Exclusão */}
       <Dialog open={deleteDialogOpen} onOpenChange={(open) => {
         // Only update state if we're not in the middle of an operation
-        setDeleteDialogOpen(open);
+        if (!isSaving) {
+          setDeleteDialogOpen(open);
+        }
       }}>
         <DialogContent>
           <DialogHeader>
@@ -646,8 +716,26 @@ export function ActivityScheduleItems({ activityId }: ActivityScheduleItemsProps
           </DialogHeader>
           <p>Tem certeza que deseja excluir a subatividade "{currentItem?.name}"?</p>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>Cancelar</Button>
-            <Button variant="destructive" onClick={deleteItem}>Excluir</Button>
+            <Button 
+              variant="outline" 
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setDeleteDialogOpen(false);
+              }}
+              disabled={isSaving}
+            >
+              Cancelar
+            </Button>
+            <Button 
+              variant="destructive" 
+              type="button"
+              onClick={deleteItem}
+              disabled={isSaving}
+            >
+              {isSaving ? 'Excluindo...' : 'Excluir'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
