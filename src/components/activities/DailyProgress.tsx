@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -261,7 +262,7 @@ export function DailyProgress({
           qtyValue = Number(percent);
           plannedValue = plannedPercent;
           
-          // Se já existe um registro, somamos o novo valor ao existente
+          // Se já existe um registro para mesma data, somamos o novo valor ao existente
           if (existingProgress) {
             qtyValue += Number(existingProgress.actual_qty);
           }
@@ -280,7 +281,7 @@ export function DailyProgress({
           qtyValue = Number(quantity);
           plannedValue = plannedPercent;
           
-          // Se já existe um registro, somamos o novo valor ao existente
+          // Se já existe um registro para mesma data, somamos o novo valor ao existente
           if (existingProgress) {
             qtyValue += Number(existingProgress.actual_qty);
           }
@@ -378,12 +379,15 @@ export function DailyProgress({
         // Calculate and update parent activity's progress based on all subactivities
         const { data: allSubactivities } = await supabase
           .from('activity_schedule_items')
-          .select('percent_complete')
+          .select('percent_complete, id')
           .eq('activity_id', activityId);
           
         if (allSubactivities && allSubactivities.length > 0) {
-          // Average all subactivities' percent complete
-          const totalPercent = allSubactivities.reduce((sum, item) => sum + (item.percent_complete || 0), 0);
+          // Sum all subactivities progress and calculate total based on their relative weights
+          let totalPercent = 0;
+          
+          // For now, we're using a simple average of all subactivities
+          totalPercent = allSubactivities.reduce((sum, item) => sum + (Number(item.percent_complete) || 0), 0);
           const avgPercent = totalPercent / allSubactivities.length;
           
           // O PPC da atividade principal é a média do percentual de todas as subatividades
@@ -481,7 +485,7 @@ export function DailyProgress({
           .eq('activity_id', activityId);
           
         if (allSubactivities && allSubactivities.length > 0) {
-          const totalPercent = allSubactivities.reduce((sum, item) => sum + (item.percent_complete || 0), 0);
+          const totalPercent = allSubactivities.reduce((sum, item) => sum + (Number(item.percent_complete) || 0), 0);
           const avgPercent = totalPercent / allSubactivities.length;
           
           // Garantir que o PPC não ultrapasse 100%

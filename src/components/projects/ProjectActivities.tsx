@@ -60,7 +60,7 @@ export function ProjectActivities({ projectId }: ProjectActivitiesProps) {
           progress = activity.schedule_percent_complete;
         } else {
           progress = activity.total_qty && Number(activity.total_qty) > 0 
-            ? Math.round((totalActual / Number(activity.total_qty)) * 100) 
+            ? Math.min(100, Math.round((totalActual / Number(activity.total_qty)) * 100))
             : 0;
         }
         
