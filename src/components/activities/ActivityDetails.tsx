@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -13,6 +14,7 @@ import {
 import { formatDate } from "@/lib/utils";
 import { formatLocalDate } from "@/utils/dateUtils";
 import { useQuery } from "@tanstack/react-query";
+import { ActivityScheduleItem } from "@/types/database";
 
 // Helper function to calculate business days (similar to the one in DailyProgress)
 function calculateBusinessDays(startDate?: string | null, endDate?: string | null) {
@@ -65,7 +67,8 @@ export function ActivityDetails({ activityId }: ActivityDetailsProps) {
           schedule_duration_days,
           schedule_predecessor_id,
           schedule_percent_complete,
-          name
+          name,
+          has_detailed_schedule
         `)
         .eq("id", activityId)
         .single();
@@ -73,6 +76,32 @@ export function ActivityDetails({ activityId }: ActivityDetailsProps) {
       if (activityError) {
         console.error("Error fetching activity details:", activityError);
         throw activityError;
+      }
+
+      // Fetch schedule items if detailed schedule is enabled
+      let scheduleItems: ActivityScheduleItem[] = [];
+      if (activityData?.has_detailed_schedule) {
+        const { data: scheduleItemData, error: scheduleItemError } = await supabase
+          .from("activity_schedule_items")
+          .select(`
+            id,
+            name,
+            activity_id,
+            start_date,
+            end_date,
+            duration_days,
+            predecessor_item_id,
+            percent_complete,
+            order_index
+          `)
+          .eq("activity_id", activityId)
+          .order("order_index");
+
+        if (scheduleItemError) {
+          console.error("Error fetching schedule items:", scheduleItemError);
+        } else {
+          scheduleItems = scheduleItemData || [];
+        }
       }
 
       const { data: progressData, error: progressError } = await supabase
@@ -113,13 +142,35 @@ export function ActivityDetails({ activityId }: ActivityDetailsProps) {
         }
       }
 
-      // Return both activity data and predecessor name
+      // Fetch predecessor names for schedule items
+      const predecessorItemIds = scheduleItems
+        .filter(item => item.predecessor_item_id)
+        .map(item => item.predecessor_item_id);
+      
+      const predecessorItemNames: Record<string, string> = {};
+      
+      if (predecessorItemIds.length > 0) {
+        const { data: predecessorItems } = await supabase
+          .from("activity_schedule_items")
+          .select("id, name")
+          .in("id", predecessorItemIds as string[]);
+          
+        if (predecessorItems) {
+          predecessorItems.forEach(item => {
+            predecessorItemNames[item.id] = item.name;
+          });
+        }
+      }
+
+      // Return all fetched data
       return {
         activity: {
           ...activityData,
           predecessorName
         },
-        progress: progressData || []
+        progress: progressData || [],
+        scheduleItems,
+        predecessorItemNames
       };
     }
   });
@@ -140,6 +191,8 @@ export function ActivityDetails({ activityId }: ActivityDetailsProps) {
     data?.activity?.schedule_percent_complete !== null
   );
 
+  const hasDetailedSchedule = data?.activity?.has_detailed_schedule && data.scheduleItems && data.scheduleItems.length > 0;
+
   return (
     <Card className="mb-6">
       <CardContent className="p-4">
@@ -147,7 +200,7 @@ export function ActivityDetails({ activityId }: ActivityDetailsProps) {
           <TabsList className="mb-4">
             <TabsTrigger value="progress">Apontamentos</TabsTrigger>
             <TabsTrigger value="causes">Causas</TabsTrigger>
-            {hasSchedule && (
+            {(hasSchedule || hasDetailedSchedule) && (
               <TabsTrigger value="schedule">Cronograma</TabsTrigger>
             )}
           </TabsList>
@@ -246,41 +299,79 @@ export function ActivityDetails({ activityId }: ActivityDetailsProps) {
             </div>
           </TabsContent>
           
-          {hasSchedule && (
+          {(hasSchedule || hasDetailedSchedule) && (
             <TabsContent value="schedule">
               <div className="space-y-4">
-                <div className="rounded-md border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Informação</TableHead>
-                        <TableHead>Valor</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      <TableRow>
-                        <TableCell className="font-medium">Data de Início</TableCell>
-                        <TableCell>{data?.activity?.schedule_start_date ? formatLocalDate(data.activity.schedule_start_date) : 'Não definido'}</TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell className="font-medium">Data de Término</TableCell>
-                        <TableCell>{data?.activity?.schedule_end_date ? formatLocalDate(data.activity.schedule_end_date) : 'Não definido'}</TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell className="font-medium">Duração (dias)</TableCell>
-                        <TableCell>{data?.activity?.schedule_duration_days || 'Não definido'}</TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell className="font-medium">Predecessor</TableCell>
-                        <TableCell>{data?.activity?.predecessorName || 'Nenhum'}</TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell className="font-medium">Percentual Concluído</TableCell>
-                        <TableCell>{data?.activity?.schedule_percent_complete !== null ? `${data.activity.schedule_percent_complete}%` : '0%'}</TableCell>
-                      </TableRow>
-                    </TableBody>
-                  </Table>
-                </div>
+                {hasSchedule && (
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Informação</TableHead>
+                          <TableHead>Valor</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        <TableRow>
+                          <TableCell className="font-medium">Data de Início</TableCell>
+                          <TableCell>{data?.activity?.schedule_start_date ? formatLocalDate(data.activity.schedule_start_date) : 'Não definido'}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell className="font-medium">Data de Término</TableCell>
+                          <TableCell>{data?.activity?.schedule_end_date ? formatLocalDate(data.activity.schedule_end_date) : 'Não definido'}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell className="font-medium">Duração (dias)</TableCell>
+                          <TableCell>{data?.activity?.schedule_duration_days || 'Não definido'}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell className="font-medium">Predecessor</TableCell>
+                          <TableCell>{data?.activity?.predecessorName || 'Nenhum'}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell className="font-medium">Percentual Concluído</TableCell>
+                          <TableCell>{data?.activity?.schedule_percent_complete !== null ? `${data.activity.schedule_percent_complete}%` : '0%'}</TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+                
+                {hasDetailedSchedule && (
+                  <div>
+                    <h3 className="text-sm font-medium mb-2">Subatividades</h3>
+                    <div className="rounded-md border">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Nome</TableHead>
+                            <TableHead>Início</TableHead>
+                            <TableHead>Término</TableHead>
+                            <TableHead>Duração (dias)</TableHead>
+                            <TableHead>Predecessor</TableHead>
+                            <TableHead>% Concluído</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {data?.scheduleItems.map((item) => (
+                            <TableRow key={item.id}>
+                              <TableCell className="font-medium">{item.name}</TableCell>
+                              <TableCell>{item.start_date ? formatLocalDate(item.start_date) : 'Não definido'}</TableCell>
+                              <TableCell>{item.end_date ? formatLocalDate(item.end_date) : 'Não definido'}</TableCell>
+                              <TableCell>{item.duration_days || '-'}</TableCell>
+                              <TableCell>
+                                {item.predecessor_item_id ? 
+                                  data.predecessorItemNames[item.predecessor_item_id] || 'Desconhecido' : 
+                                  'Nenhum'}
+                              </TableCell>
+                              <TableCell>{item.percent_complete}%</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                )}
               </div>
             </TabsContent>
           )}
@@ -296,3 +387,4 @@ export function ActivityDetails({ activityId }: ActivityDetailsProps) {
     </Card>
   );
 }
+
