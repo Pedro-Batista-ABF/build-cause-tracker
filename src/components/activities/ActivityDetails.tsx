@@ -104,6 +104,29 @@ export function ActivityDetails({ activityId }: ActivityDetailsProps) {
         }
       }
 
+      // Fetch progress for each schedule item
+      const scheduleItemProgress: Record<string, any[]> = {};
+      if (scheduleItems.length > 0) {
+        for (const item of scheduleItems) {
+          const { data: progressData, error: progressError } = await supabase
+            .from('daily_progress')
+            .select(`
+              id,
+              date,
+              actual_qty,
+              planned_qty
+            `)
+            .eq('activity_id', item.id)
+            .order('date', { ascending: false });
+            
+          if (progressError) {
+            console.error(`Error fetching progress for item ${item.id}:`, progressError);
+          } else {
+            scheduleItemProgress[item.id] = progressData || [];
+          }
+        }
+      }
+
       const { data: progressData, error: progressError } = await supabase
         .from('daily_progress')
         .select(`
@@ -170,7 +193,8 @@ export function ActivityDetails({ activityId }: ActivityDetailsProps) {
         },
         progress: progressData || [],
         scheduleItems,
-        predecessorItemNames
+        predecessorItemNames,
+        scheduleItemProgress
       };
     }
   });
@@ -350,6 +374,7 @@ export function ActivityDetails({ activityId }: ActivityDetailsProps) {
                             <TableHead>Duração (dias)</TableHead>
                             <TableHead>Predecessor</TableHead>
                             <TableHead>% Concluído</TableHead>
+                            <TableHead>Apontamentos</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -365,6 +390,9 @@ export function ActivityDetails({ activityId }: ActivityDetailsProps) {
                                   'Nenhum'}
                               </TableCell>
                               <TableCell>{item.percent_complete}%</TableCell>
+                              <TableCell>
+                                {data.scheduleItemProgress[item.id]?.length || 0} registros
+                              </TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
@@ -387,4 +415,3 @@ export function ActivityDetails({ activityId }: ActivityDetailsProps) {
     </Card>
   );
 }
-
