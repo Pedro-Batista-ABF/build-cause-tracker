@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,7 +37,7 @@ import {
   SelectValue 
 } from "@/components/ui/select";
 import { calculatePPC } from "@/utils/ppcCalculation";
-import { Activity, ActivityScheduleItem, DailyProgress } from "@/types/database";
+import type { Activity, ActivityScheduleItem, DailyProgress as DailyProgressType } from "@/types/database";
 
 // NOVO: Calcular meta diária automática (quantidade e percentual)
 // Atualizar função para pegar só dias úteis:
