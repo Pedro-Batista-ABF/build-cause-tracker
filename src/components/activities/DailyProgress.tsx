@@ -189,6 +189,7 @@ export function DailyProgress({
     enabled: !!session?.user && (hasDetailedSchedule ? !!selectedScheduleItem : true)
   });
 
+  // Função modificada para verificar corretamente registros existentes para a mesma data
   const checkExistingProgress = async (date: string, isSubactivity: boolean, itemId: string) => {
     try {
       let query;
@@ -197,14 +198,14 @@ export function DailyProgress({
         // Check for existing subactivity progress
         query = supabase
           .from('daily_progress')
-          .select('id')
+          .select('id, actual_qty')
           .eq('subactivity_id', itemId)
           .eq('date', date);
       } else {
         // Check for existing activity progress
         query = supabase
           .from('daily_progress')
-          .select('id')
+          .select('id, actual_qty')
           .eq('activity_id', itemId)
           .is('subactivity_id', null)
           .eq('date', date);
@@ -217,7 +218,7 @@ export function DailyProgress({
         return null;
       }
       
-      return data?.id || null;
+      return data || null;
     } catch (err) {
       console.error('Exception checking for existing progress:', err);
       return null;
@@ -242,8 +243,8 @@ export function DailyProgress({
       
       console.log("Registering progress for:", isSubactivity ? "Subactivity" : "Activity", "ID:", targetId);
       
-      // Check for existing progress differently based on subactivity or main activity
-      const existingProgressId = await checkExistingProgress(date, isSubactivity, targetId);
+      // Verificar se já existe progresso para esta data
+      const existingProgress = await checkExistingProgress(date, isSubactivity, targetId);
 
       let qtyValue: number;
       let plannedValue: number;
@@ -257,9 +258,17 @@ export function DailyProgress({
         // Avanço por percentual
         if (isSubactivity) {
           // Para subatividade, valores são percentuais entre 0-100
-          // Não permitimos valores acima de 100%
-          qtyValue = Math.min(100, Number(percent));
+          qtyValue = Number(percent);
           plannedValue = plannedPercent;
+          
+          // Se já existe um registro, somamos o novo valor ao existente
+          if (existingProgress) {
+            qtyValue += Number(existingProgress.actual_qty);
+          }
+          
+          // Limitamos o valor máximo a 100%
+          qtyValue = Math.min(100, qtyValue);
+          
         } else {
           // For regular activity, convert percent to quantity
           qtyValue = totalQty * (Number(percent) / 100);
@@ -267,10 +276,17 @@ export function DailyProgress({
         }
       } else {
         if (isSubactivity) {
-          // Para subatividade, quando não é percentual, convertemos para percentual
-          // Limitando a no máximo 100%
-          qtyValue = Math.min(100, Number(quantity));
+          // Para subatividade, quando não é percentual, tratamos como percentual
+          qtyValue = Number(quantity);
           plannedValue = plannedPercent;
+          
+          // Se já existe um registro, somamos o novo valor ao existente
+          if (existingProgress) {
+            qtyValue += Number(existingProgress.actual_qty);
+          }
+          
+          // Limitamos o valor máximo a 100%
+          qtyValue = Math.min(100, qtyValue);
         } else {
           qtyValue = Number(quantity);
           plannedValue = plannedQty;
@@ -283,7 +299,7 @@ export function DailyProgress({
 
       let progressData;
       try {
-        if (existingProgressId) {
+        if (existingProgress) {
           const { data, error: updateError } = await supabase
             .from('daily_progress')
             .update({
@@ -291,7 +307,7 @@ export function DailyProgress({
               planned_qty: plannedValue,
               updated_at: new Date().toISOString()
             })
-            .eq('id', existingProgressId)
+            .eq('id', existingProgress.id)
             .select('id')
             .single();
           
