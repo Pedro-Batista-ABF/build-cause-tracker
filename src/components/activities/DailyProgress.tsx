@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -379,7 +378,6 @@ export function DailyProgress({
           const { error: activityUpdateError } = await supabase
             .from('activities')
             .update({
-              ppc: calculatedPPC,
               schedule_percent_complete: calculatedPPC,
               updated_at: new Date().toISOString()
             })
@@ -476,7 +474,6 @@ export function DailyProgress({
           await supabase
             .from('activities')
             .update({
-              ppc: calculatedPPC,
               schedule_percent_complete: calculatedPPC
             })
             .eq('id', activityId);
